@@ -5,7 +5,7 @@ import { fetchAndStoreDailyWords } from '../../src/lib/words/dailyWords';
 import { enqueueGenerationTasks, startNextQueuedIfIdle } from '../../src/lib/tasks/generationQueue';
 import { runArticleGenerationTask } from '../../src/lib/tasks/articleGeneration';
 
-const GENERATION_HOURS = new Set([12, 13, 14]);
+const GENERATION_HOURS = new Set([12, 13, 14, 15, 16, 17, 18, 19, 20]);
 
 function getBusinessHour(date = new Date()) {
 	const hourText = new Intl.DateTimeFormat('en-GB', {
