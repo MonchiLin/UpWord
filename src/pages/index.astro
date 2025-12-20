@@ -1,0 +1,35 @@
+---
+import Layout from "../layouts/Layout.astro";
+import HomeWorkspace from "@/components/HomeWorkspace";
+import { and, desc, eq, isNotNull } from "drizzle-orm";
+import { tasks } from "../../db/schema";
+import { getDb } from "../lib/db";
+
+const TZ = "Asia/Shanghai";
+const today = new Intl.DateTimeFormat("en-CA", {
+	timeZone: TZ,
+	year: "numeric",
+	month: "2-digit",
+	day: "2-digit",
+}).format(new Date());
+
+const db = getDb(Astro.locals);
+const publishedTasks = await db
+	.select({ taskDate: tasks.taskDate })
+	.from(tasks)
+	.where(
+		and(eq(tasks.type, "article_generation"), isNotNull(tasks.publishedAt)),
+	)
+	.orderBy(desc(tasks.taskDate));
+
+const publishedDays = Array.from(
+	new Set(publishedTasks.map((t) => t.taskDate)),
+).sort();
+---
+
+<Layout
+	title="Daily Vocabulary Reader"
+	mainClass="p-0 max-w-none overflow-hidden"
+>
+	<HomeWorkspace client:only="react" publishedDays={publishedDays} />
+</Layout>

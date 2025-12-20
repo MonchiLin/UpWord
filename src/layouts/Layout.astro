@@ -1,0 +1,52 @@
+---
+import "../styles/global.css";
+import SettingsPanel from "../components/SettingsPanel";
+import { ClientRouter } from "astro:transitions";
+
+type Props = {
+	title?: string;
+	mainClass?: string;
+};
+
+const { title = "Daily Vocabulary Reader", mainClass } = Astro.props;
+const resolvedMainClass = mainClass ?? "mx-auto max-w-5xl px-4 py-8";
+---
+
+<html lang="zh-CN">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width" />
+		<meta name="generator" content={Astro.generator} />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<title>{title}</title>
+		<ClientRouter />
+	</head>
+	<body
+		class="radix-themes min-h-screen flex flex-col"
+		data-is-root-theme="true"
+		data-has-background="true"
+		data-panel-background="translucent"
+		data-accent-color="orange"
+		data-gray-color="sand"
+		data-radius="medium"
+		data-scaling="100%"
+	>
+		<header
+			class="sticky top-0 z-10 border-b border-black/5 bg-white/70 backdrop-blur"
+		>
+			<div
+				class="mx-auto flex max-w-5xl items-center justify-between px-4 py-3"
+			>
+				<a href="/" class="font-semibold tracking-tight"
+					>Daily Vocabulary Reader</a
+				>
+				<div class="flex items-center gap-2">
+					<SettingsPanel client:load />
+				</div>
+			</div>
+		</header>
+		<main class={`w-full ${resolvedMainClass}`}>
+			<slot />
+		</main>
+	</body>
+</html>

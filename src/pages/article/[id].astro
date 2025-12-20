@@ -1,0 +1,196 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import ArticleTabs from "../../components/ArticleTabs";
+import WordSidebar from "../../components/WordSidebar";
+import { and, eq, isNotNull, inArray } from "drizzle-orm";
+import { articles, tasks, words } from "../../../db/schema";
+import { getDb } from "../../lib/db";
+import { isAdminRequest } from "../../lib/admin";
+
+const id = Astro.params.id;
+if (!id) Astro.response.status = 404;
+
+const db = getDb(Astro.locals);
+const rows = id
+	? await db
+			.select()
+			.from(articles)
+			.innerJoin(tasks, eq(articles.generationTaskId, tasks.id))
+			.where(
+				and(
+					eq(articles.id, id),
+					eq(articles.status, "published"),
+					isNotNull(tasks.publishedAt),
+				),
+			)
+			.limit(1)
+	: [];
+
+const row = rows[0] ?? null;
+if (!row) Astro.response.status = 404;
+
+const isAdmin = isAdminRequest(Astro.request, Astro.locals);
+
+let parsed: any = null;
+if (row) {
+	try {
+		parsed = JSON.parse(row.articles.contentJson);
+	} catch {
+		parsed = null;
+	}
+}
+
+const sources: string[] =
+	Array.isArray(parsed?.result?.sources) &&
+	parsed.result.sources.every((s: unknown) => typeof s === "string")
+		? parsed.result.sources
+		: [];
+
+// Extract word_definitions from LLM output
+const wordDefinitions: Array<{
+	word: string;
+	phonetic: string;
+	definitions: { pos: string; definition: string }[];
+}> = Array.isArray(parsed?.result?.word_definitions)
+	? parsed.result.word_definitions
+	: [];
+
+// Fetch mastery status from DB
+let wordStatusMap: Record<string, "unknown" | "familiar" | "mastered"> = {};
+if (wordDefinitions.length > 0) {
+	const wordRows = await db
+		.select({ word: words.word, masteryStatus: words.masteryStatus })
+		.from(words)
+		.where(
+			inArray(
+				words.word,
+				wordDefinitions.map((w) => w.word),
+			),
+		);
+	for (const r of wordRows) {
+		wordStatusMap[r.word] = r.masteryStatus as
+			| "unknown"
+			| "familiar"
+			| "mastered";
+	}
+}
+
+// Build final words data for sidebar
+const sidebarWords = wordDefinitions.map((w) => ({
+	word: w.word,
+	phonetic: w.phonetic || "",
+	definitions: w.definitions || [],
+	masteryStatus: wordStatusMap[w.word] ?? "unknown",
+}));
+
+const weekdayNames = [
+	"Sunday",
+	"Monday",
+	"Tuesday",
+	"Wednesday",
+	"Thursday",
+	"Friday",
+	"Saturday",
+];
+
+function formatDateLabel(value?: string | null) {
+	if (!value) return "";
+	const iso = value.includes("T") ? value : `${value}T00:00:00`;
+	const date = new Date(iso);
+	if (Number.isNaN(date.getTime())) return value;
+	const weekday = weekdayNames[date.getDay()] ?? "";
+	const yyyy = String(date.getFullYear());
+	const mm = String(date.getMonth() + 1).padStart(2, "0");
+	const dd = String(date.getDate()).padStart(2, "0");
+	return weekday ? `${weekday}, ${yyyy}/${mm}/${dd}` : `${yyyy}/${mm}/${dd}`;
+}
+
+const dateLabel = row ? formatDateLabel(row.tasks.taskDate) : "";
+const sourceAnchorId = sources.length > 0 ? "article-sources" : null;
+---
+
+<Layout
+	title={row?.articles?.title ?? `Article ${id ?? ""}`}
+	mainClass="mx-auto w-full max-w-6xl px-4 py-10"
+>
+	{
+		row ? (
+			<div class="flex flex-col lg:flex-row gap-6">
+				{/* Main Content */}
+				<main
+					class={`flex-1 min-w-0 ${sidebarWords.length === 0 ? "max-w-3xl mx-auto" : ""}`}
+				>
+					<div class="space-y-6">
+						<div class="rounded-2xl border border-[#e5e5e5] bg-white p-6">
+							{parsed?.result?.articles ? (
+								<ArticleTabs
+									client:load
+									articleId={row.articles.id}
+									articles={parsed.result.articles}
+									initialIsAdmin={isAdmin}
+									title={row.articles.title}
+									dateLabel={dateLabel}
+									sourceAnchorId={sourceAnchorId}
+									targetWords={sidebarWords.map(
+										(w) => w.word,
+									)}
+								/>
+							) : (
+								<div class="rounded-xl border border-black/10 bg-white/60 p-5 text-sm opacity-70">
+									内容解析失败（content_json 非预期结构）。
+								</div>
+							)}
+						</div>
+
+						{sources.length > 0 ? (
+							<div
+								id={sourceAnchorId ?? undefined}
+								class="rounded-2xl border border-[#e5e5e5] bg-white p-5 text-sm text-[#555]"
+							>
+								<div class="text-xs font-semibold uppercase tracking-wide text-[#999]">
+									Sources
+								</div>
+								<ul class="mt-3 list-disc space-y-1 pl-5 text-xs text-[#666]">
+									{sources.map((u) => {
+										let domain = u;
+										try {
+											domain = new URL(
+												u,
+											).hostname.replace(/^www\./, "");
+										} catch {}
+										return (
+											<li>
+												<a
+													href={u}
+													target="_blank"
+													rel="noreferrer"
+													class="underline underline-offset-2 hover:opacity-100"
+													title={u}
+												>
+													{domain}
+												</a>
+											</li>
+										);
+									})}
+								</ul>
+							</div>
+						) : null}
+					</div>
+				</main>
+				
+				{/* Sidebar - Words */}
+				{sidebarWords.length > 0 && (
+					<aside class="lg:w-80 lg:shrink-0">
+						<div class="lg:sticky lg:top-6">
+							<WordSidebar client:load words={sidebarWords} />
+						</div>
+					</aside>
+				)}
+			</div>
+		) : (
+			<div class="rounded-xl border border-black/10 bg-white/60 p-5 text-sm opacity-70">
+				该文章不存在或未发布。
+			</div>
+		)
+	}
+</Layout>

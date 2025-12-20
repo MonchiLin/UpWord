@@ -1,0 +1,47 @@
+import type { APIRoute } from 'astro';
+import { eq, inArray } from 'drizzle-orm';
+import { articles, highlights, tasks } from '../../../../../../db/schema';
+import { requireAdmin } from '../../../../../lib/admin';
+import { getDb } from '../../../../../lib/db';
+import { badRequest, json, notFound } from '../../../../../lib/http';
+
+export const POST: APIRoute = async ({ request, locals, params }) => {
+	const denied = requireAdmin(request, locals);
+	if (denied) return denied;
+
+	try {
+		const taskId = params.id;
+		if (!taskId) return badRequest('Missing task id');
+
+		const db = getDb(locals);
+		const taskRows = await db
+			.select({ id: tasks.id })
+			.from(tasks)
+			.where(eq(tasks.id, taskId))
+			.limit(1);
+		if (!taskRows[0]) return notFound();
+
+		const articleRows = await db
+			.select({ id: articles.id })
+			.from(articles)
+			.where(eq(articles.generationTaskId, taskId));
+		const articleIds = articleRows.map((r) => r.id);
+
+		if (articleIds.length > 0) {
+			const CHUNK = 50;
+			for (let i = 0; i < articleIds.length; i += CHUNK) {
+				const chunk = articleIds.slice(i, i + CHUNK);
+				await db.delete(highlights).where(inArray(highlights.articleId, chunk));
+			}
+			await db.delete(articles).where(eq(articles.generationTaskId, taskId));
+		}
+
+		await db.delete(tasks).where(eq(tasks.id, taskId));
+
+		return json({ ok: true });
+	} catch (err) {
+		console.error('POST /api/admin/tasks/[id]/delete failed', err);
+		const message = err instanceof Error ? err.message : String(err);
+		return json({ ok: false, error: 'internal_error', message }, { status: 500 });
+	}
+};
