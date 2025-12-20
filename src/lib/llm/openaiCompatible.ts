@@ -185,7 +185,8 @@ export async function generateDailyNewsWithWordSelection(args: {
 1. 字段名必须是 "selected_words"（不是 "selected"，不是 "words"）
 2. selected_words 必须是纯字符串数组，如 ["debate", "sector", "annual"]
 3. 不要在数组中放对象，不要加 word/type/why 等嵌套结构
-4. 不要添加 date 或其他额外字段`;
+4. 不要添加 date 或其他额外字段
+5. 如果你输出任何对象或额外字段，系统会直接判定失败（不要冒险）`;
 
 	const candidateWordsJson = JSON.stringify(args.candidateWords, null, 2);
 
@@ -207,12 +208,13 @@ ${candidateWordsJson}
 	const wordSelectionResp = await client.responses.create({
 		model: args.model,
 		stream: false,
-		temperature: 0.3,
-		max_output_tokens: 500,
-		reasoning: { effort: 'medium' },
+		reasoning: {
+			effort: "xhigh",
+			summary: "detailed"
+		},
 		text: { format: { type: 'json_object' } },
 		input: history
-	} as any);
+	});
 
 	// Debug: Log complete response structure
 	console.log('[Word Selection] API Response keys:', Object.keys(wordSelectionResp));
@@ -263,41 +265,23 @@ ${selectedWords.join(', ')}
 请搜索新闻并返回研究笔记。`
 	});
 
-	let researchResp: any;
-	try {
-		researchResp = await client.responses.create({
-			model: args.model,
-			stream: false,
-			temperature: 0.2,
-			max_output_tokens: 800,
-			reasoning: { effort: 'medium' },
-			tools: [
-				{
-					type: 'web_search',
-					user_location: { type: 'approximate', timezone: 'Asia/Shanghai' }
-				}
-			],
-			tool_choice: 'auto',
-			input: history,
-			include: ['web_search_call.results', 'web_search_call.action.sources']
-		} as any);
-	} catch {
-		researchResp = await client.responses.create({
-			model: args.model,
-			stream: false,
-			temperature: 0.2,
-			max_output_tokens: 800,
-			reasoning: { effort: 'medium' },
-			tools: [
-				{
-					type: 'web_search',
-					user_location: { type: 'approximate', timezone: 'Asia/Shanghai' }
-				}
-			],
-			tool_choice: 'auto',
-			input: history
-		} as any);
-	}
+	const researchResp = await client.responses.create({
+		model: args.model,
+		stream: false,
+		reasoning: {
+			effort: "xhigh",
+			summary: "detailed"
+		},
+		tools: [
+			{
+				type: 'web_search',
+				user_location: { type: 'approximate', timezone: 'Asia/Shanghai' }
+			}
+		],
+		tool_choice: 'auto',
+		input: history,
+		include: ['web_search_call.results', 'web_search_call.action.sources']
+	});
 
 	const researchText = researchResp.output_text?.trim() ?? '';
 	if (!researchText) throw new Error('LLM returned empty research content');
@@ -384,7 +368,7 @@ ${schemaHint}
 		reasoning: { effort: 'xhigh' },
 		text: { format: { type: 'json_object' } },
 		input: history
-	} as any);
+	});
 
 	const content = genResp.output_text;
 	if (!content) throw new Error('LLM returned empty content');
@@ -392,37 +376,10 @@ ${schemaHint}
 	const parsed: unknown = JSON.parse(content);
 
 	const first = dailyNewsOutputSchema.safeParse(parsed);
-	let output: DailyNewsOutput;
-	if (first.success) {
-		output = first.data;
-	} else {
-		// One retry to fix validation errors
-		history = appendResponseToHistory(history, genResp);
-		history.push({
-			role: 'user',
-			content: [
-				'JSON 校验失败，错误如下：',
-				JSON.stringify(first.error.issues, null, 2),
-				'',
-				'请修复 JSON 并重新返回。'
-			].join('\n')
-		});
-
-		const repairResp = await client.responses.create({
-			model: args.model,
-			stream: false,
-			temperature: args.temperature,
-			max_output_tokens: args.maxOutputTokens,
-			reasoning: { effort: 'xhigh' },
-			text: { format: { type: 'json_object' } },
-			input: history
-		} as any);
-
-		const repairedText = repairResp.output_text;
-		if (!repairedText) throw new Error('LLM returned empty repaired JSON');
-		const repairedParsed: unknown = JSON.parse(repairedText);
-		output = dailyNewsOutputSchema.parse(repairedParsed);
+	if (!first.success) {
+		throw new Error(`Invalid LLM JSON output: ${first.error.message}`);
 	}
+	const output: DailyNewsOutput = first.data;
 
 	return {
 		output: normalizeDailyNewsOutput(output),

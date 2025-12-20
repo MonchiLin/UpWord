@@ -286,7 +286,7 @@ export function AIChatSidebar({
 			placement="right"
 			open={isOpen}
 			onClose={onClose}
-			width={640}
+			size={640}
 			mask={false}
 			extra={extra}
 			rootClassName={className}

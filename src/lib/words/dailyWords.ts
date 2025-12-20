@@ -18,8 +18,11 @@ export async function fetchAndStoreDailyWords(
 	}
 ) {
 	const shanbay = await fetchShanbayTodayWords(args.shanbayCookie);
-	const newWords = uniqueStrings(shanbay.newWords ?? []);
-	const reviewWords = uniqueStrings(shanbay.reviewWords ?? []);
+	if (!Array.isArray(shanbay.newWords) || !Array.isArray(shanbay.reviewWords)) {
+		throw new Error('Shanbay: invalid word payload');
+	}
+	const newWords = uniqueStrings(shanbay.newWords);
+	const reviewWords = uniqueStrings(shanbay.reviewWords);
 	const total = newWords.length + reviewWords.length;
 	if (total === 0) {
 		throw new Error('No words found from Shanbay.');

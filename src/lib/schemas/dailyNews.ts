@@ -25,9 +25,9 @@ export const dailyNewsOutputSchema = z
 		word_usage_check: z.object({
 			target_words_count: z.number().int().nonnegative(),
 			used_count: z.number().int().nonnegative(),
-			missing_words: z.array(z.string()).default([])
+			missing_words: z.array(z.string())
 		}),
-		word_definitions: z.array(wordDefinitionSchema).optional()
+		word_definitions: z.array(wordDefinitionSchema)
 	})
 	.superRefine((value, ctx) => {
 		const levels = new Set(value.articles.map((a) => a.level));

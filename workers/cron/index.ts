@@ -5,6 +5,7 @@ import { fetchAndStoreDailyWords } from '../../src/lib/words/dailyWords';
 import { enqueueGenerationTasks, startNextQueuedIfIdle } from '../../src/lib/tasks/generationQueue';
 import { runArticleGenerationTask } from '../../src/lib/tasks/articleGeneration';
 
+const FETCH_HOURS = new Set([8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]);
 const GENERATION_HOURS = new Set([12, 13, 14, 15, 16, 17, 18, 19, 20]);
 
 function getBusinessHour(date = new Date()) {
@@ -28,6 +29,9 @@ export default {
 	async scheduled(_event: ScheduledEvent, env: CronEnv, ctx: ExecutionContext) {
 		const db = drizzle(env.DB, { schema });
 		const taskDate = getBusinessDate(new Date());
+		const hour = getBusinessHour(new Date());
+
+		if (!FETCH_HOURS.has(hour)) return;
 
 		try {
 			const result = await fetchAndStoreDailyWords(db, {
@@ -43,7 +47,6 @@ export default {
 			return;
 		}
 
-		const hour = getBusinessHour(new Date());
 		if (!GENERATION_HOURS.has(hour)) return;
 
 		try {

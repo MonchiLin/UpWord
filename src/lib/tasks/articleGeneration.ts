@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { articles, dailyWords, generationProfiles, tasks, wordLearningRecords } from '../../../db/schema';
 import { getDb } from '../db';
@@ -46,26 +46,25 @@ async function getUsedWordsToday(db: ReturnType<typeof getDb>, taskDate: string)
 
 	if (todaysTasks.length === 0) return new Set();
 
+	const taskIds = todaysTasks.map((t) => t.id);
 	// Find all articles for today's tasks
 	const usedWords = new Set<string>();
-	for (const task of todaysTasks) {
-		const taskArticles = await db
-			.select({ contentJson: articles.contentJson })
-			.from(articles)
-			.where(eq(articles.generationTaskId, task.id));
+	const taskArticles = await db
+		.select({ contentJson: articles.contentJson })
+		.from(articles)
+		.where(inArray(articles.generationTaskId, taskIds));
 
-		for (const article of taskArticles) {
-			try {
-				const content = JSON.parse(article.contentJson);
-				const selected = content?.input_words?.selected;
-				if (Array.isArray(selected)) {
-					for (const word of selected) {
-						if (typeof word === 'string') usedWords.add(word);
-					}
+	for (const article of taskArticles) {
+		try {
+			const content = JSON.parse(article.contentJson);
+			const selected = content?.input_words?.selected;
+			if (Array.isArray(selected)) {
+				for (const word of selected) {
+					if (typeof word === 'string') usedWords.add(word);
 				}
-			} catch {
-				// Ignore parse errors
 			}
+		} catch {
+			// Ignore parse errors
 		}
 	}
 
@@ -79,30 +78,21 @@ async function buildCandidateWords(
 	db: ReturnType<typeof getDb>,
 	newWords: string[],
 	reviewWords: string[],
-	usedWords: Set<string>,
-	taskDate: string
+	usedWords: Set<string>
 ): Promise<CandidateWord[]> {
 	const allWords = uniqueStrings([...newWords, ...reviewWords]).filter((w) => !usedWords.has(w));
 	if (allWords.length === 0) return [];
-
-	// Get SRS records for all words
-	const records = await db
-		.select()
-		.from(wordLearningRecords)
-		.where(eq(wordLearningRecords.word, allWords[0])); // Start with first word
 
 	// Query all words in chunks
 	const CHUNK_SIZE = 50;
 	const allRecords: Array<typeof wordLearningRecords.$inferSelect> = [];
 	for (let i = 0; i < allWords.length; i += CHUNK_SIZE) {
 		const chunk = allWords.slice(i, i + CHUNK_SIZE);
-		for (const word of chunk) {
-			const rows = await db
-				.select()
-				.from(wordLearningRecords)
-				.where(eq(wordLearningRecords.word, word));
-			allRecords.push(...rows);
-		}
+		const rows = await db
+			.select()
+			.from(wordLearningRecords)
+			.where(inArray(wordLearningRecords.word, chunk));
+		allRecords.push(...rows);
 	}
 
 	const recordByWord = new Map(allRecords.map((r) => [r.word, r]));
@@ -191,7 +181,7 @@ export async function runArticleGenerationTask(locals: App.Locals, taskId: strin
 		const usedWords = await getUsedWordsToday(db, task.taskDate);
 
 		stage = 'build_candidates';
-		const candidates = await buildCandidateWords(db, newWords, reviewWords, usedWords, task.taskDate);
+		const candidates = await buildCandidateWords(db, newWords, reviewWords, usedWords);
 
 		if (candidates.length === 0) {
 			await db

@@ -8,12 +8,12 @@
 核心功能：抓取/导入 -> AI 生成 -> D1 存储（长期归档可回看）-> `web-highlighter` 高亮批注 -> **AI 长难句解析**。
 
 ## 关键前提与风险 (务必先确认)
-1. **启用 Cron Worker**：已引入独立 Worker + Scheduled Trigger。规则：每小时抓词；北京时间 12-20 点每小时尝试生成（同日每个 profile 最多 3 次，成功后不再重试）。
+1. **启用 Cron Worker**：已引入独立 Worker + Scheduled Trigger。规则：北京时间 08-23 点每小时抓词；北京时间 12-20 点每小时尝试生成（同日每个 profile 最多 3 次，成功后不再重试）。
 2. **扇贝数据抓取的稳定性未知**：`shanby.js` 依赖登录态 Cookie + 私有接口/加密返回。
     * Worker 侧通常只能把 Cookie 当作 Secret 使用，可能**过期/被风控**。
     * 部署策略：Cookie 以环境变量提供（例如 `SHANBAY_COOKIE`），仅后端使用，不落库、不回传前端。
     * 若该路径不可长期维护，需要准备 Plan B：手动导入、换数据源、或仅做阅读/批注不做自动抓取。
-3. **LLM 输出需“强结构化”**：文章内容与词高亮依赖稳定 JSON；需要可验证的结构化输出约束 + 严格校验；如校验失败允许**最多 1 次**“结构修复/重生成”再校验，仍失败则报错退出。
+3. **LLM 输出需“强结构化”**：文章内容与词高亮依赖稳定 JSON；需要可验证的结构化输出约束 + 严格校验；校验失败直接报错退出（无修复重试）。
 4. **联网搜索能力的边界**：启用 OpenAI Responses API 的 `web_search` 工具以满足“当日真实新闻”时效性，但这会带来：
     * **兼容性**：仅 OpenAI `/v1/responses` + 内置 `web_search` 支持；OpenAI-compatible 代理若不支持会 404（Fail Fast，不做兜底）。
     * **重要限制**：部分实现不允许 `web_search` 与 JSON mode（`text.format=json_object`）同时启用；需要两阶段：先 `web_search` 做研究，再关闭 `web_search` 并启用 JSON mode 生成结构化输出。
@@ -25,16 +25,16 @@
 ## 关键原则
 > [!IMPORTANT]
 > **Error Handling Strategy**: **Fail Fast (快速失败)**。
-> 含义：不做静默降级；不做无限重试。一旦依赖失败（网络/API/数据不符合约定），立即中止并把错误显式暴露出来（UI 错误态/日志），保证失败可见、可定位、可操作。对于 **LLM 输出结构不符合 schema** 的情况，允许**最多 1 次**“结构修复/重生成”再校验，仍失败则立即报错退出。
+> 含义：不做静默降级；不做无限重试。一旦依赖失败（网络/API/数据不符合约定），立即中止并把错误显式暴露出来（UI 错误态/日志），保证失败可见、可定位、可操作。对于 **LLM 输出结构不符合 schema** 的情况，直接报错退出（无修复重试）。
 > **src/stories 并非无用文件, 相反, 这些文件是用于测试组件的文件.**
 
 ## 拟定架构
 *   **Web App**: Astro (SSR) + React，部署在 **Cloudflare Pages**。
-*   **Tasks/ETL**: 由 Cron Worker 每小时抓词，并在北京时间 12-20 点触发生成；管理员接口仍可手动触发。
+*   **Tasks/ETL**: 由 Cron Worker 在北京时间 08-23 点每小时抓词，并在北京时间 12-20 点触发生成；管理员接口仍可手动触发。
 *   **Data**: Cloudflare D1 (SQLite) + Drizzle ORM（schema/migration 统一管理）。
 *   **Style**: TailwindCSS + Radix Themes + Typography Plugin。
 *   **Annotation**: `web-highlighter`（前端高亮/选择锚定 + 持久化数据结构，后端落库）。
-*   **AI**: OpenAI SDK（**Responses API**，`client.responses.create`）+ 内置 `web_search`（联网搜索）；为兼容 `web_search` 与 JSON mode 的限制，采用“两阶段”调用（research → JSON generation）。输出必须是结构化 JSON（严格校验；允许一次修复后再校验）。若使用 OpenAI-compatible 服务，必须同时支持 `/v1/responses` 与内置 web search 工具，否则该能力不可用（不做兜底）。
+*   **AI**: OpenAI SDK（**Responses API**，`client.responses.create`）+ 内置 `web_search`（联网搜索）；为兼容 `web_search` 与 JSON mode 的限制，采用“两阶段”调用（research → JSON generation）。输出必须是结构化 JSON（严格校验；失败即中止）。若使用 OpenAI-compatible 服务，必须同时支持 `/v1/responses` 与内置 web search 工具，否则该能力不可用（不做兜底）。
 *   **SRS**: FSRS（`ts-fsrs`），复习反馈四级：`again/hard/good/easy`。
 
 ## 详细功能规划
@@ -59,10 +59,10 @@
 
 ### 1. 任务：先抓取单词，再生成文章（定时 + 可手动触发）
 触发方式：
-*   定时触发（每小时抓词；北京时间 12-20 点生成）。
+*   定时触发（北京时间 08-23 点每小时抓词；北京时间 12-20 点生成）。
 *   管理员仍可手动触发。
 
-约束：先抓取当日 NEW/REVIEW 写入 `daily_words`，再创建生成任务；同一天可多次生成（多套），用于 A/B、不同 profile（不同模型/参数）或重复生成；不做无限重试/兜底/降级（Fail Fast，LLM 结构化输出允许一次修复重生成）。
+约束：先抓取当日 NEW/REVIEW 写入 `daily_words`，再创建生成任务；同一天可多次生成（多套），用于 A/B、不同 profile（不同模型/参数）或重复生成；不做无限重试/兜底/降级（Fail Fast，LLM 结构化输出不做修复重试）。
 
 #### 文章生成任务（依赖 daily_words 预抓取）（写 `tasks`，`type='article_generation'`，同一天可多套）
 1.  **Task(gen_set)**: 创建一条 `tasks`（套件任务开始，`type='article_generation'`，`task_date=YYYY-MM-DD`，关联 `profile_id`，`status='running'`）。
@@ -97,7 +97,7 @@
     *   **阶段 1 - 选词**：把全部候选词（含 SRS 信息）给 AI，让 AI 选 12 个"最适合写进新闻"的词。
     *   **阶段 2 - 搜新闻**：开启 `web_search`，基于选中词 + 主题偏好搜索当日英文新闻源（BBC/CNN/Reuters 等）。
     *   **阶段 3 - 写文章**：开启 JSON mode，基于选中词 + 新闻事实生成三档 Easy/Medium/Hard 文章，同时生成 `word_definitions`（每个词的音标 + 中文释义）。
-    *   强制结构：采用结构化输出约束；校验失败允许一次修复重生成。
+    *   强制结构：采用结构化输出约束；校验失败直接报错退出。
 7.  **Auto Publish**:
     *   生成成功即**自动发布**：写入 `generation_jobs`（审计）与 `articles`（status='published', published_at=now）以及更新 `tasks.published_at`。
 8.  **Finish GenSet**: 更新任务 `tasks.status`（`succeeded/failed/canceled`）。

@@ -8,7 +8,7 @@ import { runArticleGenerationTask } from '../../../../lib/tasks/articleGeneratio
 import { enqueueGenerationTasks, startNextQueuedIfIdle } from '../../../../lib/tasks/generationQueue';
 
 const bodySchema = z.object({
-	task_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
+	task_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 });
 
 export const POST: APIRoute = async ({ request, locals }) => {
@@ -27,7 +27,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 		if (!parsed.success) return badRequest('Invalid request body', parsed.error.flatten());
 
 		const db = getDb(locals);
-		const taskDate = parsed.data.task_date ?? getBusinessDate();
+		const taskDate = parsed.data.task_date;
 		const created = await enqueueGenerationTasks(db, taskDate);
 
 		await startNextQueuedIfIdle(db, taskDate, (taskId) => {

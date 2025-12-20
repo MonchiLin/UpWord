@@ -36,24 +36,27 @@ if (row) {
 	try {
 		parsed = JSON.parse(row.articles.contentJson);
 	} catch {
-		parsed = null;
+		throw new Error('Invalid content_json: JSON parse failed');
 	}
 }
 
-const sources: string[] =
-	Array.isArray(parsed?.result?.sources) &&
-	parsed.result.sources.every((s: unknown) => typeof s === "string")
-		? parsed.result.sources
-		: [];
+if (!Array.isArray(parsed?.result?.sources) || !parsed.result.sources.every((s: unknown) => typeof s === "string")) {
+	throw new Error('Invalid content_json: sources must be string[]');
+}
+const sources: string[] = parsed.result.sources;
 
 // Extract word_definitions from LLM output
 const wordDefinitions: Array<{
 	word: string;
 	phonetic: string;
 	definitions: { pos: string; definition: string }[];
-}> = Array.isArray(parsed?.result?.word_definitions)
-	? parsed.result.word_definitions
-	: [];
+}> = (() => {
+	const defs = parsed?.result?.word_definitions;
+	if (!Array.isArray(defs)) {
+		throw new Error('Invalid content_json: word_definitions must be array');
+	}
+	return defs;
+})();
 
 // Fetch mastery status from DB
 let wordStatusMap: Record<string, "unknown" | "familiar" | "mastered"> = {};
@@ -80,7 +83,7 @@ const sidebarWords = wordDefinitions.map((w) => ({
 	word: w.word,
 	phonetic: w.phonetic || "",
 	definitions: w.definitions || [],
-	masteryStatus: wordStatusMap[w.word] ?? "unknown",
+	masteryStatus: wordStatusMap[w.word],
 }));
 
 const weekdayNames = [

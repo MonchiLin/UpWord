@@ -4,16 +4,30 @@ import { createOpenAiCompatibleClient } from '../../lib/llm/openaiCompatible';
 export const POST: APIRoute = async ({ request, locals }) => {
 	try {
 		const body = await request.json() as any;
-		const messages = body.messages || [];
+		const messages = body.messages;
+		if (!Array.isArray(messages) || messages.length === 0) {
+			return new Response(JSON.stringify({ error: 'Missing messages' }), {
+				status: 400,
+				headers: { 'Content-Type': 'application/json' }
+			});
+		}
 
-		// Robust environment variable access
-		const runtimeEnv = (locals as any).runtime?.env || {};
-		const apiKey = runtimeEnv.LLM_API_KEY || import.meta.env.LLM_API_KEY || process.env.LLM_API_KEY;
-		const baseURL = runtimeEnv.LLM_BASE_URL || import.meta.env.LLM_BASE_URL || process.env.LLM_BASE_URL;
-		const defaultModel = runtimeEnv.LLM_MODEL_DEFAULT || import.meta.env.LLM_MODEL_DEFAULT || process.env.LLM_MODEL_DEFAULT || 'gpt-4o-mini';
+		const runtimeEnv = (locals as any).runtime?.env;
+		if (!runtimeEnv) {
+			return new Response(JSON.stringify({ error: 'Missing runtime env' }), {
+				status: 500,
+				headers: { 'Content-Type': 'application/json' }
+			});
+		}
+		const apiKey = runtimeEnv.LLM_API_KEY;
+		const baseURL = runtimeEnv.LLM_BASE_URL;
+		const defaultModel = runtimeEnv.LLM_MODEL_DEFAULT;
 
-		if (!apiKey || !baseURL) {
-			return new Response(JSON.stringify({ error: 'Missing LLM configuration' }), { status: 500 });
+		if (!apiKey || !baseURL || !defaultModel) {
+			return new Response(JSON.stringify({ error: 'Missing LLM configuration' }), {
+				status: 500,
+				headers: { 'Content-Type': 'application/json' }
+			});
 		}
 
 		// Use the native OpenAI client helper
