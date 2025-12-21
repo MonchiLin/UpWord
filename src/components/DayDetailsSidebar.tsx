@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button, Modal, Tabs, Tooltip, Divider, Popconfirm, message } from 'antd';
 import { BookOpen, Trash2 } from 'lucide-react';
 import AdminDayPanel from './AdminDayPanel';
@@ -45,7 +45,7 @@ export default function DayDetailsSidebar({ date, className }: DayDetailsSidebar
             .then((json: any) => {
                 if (canceled) return;
                 if (json.error) {
-                    // Handle error silently or show toast?
+                    // 错误处理：静默还是提示 toast？
                     console.error(json.error);
                     setData({ publishedTaskGroups: [] });
                 } else {
@@ -72,7 +72,7 @@ export default function DayDetailsSidebar({ date, className }: DayDetailsSidebar
     }, [date]);
 
     async function deleteArticle(articleId: string) {
-		const adminKey = localStorage.getItem('luma-words_admin_key');
+        const adminKey = localStorage.getItem('luma-words_admin_key');
         if (!adminKey) {
             message.error('请先设置管理员密钥');
             return;
@@ -88,7 +88,7 @@ export default function DayDetailsSidebar({ date, className }: DayDetailsSidebar
                 throw new Error(json.error || '删除失败');
             }
             message.success('文章已删除');
-            // Update local state to remove the article
+            // 更新本地状态，移除该文章
             setData(prev => ({
                 ...prev,
                 publishedTaskGroups: prev.publishedTaskGroups.map(group => ({
@@ -164,7 +164,7 @@ export default function DayDetailsSidebar({ date, className }: DayDetailsSidebar
                             <div className="space-y-2">
                                 {data.publishedTaskGroups.map((group) => (
                                     <div key={group.task.id} className="space-y-1">
-                                        {/* Time separator using Antd Divider */}
+                                        {/* 使用 Antd Divider 的时间分隔线 */}
                                         {group.task.publishedAt && (
                                             <Divider plain className="!my-3 !text-[10px] !text-stone-400">
                                                 {new Date(group.task.publishedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} 发布

@@ -2,11 +2,10 @@ import { drizzle } from 'drizzle-orm/d1';
 import * as schema from '../../db/schema';
 import { getBusinessDate, BUSINESS_TIMEZONE } from '../../src/lib/time';
 import { fetchAndStoreDailyWords } from '../../src/lib/words/dailyWords';
-import { enqueueGenerationTasks, startNextQueuedIfIdle } from '../../src/lib/tasks/generationQueue';
-import { runArticleGenerationTask } from '../../src/lib/tasks/articleGeneration';
 
+// 业务时间以 Asia/Shanghai 计算（见 getBusinessHour）。
+// 抓词窗口 08-23；生成任务不在 cron 中触发。
 const FETCH_HOURS = new Set([8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]);
-const GENERATION_HOURS = new Set([12, 13, 14, 15, 16, 17, 18, 19, 20]);
 
 function getBusinessHour(date = new Date()) {
 	const hourText = new Intl.DateTimeFormat('en-GB', {
@@ -20,19 +19,17 @@ function getBusinessHour(date = new Date()) {
 type CronEnv = {
 	DB: D1Database;
 	SHANBAY_COOKIE: string;
-	LLM_API_KEY: string;
-	LLM_BASE_URL: string;
-	LLM_MODEL_DEFAULT: string;
 };
 
 export default {
-	async scheduled(_event: ScheduledEvent, env: CronEnv, ctx: ExecutionContext) {
+	async scheduled(_event: ScheduledEvent, env: CronEnv, _ctx: ExecutionContext) {
 		const db = drizzle(env.DB, { schema });
 		const taskDate = getBusinessDate(new Date());
 		const hour = getBusinessHour(new Date());
 
 		if (!FETCH_HOURS.has(hour)) return;
 
+		// 本次 tick 先抓词，成功后才允许生成。
 		try {
 			const result = await fetchAndStoreDailyWords(db, {
 				taskDate,
@@ -45,23 +42,6 @@ export default {
 			const message = err instanceof Error ? err.message : String(err);
 			console.error('[cron] fetch words failed:', message);
 			return;
-		}
-
-		if (!GENERATION_HOURS.has(hour)) return;
-
-		try {
-			const created = await enqueueGenerationTasks(db, taskDate);
-			if (created.length === 0) return;
-
-			await startNextQueuedIfIdle(db, taskDate, (taskId) => {
-				const locals = { runtime: { env, ctx } } as any;
-				ctx.waitUntil(runArticleGenerationTask(locals, taskId));
-			});
-
-			console.log(`[cron] enqueued ${created.length} generation task(s) for ${taskDate}`);
-		} catch (err) {
-			const message = err instanceof Error ? err.message : String(err);
-			console.error('[cron] enqueue generation failed:', message);
 		}
 	}
 };

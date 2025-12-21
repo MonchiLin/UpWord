@@ -3,18 +3,18 @@ import 'temporal-polyfill/global';
 import { cn } from '../lib/utils';
 
 type CalendarProps = {
-    publishedDays?: string[]; // ISO 8601 strings (YYYY-MM-DD)
+    publishedDays?: string[]; // ISO 8601 字符串（YYYY-MM-DD）
     onDateSelect?: (date: string) => void;
 };
 
 export const MacOSCalendar: React.FC<CalendarProps> = ({ publishedDays = [], onDateSelect }) => {
-    // Initialize with today's date
+    // 初始化为今天
     const today = Temporal.Now.plainDateISO();
 
-    // Render range: 4 months back, 8 months forward (total 13 months)
+    // 渲染范围：向前 4 个月，向后 8 个月（共 13 个月）
     const startMonth = today.subtract({ months: 4 }).with({ day: 1 });
 
-    // Generate list of months
+    // 生成月份列表
     const months = useMemo(() => {
         const list = [];
         let current = startMonth;
@@ -25,25 +25,25 @@ export const MacOSCalendar: React.FC<CalendarProps> = ({ publishedDays = [], onD
         return list;
     }, [startMonth]);
 
-    // Scroll to today on mount
+    // 挂载时滚动到今天
     React.useEffect(() => {
         const todayEl = document.getElementById(`day-${today.toString()}`);
         if (todayEl) {
-            // Scroll with a bit of offset so headers don't obscure it
+            // 略微偏移滚动，避免标题遮挡
             todayEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
     }, [today]);
 
-    // Helper to generate days for a specific month
+    // 生成指定月份的日期列表
     const getDaysForMonth = (month: Temporal.PlainDate) => {
         const firstDayOfMonth = month.with({ day: 1 });
-        const startOfWeek = firstDayOfMonth.subtract({ days: firstDayOfMonth.dayOfWeek - 1 }); // Monday start
+        const startOfWeek = firstDayOfMonth.subtract({ days: firstDayOfMonth.dayOfWeek - 1 }); // 周一为起始
 
-        // Find last day of month
+        // 获取该月最后一天
         const nextMonth = month.add({ months: 1 });
         const lastDayOfMonth = nextMonth.subtract({ days: 1 });
 
-        // End of grid is the Sunday after the last day
+        // 网格结束于该月最后一天之后的周日
         const endOfWeek = lastDayOfMonth.add({ days: 7 - lastDayOfMonth.dayOfWeek });
 
         const days = [];
@@ -62,7 +62,7 @@ export const MacOSCalendar: React.FC<CalendarProps> = ({ publishedDays = [], onD
             "flex flex-col h-full w-full font-sans transition-colors duration-300 relative",
             "bg-white text-[#37352f]"
         )}>
-            {/* Sticky Global Header (Days of Week) */}
+            {/* 固定全局表头（星期） */}
             <div className={cn(
                 "grid grid-cols-7 z-20 sticky top-0",
                 "border-gray-100 bg-white",
@@ -78,13 +78,13 @@ export const MacOSCalendar: React.FC<CalendarProps> = ({ publishedDays = [], onD
                 ))}
             </div>
 
-            {/* Scrollable Area */}
+            {/* 可滚动区域 */}
             <div className="flex-1 overflow-y-auto w-full scrollbar-thin scrollbar-thumb-gray-200">
                 {months.map(month => {
                     const monthDays = getDaysForMonth(month);
                     return (
                         <div key={month.toString()} className="flex flex-col relative group">
-                            {/* Month Title as a distinct section divider */}
+                            {/* 月份标题作为分隔 */}
                             <div className={cn(
                                 "sticky top-0 z-10 backdrop-blur-sm px-4 py-4 border-b",
                                 "bg-white/95 border-gray-50"
@@ -124,7 +124,7 @@ export const MacOSCalendar: React.FC<CalendarProps> = ({ publishedDays = [], onD
                                             )}>
                                                 {date.day}
                                             </span>
-                                            {/* Event Content */}
+                                            {/* 事件内容 */}
                                             <div className="flex flex-col gap-1 mt-1 w-full px-0.5">
                                                 {publishedDays.includes(date.toString()) && (
                                                     <div className={cn(
@@ -148,19 +148,3 @@ export const MacOSCalendar: React.FC<CalendarProps> = ({ publishedDays = [], onD
         </div>
     );
 };
-
-function ChevronLeftIcon() {
-    return (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-            <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
-        </svg>
-    )
-}
-
-function ChevronRightIcon() {
-    return (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-            <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
-        </svg>
-    )
-}

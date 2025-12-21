@@ -73,6 +73,7 @@ export type ShanbayTodayWords = {
 	reviewWords: string[];
 };
 
+// 需要有效登录 Cookie；调用方应按密钥处理，失败直接抛错。
 export async function fetchShanbayTodayWords(cookie: string): Promise<ShanbayTodayWords> {
 	const materialbookId = await getMaterialbookId(cookie);
 	const [newItems, reviewItems] = await Promise.all([

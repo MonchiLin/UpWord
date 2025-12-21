@@ -33,7 +33,7 @@ function splitTopicTags(input: string) {
 function formatTime(isoString: string | null) {
 	if (!isoString) return '-';
 	try {
-		return new Date(isoString).toLocaleTimeString('en-GB', { hour12: false }); // HH:mm:ss
+		return new Date(isoString).toLocaleTimeString('en-GB', { hour12: false }); // 时间格式 HH:mm:ss
 	} catch {
 		return '-';
 	}
@@ -63,7 +63,7 @@ export default function AdminDayPanel(props: { date: string }) {
 
 	const canUse = useMemo(() => isAdmin && !!adminKey, [isAdmin, adminKey]);
 
-	// Check admin authority
+	// 校验管理员权限
 	useEffect(() => {
 		try {
 			const key = localStorage.getItem(ADMIN_KEY_STORAGE);
@@ -89,10 +89,10 @@ export default function AdminDayPanel(props: { date: string }) {
 		};
 	}, [adminKey]);
 
-	// Load tasks
+	// 加载任务
 	async function refresh() {
 		if (!adminKey) return;
-		// Don't set loading true on background polls if we already have data
+		// 已有数据时，后台轮询不显示 loading
 		if (tasks.length === 0) setLoading(true);
 		setError(null);
 		try {
@@ -105,24 +105,24 @@ export default function AdminDayPanel(props: { date: string }) {
 		}
 	}
 
-	// Initial load
+	// 初次加载
 	useEffect(() => {
 		if (!canUse) return;
 		void refresh();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [canUse, props.date]);
 
-	// Auto-refresh polling
+	// 自动轮询刷新
 	useEffect(() => {
 		if (!canUse) return;
 		const hasActiveTasks = tasks.some(t => t.status === 'running' || t.status === 'queued');
 		if (!hasActiveTasks) return;
 
 		const timer = setInterval(() => {
-			// Background refresh, minimize UI flicker
+			// 后台刷新，尽量减少闪烁
 			fetchJson(`/api/admin/tasks?task_date=${encodeURIComponent(props.date)}`, adminKey!)
 				.then(data => setTasks((data?.tasks ?? []) as TaskRow[]))
-				.catch(console.error); // Silent error for poll
+				.catch(console.error); // 轮询错误静默处理
 		}, 3000);
 
 		return () => clearInterval(timer);
@@ -140,7 +140,7 @@ export default function AdminDayPanel(props: { date: string }) {
 				body: JSON.stringify({ task_date: props.date })
 			});
 			await refresh();
-			setCollapsed(false); // Auto expand on generate
+			setCollapsed(false); // 生成后自动展开
 		} catch (e) {
 			setError((e as Error).message);
 		} finally {
@@ -158,7 +158,7 @@ export default function AdminDayPanel(props: { date: string }) {
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ task_date: props.date })
 			});
-			// Toast or feedback?
+			// 是否需要 toast/反馈？
 		} catch (e) {
 			setError((e as Error).message);
 		} finally {
@@ -185,7 +185,7 @@ export default function AdminDayPanel(props: { date: string }) {
 
 	return (
 		<div className="rounded-xl border border-stone-200 bg-white overflow-hidden shadow-sm">
-			{/* Header / Toggle */}
+			{/* 头部 / 折叠 */}
 			<div
 				className="flex items-center justify-between p-3 cursor-pointer hover:bg-stone-50 transition-colors select-none"
 				onClick={() => setCollapsed(!collapsed)}
@@ -210,11 +210,11 @@ export default function AdminDayPanel(props: { date: string }) {
 				</div>
 			</div>
 
-			{/* Collapsed Content */}
+			{/* 折叠内容 */}
 			{!collapsed && (
 				<div className="p-3 pt-0 border-t border-stone-100 bg-stone-50/50 space-y-4">
 
-					{/* Actions Toolbar */}
+					{/* 操作栏 */}
 					<div className="flex gap-2">
 						<button
 							onClick={fetchWords}
@@ -240,7 +240,7 @@ export default function AdminDayPanel(props: { date: string }) {
 						</div>
 					)}
 
-					{/* Task List */}
+					{/* 任务列表 */}
 					<div className="space-y-3">
 						{tasks.length === 0 ? (
 							<div className="text-xs text-stone-400 text-center py-2">
@@ -248,7 +248,7 @@ export default function AdminDayPanel(props: { date: string }) {
 							</div>
 						) : (
 							tasks.map(t => {
-								const isRunning = t.status === 'running' || t.status === 'queued';
+
 								return (
 									<div key={t.id} className="bg-white border border-stone-200 rounded-lg p-3 text-xs shadow-sm">
 										<div className="flex justify-between items-start gap-2 mb-2">

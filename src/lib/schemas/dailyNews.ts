@@ -17,6 +17,7 @@ export const wordDefinitionSchema = z.object({
 });
 
 export const dailyNewsOutputSchema = z
+	// 严格输出 schema：强制来源 URL 与三档齐全，用于快速失败校验。
 	.object({
 		title: z.string().min(1),
 		topic: z.string().min(1),

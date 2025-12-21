@@ -23,19 +23,19 @@
       "level": 1,
       "level_name": "Easy",
       "content": "String. Level 1 正文 (Markdown)。",
-      "difficulty_desc": "Elementary (A1-A2, 1000 words limit, Present Tense)"
+      "difficulty_desc": "Elementary (A1-A2, core vocabulary ~1000, mostly present tense)"
     },
     {
       "level": 2,
       "level_name": "Medium",
       "content": "String. Level 2 正文 (Markdown)。",
-      "difficulty_desc": "Intermediate (B1-B2, 2000 words limit, Past Tense)"
+      "difficulty_desc": "Intermediate (B1-B2, core vocabulary ~2000, past narrative + simple present for facts)"
     },
     {
       "level": 3,
       "level_name": "Hard",
       "content": "String. Level 3 正文 (Markdown)。",
-      "difficulty_desc": "Advanced (C1+, 3000+ words, Complex Syntax)"
+      "difficulty_desc": "Advanced (C1+, core vocabulary 3000+, mixed tenses, complex but clear syntax)"
     }
   ],
   "word_usage_check": {
@@ -52,10 +52,10 @@
 
 | 特征维度 | Level 1 (Easy) | Level 2 (Medium) | Level 3 (Hard) |
 | :--- | :--- | :--- | :--- |
-| **时态 (Tense)** | **主要使用一般现在时 (Present Simple)**。事件仿佛“正在发生”。 | **引入过去时 (Past Simple/Continuous)**。标准的叙事时态。 | **全时态 (All Tenses)**。包含完成时、虚拟语气等。 |
-| **词汇量 (Lexicon)** | **< 1000 常用词**。仅使用最核心词汇。 | **< 2000 常用词**。增加描述性形容词。 | **< 3000 常用词**。学术/新闻专业词汇。 |
-| **句法 (Syntax)** | **SVO (主-谓-宾)**。避免从句。**禁止**使用 "which", "although"。句长 < 12 词。 | **并列句 & 简单从句**。使用 "because", "so", "who"。句长 15-20 词。 | **复杂句**。倒装、分词状语、独立主格。句长 20+ 词。 |
-| **信息密度** | 单一线性逻辑。每句话只讲一个事实。 | 增加背景细节。 | 深度分析，包含隐喻和观点。 |
+| **时态 (Tense)** | **一般现在时为主**，允许少量过去时/现在完成时用于时间与背景。 | **一般过去时为主**，可用现在时表达常识，用现在完成时连接结果。 | **全时态按需使用**，关注叙事自然度与逻辑衔接。 |
+| **词汇量 (Lexicon)** | **核心词汇 ~1000**，偏具体名词与高频动词。 | **核心词汇 ~2000**，允许更精确的形容词与名词短语。 | **3000+ 词汇**，新闻/学术词汇适量，但不追求生僻。 |
+| **句法 (Syntax)** | **短 SVO 为主**，少从句；可少量使用 "but/because/when"。句长 8-14 词。 | **并列句 + 简单从句**（because/when/if/so, who/which），避免嵌套。句长 14-22 词。 | **复杂句允许**（分词短语、同位语、被动语态等），但保持清晰。句长 18-30 词。 |
+| **信息密度** | 单句单事实，线性叙述。 | 增加背景与原因。 | 适度分析与影响，但保持新闻客观语气。 |
 
 ## 4. 统一提示词模板 (Unified Master Prompt)
 
@@ -71,32 +71,35 @@
 >
 > #### **Level 1 (Easy / Elementary)**
 > *   **核心目标**: 让小学生也能秒懂。
-> *   **时态约束**: **95% 以上使用一般现在时 (Present Simple)**。除非必须引用历史，否则禁止过去时。
+> *   **时态约束**: **一般现在时为主**；允许少量过去时/现在完成时表达时间背景或结果。
 > *   **句法禁令 (Negative Constraints)**:
->     *   ❌ **禁止**使用被动语态 (Passive Voice)。
->     *   ❌ **禁止**使用定语从句 (who/which/that)。
+>     *   ❌ **尽量避免**被动语态 (Passive Voice)。
+>     *   ❌ **尽量避免**定语从句 (who/which/that)。
 >     *   ❌ **禁止**使用分号 (;)。
->     *   ❌ **禁止**使用抽象名词或隐喻。
-> *   **句长限制**: 每句 **不超过 12 个单词**。
-> *   **连接词**: 仅允许使用 "and"。禁止 "because", "so", "but"（另起一句表达逻辑）。
+>     *   ❌ **避免**抽象名词与隐喻。
+> *   **句长限制**: 每句 **8 - 14 个单词**。
+> *   **连接词**: 可少量使用 "and/but/because/so/when"，每句尽量只用一个连接词。
+> *   **段落**: 2-3 句一段，避免“一句一行”。
 >
 > #### **Level 2 (Medium / Intermediate)**
 > *   **核心目标**: 标准的新闻叙事，类似 *USA Today*。
-> *   **时态约束**: **使用一般过去时 (Past Simple)** 作为主叙事时态。
+> *   **时态约束**: **一般过去时为主**；可用现在时表达普遍事实，用现在完成时连接结果。
 > *   **句法特征**:
 >     *   ✅ 允许使用并列句 (Compound Sentences)。
 >     *   ✅ 允许简单的状语从句 (when/because/if)。
->     *   ✅ 允许简单的定语从句 (who/which)。
-> *   **句长限制**: 每句 **15 - 20 个单词**。
+>     *   ✅ 允许简单的定语从句 (who/which)，避免嵌套。
+> *   **句长限制**: 每句 **14 - 22 个单词**。
+> *   **段落**: 2-4 句一段，信息更连贯。
 >
 > #### **Level 3 (Hard / Advanced)**
-> *   **核心目标**: 母语者级别的深度报道，类似 *The Economist*。
+> *   **核心目标**: 母语者级别的深度报道，类似高质量新闻解读（偏中性、信息密集）。
 > *   **时态约束**: 自由使用所有时态 (Perfect tenses, Conditionals)。
 > *   **句法特征**:
->     *   ✅ **必须包含** 至少一个分词短语 (Participle Phrase) 作状语。
->     *   ✅ **必须包含** 被动语态或倒装句以增加正式感。
->     *   ✅ 使用习语 (Idioms) 和 隐喻 (Metaphors)。
-> *   **句长限制**: 自由，建议 **20 - 30 个单词** 的长难句。
+>     *   ✅ 建议加入 **至少一处** 高级结构（分词短语/同位语/被动语态）。
+>     *   ✅ 允许适度的被动语态与名词化表达，但保持清晰。
+>     *   ✅ 习语与隐喻**可用但不强制**，避免过度文学化。
+> *   **句长限制**: 自由，建议 **18 - 30 个单词** 的长句为主。
+> *   **段落**: 2-4 句一段，偏分析与影响。
 >
 > ### 2. 工作流 (Protocol)
 > 1.  **先规划后写作**：先在心里规划三级叙事与目标词植入策略（不要输出推理过程）。
@@ -132,8 +135,8 @@
 > 3.  **生成**: 基于该真实新闻，融合 `TARGET_VOCABULARY` 生成三级阅读文章。
 >
 > **长度提醒:**
-> *   L1: ~70-100 words (Short!)
-> *   L2: ~130-160 words
-> *   L3: ~200-250 words
+> *   L1: ~80-110 words
+> *   L2: ~140-190 words
+> *   L3: ~210-260 words
 >
 > 请执行生成。

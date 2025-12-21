@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { articles, dailyWords, generationProfiles, tasks, wordLearningRecords } from '../../../db/schema';
 import { getDb } from '../db';
 import { generateDailyNewsWithWordSelection, type CandidateWord } from '../llm/openaiCompatible';
-import { DAILY_NEWS_SYSTEM_PROMPT } from '../prompts/dailyNews';
+import { DAILY_NEWS_SYSTEM_PROMPT } from '../llm/openaiPrompts';
 
 const modelSettingSchema = z.object({
 	model: z.string().min(1),
@@ -38,7 +38,7 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): P
  * Get words that have already been used in articles today
  */
 async function getUsedWordsToday(db: ReturnType<typeof getDb>, taskDate: string): Promise<Set<string>> {
-	// Find all tasks for today
+	// 查找今日所有任务
 	const todaysTasks = await db
 		.select({ id: tasks.id })
 		.from(tasks)
@@ -47,7 +47,7 @@ async function getUsedWordsToday(db: ReturnType<typeof getDb>, taskDate: string)
 	if (todaysTasks.length === 0) return new Set();
 
 	const taskIds = todaysTasks.map((t) => t.id);
-	// Find all articles for today's tasks
+	// 查找今日任务对应的文章
 	const usedWords = new Set<string>();
 	const taskArticles = await db
 		.select({ contentJson: articles.contentJson })
@@ -64,7 +64,7 @@ async function getUsedWordsToday(db: ReturnType<typeof getDb>, taskDate: string)
 				}
 			}
 		} catch {
-			// Ignore parse errors
+			// 忽略解析错误
 		}
 	}
 
@@ -83,7 +83,7 @@ async function buildCandidateWords(
 	const allWords = uniqueStrings([...newWords, ...reviewWords]).filter((w) => !usedWords.has(w));
 	if (allWords.length === 0) return [];
 
-	// Query all words in chunks
+	// 分批查询所有词
 	const CHUNK_SIZE = 50;
 	const allRecords: Array<typeof wordLearningRecords.$inferSelect> = [];
 	for (let i = 0; i < allWords.length; i += CHUNK_SIZE) {
@@ -98,7 +98,7 @@ async function buildCandidateWords(
 	const recordByWord = new Map(allRecords.map((r) => [r.word, r]));
 	const newWordSet = new Set(newWords);
 
-	// Calculate due status for each word
+	// 计算每个词的到期状态
 	const now = new Date();
 	const candidates: CandidateWord[] = [];
 
@@ -112,7 +112,7 @@ async function buildCandidateWords(
 		candidates.push({ word, type, due, state });
 	}
 
-	// Sort by priority: new+due > review+due > due > new > review
+	// 按优先级排序：新词+到期 > 复习词+到期 > 到期 > 新词 > 复习词
 	candidates.sort((a, b) => {
 		const scoreA = (a.type === 'new' ? 2 : 0) + (a.due ? 4 : 0);
 		const scoreB = (b.type === 'new' ? 2 : 0) + (b.due ? 4 : 0);
@@ -122,6 +122,12 @@ async function buildCandidateWords(
 	return candidates;
 }
 
+/**
+ * 单次生成任务编排（快速失败）：
+ * 1) 加载 profile 与当日词表
+ * 2) 排除今日已用词，构建优先级候选
+ * 3) 调用 LLM 并写入文章与任务状态
+ */
 export async function runArticleGenerationTask(locals: App.Locals, taskId: string) {
 	const db = getDb(locals);
 	const env = locals.runtime.env;
@@ -130,7 +136,7 @@ export async function runArticleGenerationTask(locals: App.Locals, taskId: strin
 	const task = taskRows[0];
 	if (!task) throw new Error(`Task not found: ${taskId}`);
 
-	// Store taskDate for use in finally block
+	// 保存 taskDate 供 finally 使用
 	const taskDate = task.taskDate;
 
 	const now = new Date().toISOString();
@@ -288,7 +294,7 @@ export async function runArticleGenerationTask(locals: App.Locals, taskId: strin
 			})
 			.where(eq(tasks.id, taskId));
 	} finally {
-		// Auto-start next queued task for the same date
+	// 同日自动启动下一条排队任务
 		try {
 			const nextQueued = await db
 				.select({ id: tasks.id })
@@ -299,7 +305,7 @@ export async function runArticleGenerationTask(locals: App.Locals, taskId: strin
 
 			if (nextQueued.length > 0) {
 				console.log(`[Queue] Starting next task: ${nextQueued[0].id}`);
-				// Start next task (non-blocking, reuse current locals)
+				// 启动下一任务（非阻塞，复用当前 locals）
 				runArticleGenerationTask(locals, nextQueued[0].id).catch((e) =>
 					console.error('[Queue] Failed to start next task:', e)
 				);

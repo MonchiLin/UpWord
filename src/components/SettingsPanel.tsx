@@ -40,7 +40,7 @@ export default function SettingsPanel() {
 			const storedKey = localStorage.getItem(ADMIN_KEY_STORAGE) ?? '';
 			setAdminKey(storedKey);
 		} catch {
-			// ignore
+			// 忽略
 		}
 
 		(async () => {
@@ -85,7 +85,7 @@ export default function SettingsPanel() {
 			else localStorage.removeItem(ADMIN_KEY_STORAGE);
 			setSavedAt(Date.now());
 		} catch {
-			// ignore
+			// 忽略
 		}
 
 		if (nextKey) {
@@ -105,7 +105,7 @@ export default function SettingsPanel() {
 		try {
 			localStorage.removeItem(ADMIN_KEY_STORAGE);
 		} catch {
-			// ignore
+			// 忽略
 		}
 		void logoutAdmin().catch(() => undefined);
 	}

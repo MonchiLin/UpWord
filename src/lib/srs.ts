@@ -35,10 +35,12 @@ function toYmdInBusinessTz(date: Date) {
 	}).format(date);
 }
 
+// 扇贝同步评分推断，稳定且不会自动返回 "again"。
+// new/learning -> good，relearning -> hard，review：early>=2 -> easy，late>=2 -> hard，否则 good。
 function inferShanbaySyncGrade(args: {
 	state: string;
 	dueAt: Date;
-	taskDate: string; // YYYY-MM-DD in BUSINESS_TIMEZONE
+	taskDate: string; // 业务日期：YYYY-MM-DD（BUSINESS_TIMEZONE）
 	lapses: number;
 }): Grade {
 	const dueDate = toYmdInBusinessTz(args.dueAt);
@@ -82,8 +84,8 @@ export async function applyShanbaySrsSync(db: Db, args: { taskDate: string; word
 	const uniqueWords = Array.from(new Set(args.words));
 	if (uniqueWords.length === 0) return { updated: 0, skipped: 0 };
 
-	// D1 can have a relatively low max bind-parameter limit in some environments (e.g. local dev).
-	// Keep this conservative to avoid "too many SQL variables" errors.
+	// D1 在某些环境（如本地）绑定参数上限较低。
+	// 取较保守的分批大小以避免 "too many SQL variables"。
 	const SELECT_CHUNK_SIZE = 50;
 	const records: Array<typeof schema.wordLearningRecords.$inferSelect> = [];
 	for (let i = 0; i < uniqueWords.length; i += SELECT_CHUNK_SIZE) {
@@ -127,7 +129,7 @@ export async function applyShanbaySrsSync(db: Db, args: { taskDate: string; word
 					dueAt: card.due.toISOString(),
 					stability: card.stability,
 					difficulty: card.difficulty,
-					elapsedDays: card.elapsed_days,
+					elapsedDays: (card as any).elapsed_days,
 					scheduledDays: card.scheduled_days,
 					learningSteps: card.learning_steps,
 					reps: card.reps,

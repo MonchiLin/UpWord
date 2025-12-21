@@ -25,6 +25,7 @@ function getCookieValue(request: Request, name: string): string | null {
 	return null;
 }
 
+// 精确匹配（不 trim）；来源：x-admin-key、Authorization Bearer、或会话 Cookie。
 export function isAdminRequest(request: Request, locals: App.Locals) {
 	const expected = locals.runtime.env.ADMIN_KEY;
 	if (!expected) return false;

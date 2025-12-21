@@ -14,7 +14,7 @@ const meta: Meta<typeof MacOSCalendar> = {
 export default meta;
 type Story = StoryObj<typeof MacOSCalendar>;
 
-// Default is System (auto)
+// 默认值为系统（自动）
 export const Default: Story = {
     args: {
         publishedDays: [],

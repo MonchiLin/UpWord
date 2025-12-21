@@ -2,6 +2,7 @@
 import Layout from "../../layouts/Layout.astro";
 import ArticleTabs from "../../components/ArticleTabs";
 import WordSidebar from "../../components/WordSidebar";
+import AudioPlayer from "../../components/AudioPlayer";
 import { and, eq, isNotNull, inArray } from "drizzle-orm";
 import { articles, tasks, words } from "../../../db/schema";
 import { getDb } from "../../lib/db";
@@ -36,16 +37,19 @@ if (row) {
 	try {
 		parsed = JSON.parse(row.articles.contentJson);
 	} catch {
-		throw new Error('Invalid content_json: JSON parse failed');
+		throw new Error("Invalid content_json: JSON parse failed");
 	}
 }
 
-if (!Array.isArray(parsed?.result?.sources) || !parsed.result.sources.every((s: unknown) => typeof s === "string")) {
-	throw new Error('Invalid content_json: sources must be string[]');
+if (
+	!Array.isArray(parsed?.result?.sources) ||
+	!parsed.result.sources.every((s: unknown) => typeof s === "string")
+) {
+	throw new Error("Invalid content_json: sources must be string[]");
 }
 const sources: string[] = parsed.result.sources;
 
-// Extract word_definitions from LLM output
+// 从 LLM 输出中提取 word_definitions
 const wordDefinitions: Array<{
 	word: string;
 	phonetic: string;
@@ -53,12 +57,12 @@ const wordDefinitions: Array<{
 }> = (() => {
 	const defs = parsed?.result?.word_definitions;
 	if (!Array.isArray(defs)) {
-		throw new Error('Invalid content_json: word_definitions must be array');
+		throw new Error("Invalid content_json: word_definitions must be array");
 	}
 	return defs;
 })();
 
-// Fetch mastery status from DB
+// 从 DB 读取掌握状态
 let wordStatusMap: Record<string, "unknown" | "familiar" | "mastered"> = {};
 if (wordDefinitions.length > 0) {
 	const wordRows = await db
@@ -78,7 +82,7 @@ if (wordDefinitions.length > 0) {
 	}
 }
 
-// Build final words data for sidebar
+// 构建侧栏展示所需词汇数据
 const sidebarWords = wordDefinitions.map((w) => ({
 	word: w.word,
 	phonetic: w.phonetic || "",
@@ -114,7 +118,7 @@ const sourceAnchorId = sources.length > 0 ? "article-sources" : null;
 
 <Layout
 	title={row?.articles?.title ?? `Article ${id ?? ""}`}
-	mainClass="mx-auto w-full max-w-6xl px-4 py-10"
+	mainClass="mx-auto w-full max-w-7xl px-4 py-10"
 >
 	{
 		row ? (
@@ -180,11 +184,12 @@ const sourceAnchorId = sources.length > 0 ? "article-sources" : null;
 						) : null}
 					</div>
 				</main>
-				
+
 				{/* Sidebar - Words */}
 				{sidebarWords.length > 0 && (
 					<aside class="lg:w-80 lg:shrink-0">
-						<div class="lg:sticky lg:top-6">
+						<div class="lg:sticky lg:top-6 space-y-6">
+							<AudioPlayer client:load />
 							<WordSidebar client:load words={sidebarWords} />
 						</div>
 					</aside>

@@ -1,13 +1,12 @@
-import { and, eq, lt } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import type { DrizzleD1Database } from 'drizzle-orm/d1';
 import * as schema from '../../../db/schema';
 import { dailyWords, generationProfiles, tasks } from '../../../db/schema';
 
 type Db = DrizzleD1Database<typeof schema>;
 
-// Timeout for stale running tasks (10 minutes)
-const STALE_TASK_TIMEOUT_MS = 10 * 60 * 1000;
-const MAX_DAILY_ATTEMPTS_PER_PROFILE = 3;
+// 超时缓冲：避免刚好卡在边界时被过早清理。
+const STALE_TASK_BUFFER_MS = 2 * 60 * 1000;
 
 export async function ensureDailyWords(db: Db, taskDate: string) {
 	const rows = await db.select({ date: dailyWords.date }).from(dailyWords).where(eq(dailyWords.date, taskDate)).limit(1);
@@ -25,40 +24,48 @@ export async function enqueueGenerationTasks(db: Db, taskDate: string) {
 		throw new Error('No generation profile found. Create one first.');
 	}
 
-	const existing = await db
-		.select({ profileId: tasks.profileId, status: tasks.status })
+	// 清理超时的 running 任务（按 profile.timeout_ms 判断）。
+	const running = await db
+		.select({ id: tasks.id, startedAt: tasks.startedAt, profileId: tasks.profileId })
 		.from(tasks)
-		.where(and(eq(tasks.taskDate, taskDate), eq(tasks.type, 'article_generation')));
-
-	const attemptsByProfile = new Map<string, number>();
-	const succeededProfiles = new Set<string>();
-	for (const row of existing) {
-		attemptsByProfile.set(row.profileId, (attemptsByProfile.get(row.profileId) ?? 0) + 1);
-		if (row.status === 'succeeded') succeededProfiles.add(row.profileId);
+		.where(and(eq(tasks.taskDate, taskDate), eq(tasks.status, 'running')));
+	if (running.length > 0) {
+		const profileIds = Array.from(new Set(running.map((t) => t.profileId)));
+		const profileRows = await db
+			.select({ id: generationProfiles.id, timeoutMs: generationProfiles.timeoutMs })
+			.from(generationProfiles)
+			.where(inArray(generationProfiles.id, profileIds));
+		const timeoutByProfile = new Map(profileRows.map((p) => [p.id, p.timeoutMs]));
+		const nowMs = Date.now();
+		const updates: any[] = [];
+		for (const t of running) {
+			if (!t.startedAt) continue;
+			const startedMs = Date.parse(t.startedAt);
+			if (Number.isNaN(startedMs)) continue;
+			const timeoutMs = timeoutByProfile.get(t.profileId);
+			if (!timeoutMs) continue;
+			if (nowMs - startedMs > timeoutMs + STALE_TASK_BUFFER_MS) {
+				updates.push(
+					db
+						.update(tasks)
+						.set({
+							status: 'failed',
+							errorMessage: 'Task timed out (exceeded profile timeout)',
+							finishedAt: new Date().toISOString()
+						})
+						.where(eq(tasks.id, t.id))
+				);
+			}
+		}
+		if (updates.length > 0) {
+			await db.batch(updates as [any, ...any[]]);
+		}
 	}
 
-	// Cleanup stale running tasks (running for more than 10 minutes)
-	const staleThreshold = new Date(Date.now() - STALE_TASK_TIMEOUT_MS).toISOString();
-	await db
-		.update(tasks)
-		.set({
-			status: 'failed',
-			errorMessage: 'Task timed out (exceeded 10 minutes)',
-			finishedAt: new Date().toISOString()
-		})
-		.where(
-			and(
-				eq(tasks.taskDate, taskDate),
-				eq(tasks.status, 'running'),
-				lt(tasks.startedAt, staleThreshold)
-			)
-		);
-
+	// 为每个 profile 创建任务（不限制次数）。
 	const created: Array<{ id: string; profile_id: string }> = [];
 	const inserts = [];
 	for (const p of profiles) {
-		if (succeededProfiles.has(p.id)) continue;
-		if ((attemptsByProfile.get(p.id) ?? 0) >= MAX_DAILY_ATTEMPTS_PER_PROFILE) continue;
 		const id = crypto.randomUUID();
 		created.push({ id, profile_id: p.id });
 		inserts.push(
@@ -73,7 +80,9 @@ export async function enqueueGenerationTasks(db: Db, taskDate: string) {
 		);
 	}
 
-	await db.batch(inserts as [any, ...any[]]);
+	if (inserts.length > 0) {
+		await db.batch(inserts as [any, ...any[]]);
+	}
 	return created;
 }
 

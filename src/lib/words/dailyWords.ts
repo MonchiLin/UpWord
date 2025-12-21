@@ -25,6 +25,7 @@ export async function fetchAndStoreDailyWords(
 	const reviewWords = uniqueStrings(shanbay.reviewWords);
 	const total = newWords.length + reviewWords.length;
 	if (total === 0) {
+		// 快速失败：空词表视为今日未学习。
 		throw new Error('No words found from Shanbay.');
 	}
 
@@ -47,7 +48,7 @@ export async function fetchAndStoreDailyWords(
 			}
 		});
 
-	// Upsert words + word_learning_records
+	// 写入 words 与 word_learning_records（幂等）
 	const allWords = [...new Set([...newWords, ...reviewWords])];
 	const WORD_INSERT_CHUNK_SIZE = 20;
 	const RECORD_INSERT_CHUNK_SIZE = 10;
@@ -68,6 +69,7 @@ export async function fetchAndStoreDailyWords(
 			.onConflictDoNothing();
 	}
 
+	// SRS 同日幂等：每个词每个 task_date 只推进一次（依赖 lastShanbaySyncDate）。
 	const srsSync = await applyShanbaySrsSync(db, { taskDate: args.taskDate, words: allWords });
 
 	return {

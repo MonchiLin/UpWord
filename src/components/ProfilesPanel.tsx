@@ -102,7 +102,7 @@ export default function ProfilesPanel(props: { adminKey: string }) {
 	const [editorOpen, setEditorOpen] = useState(false);
 	const [editorMode, setEditorMode] = useState<'create' | 'edit'>('create');
 	const [draft, setDraft] = useState<ProfileDraft>(() => buildEmptyDraft());
-	const [deleteTarget, setDeleteTarget] = useState<GenerationProfile | null>(null);
+
 
 	const rows = useMemo(() => [...profiles].sort((a, b) => a.name.localeCompare(b.name)), [profiles]);
 

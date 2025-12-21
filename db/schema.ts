@@ -26,11 +26,12 @@ export const generationProfiles = sqliteTable(
 	]
 );
 
+// 每个 profile 的每日任务状态（queued/running/succeeded/failed/canceled）。
 export const tasks = sqliteTable(
 	'tasks',
 	{
 		id: text('id').primaryKey(),
-		taskDate: text('task_date').notNull(), // YYYY-MM-DD (Asia/Shanghai)
+		taskDate: text('task_date').notNull(), // 业务日期：YYYY-MM-DD（Asia/Shanghai）
 		type: text('type', { enum: ['article_generation'] }).notNull(),
 		triggerSource: text('trigger_source', { enum: ['manual'] })
 			.notNull()
@@ -67,10 +68,11 @@ export const tasks = sqliteTable(
 	]
 );
 
+// 每日词表来源（NEW/REVIEW），用于生成流水线。
 export const dailyWords = sqliteTable(
 	'daily_words',
 	{
-		date: text('date').primaryKey(), // YYYY-MM-DD (Asia/Shanghai)
+		date: text('date').primaryKey(), // 业务日期：YYYY-MM-DD（Asia/Shanghai）
 		newWordsJson: text('new_words_json').notNull(),
 		reviewWordsJson: text('review_words_json').notNull(),
 		createdAt: text('created_at')
@@ -110,6 +112,7 @@ export const words = sqliteTable(
 	]
 );
 
+// 每词 FSRS 卡片状态，用于到期选择与扇贝同步。
 export const wordLearningRecords = sqliteTable(
 	'word_learning_records',
 	{
@@ -150,7 +153,7 @@ export const wordLearningRecords = sqliteTable(
 );
 
 
-
+// 生成任务的发布产物（content_json 必须为合法 JSON）。
 export const articles = sqliteTable(
 	'articles',
 	{
@@ -179,6 +182,7 @@ export const articles = sqliteTable(
 	]
 );
 
+// web-highlighter 选区与笔记；通过 deleted_at 软删。
 export const highlights = sqliteTable(
 	'highlights',
 	{

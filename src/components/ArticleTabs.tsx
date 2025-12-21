@@ -1,5 +1,5 @@
 import { Cross2Icon, MagicWandIcon, Pencil2Icon } from '@radix-ui/react-icons';
-import { Button, Input, Popconfirm } from 'antd'; // Add Antd imports
+import { Button, Input } from 'antd'; // 引入 Antd 组件
 import { forwardRef, lazy, memo, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ArticleReader } from './ArticleReader';
@@ -177,6 +177,8 @@ function getEventPointRect(e: MouseEvent | TouchEvent): Rect | null {
 	return { left: me.clientX, top: me.clientY, right: me.clientX, bottom: me.clientY, width: 0, height: 0 };
 }
 
+import { setPlaylist } from '../lib/store/audioStore';
+
 export default function ArticleTabs(props: ArticleTabsProps) {
 	const sorted = useMemo(() => [...props.articles].sort((a, b) => a.level - b.level), [props.articles]);
 	const [level, setLevel] = useState<Level>((sorted[0]?.level ?? 1) as Level);
@@ -192,8 +194,6 @@ export default function ArticleTabs(props: ArticleTabsProps) {
 	const [adminKey, setAdminKey] = useState<string | null>(null);
 	const [isAdmin, setIsAdmin] = useState(Boolean(props.initialIsAdmin));
 	const [highlights, setHighlights] = useState<HighlightItem[]>([]);
-	const [hlLoading, setHlLoading] = useState(false);
-	const [hlError, setHlError] = useState<string | null>(null);
 	const [hlInstanceToken, setHlInstanceToken] = useState(0);
 
 	const [portalReady, setPortalReady] = useState(false);
@@ -247,15 +247,11 @@ export default function ArticleTabs(props: ArticleTabsProps) {
 	}, [adminKey]);
 
 	async function refreshHighlights() {
-		setHlLoading(true);
-		setHlError(null);
 		try {
 			const rows = await fetchHighlights(props.articleId);
 			setHighlights(rows);
 		} catch (e) {
-			setHlError((e as Error).message);
-		} finally {
-			setHlLoading(false);
+			console.error((e as Error).message);
 		}
 	}
 
@@ -304,6 +300,7 @@ export default function ArticleTabs(props: ArticleTabsProps) {
 
 		(async () => {
 			try {
+				// web-highlighter 依赖稳定的文章 DOM；避免改动结构。
 				const mod = await import('web-highlighter');
 				const Highlighter = (mod as any).default ?? mod;
 				if (canceled) return;
@@ -337,7 +334,7 @@ export default function ArticleTabs(props: ArticleTabsProps) {
 									appliedIdsRef.current.delete(id);
 									setHighlights((prev) => prev.filter((h) => h.id !== id));
 								} catch (err) {
-									setHlError((err as Error).message);
+									console.error((err as Error).message);
 								}
 							})();
 							return;
@@ -346,7 +343,6 @@ export default function ArticleTabs(props: ArticleTabsProps) {
 						const anchor = getEventPointRect(ev) ?? { left: 16, top: 16, right: 16, bottom: 16, width: 0, height: 0 };
 						const placement = pickPlacement(anchor);
 						closeSelectionUi();
-						setHlError(null);
 						setNoteDraft(currentHighlight?.note ?? '');
 						setNoteEditor({
 							mode: 'edit',
@@ -360,7 +356,7 @@ export default function ArticleTabs(props: ArticleTabsProps) {
 					});
 				}
 			} catch (err) {
-				if (!canceled) setHlError((err as Error).message);
+				if (!canceled) console.error((err as Error).message);
 			}
 		})();
 
@@ -438,7 +434,7 @@ export default function ArticleTabs(props: ArticleTabsProps) {
 		};
 
 		const onScrollOrResize = () => {
-			// Close any floating UI on layout changes to avoid stale positioning.
+			// 布局变化时关闭浮层，避免位置失效。
 			if (noteEditor?.mode === 'create') closeNoteEditor({ cancelCreateHighlight: true });
 			else closeNoteEditor({ cancelCreateHighlight: false });
 			closeSelectionUi();
@@ -476,7 +472,6 @@ export default function ArticleTabs(props: ArticleTabsProps) {
 		const range = selectionRangeRef.current;
 		if (!inst || !range || !selectionUi) return;
 
-		setHlError(null);
 		setNoteSaving(false);
 
 		const source = inst.fromRange(range as Range) as any;
@@ -519,7 +514,6 @@ export default function ArticleTabs(props: ArticleTabsProps) {
 
 		const nextNote = noteDraft.trim() ? noteDraft.trim() : null;
 		setNoteSaving(true);
-		setHlError(null);
 
 		try {
 			if (noteEditor.mode === 'create') {
@@ -547,7 +541,7 @@ export default function ArticleTabs(props: ArticleTabsProps) {
 				closeNoteEditor({ cancelCreateHighlight: false });
 			}
 		} catch (err) {
-			setHlError((err as Error).message);
+			console.error((err as Error).message);
 		} finally {
 			setNoteSaving(false);
 		}
@@ -561,13 +555,24 @@ export default function ArticleTabs(props: ArticleTabsProps) {
 		return { count, minutes };
 	}, [current?.content]);
 
-	const readsLabel = typeof props.reads === 'number' ? `${props.reads.toLocaleString()} reads` : '— reads';
+
 	// const wordLabel = wordStats.count === 1 ? 'word' : 'words';
 	const minuteLabel = wordStats.minutes === 1 ? 'minute' : 'minutes';
 
 	const contentParagraphs = useMemo(() => {
-		return current?.content?.split('\n').filter((p: string) => p.trim().length > 0) || [];
+		// Clean text: remove newlines/extra spaces within paragraphs to ensure smooth TTS flow
+		// and consistent charIndex alignment.
+		return current?.content?.split('\n')
+			.filter((p: string) => p.trim().length > 0)
+			.map((p) => p.replace(/\s+/g, ' ').trim()) || [];
 	}, [current?.content]);
+
+	// Sync playlist to audio store
+	useEffect(() => {
+		if (contentParagraphs.length > 0) {
+			setPlaylist(contentParagraphs);
+		}
+	}, [contentParagraphs]);
 
 	return (
 		<div className="relative">
@@ -590,8 +595,8 @@ export default function ArticleTabs(props: ArticleTabsProps) {
 				contentRef={contentRef}
 			/>
 
-			{/* Admin / Highlighter UI Overlays */}
-			{/* The rest of the portal logic remains unchanged */}
+			{/* 管理员 / 高亮 UI 覆盖层 */}
+			{/* 其余 portal 逻辑保持不变 */}
 
 
 			{
@@ -667,7 +672,7 @@ export default function ArticleTabs(props: ArticleTabsProps) {
 													setHighlights((prev) => prev.filter((h) => h.id !== noteEditor.id));
 													closeNoteEditor({ cancelCreateHighlight: false });
 												} catch (err) {
-													setHlError((err as Error).message);
+													console.error((err as Error).message);
 												}
 											}} size="small" danger>
 												Delete

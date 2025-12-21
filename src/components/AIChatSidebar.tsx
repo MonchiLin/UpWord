@@ -3,7 +3,7 @@ import { Button, Drawer } from 'antd';
 import XMarkdown from '@ant-design/x-markdown';
 import { Bot, Eraser, Square, User } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createOpenAiCompatibleClient } from '@/lib/llm/openaiCompatible';
+import { createOpenAiCompatibleClient } from '@/lib/llm/client';
 
 interface AIChatSidebarProps {
 	isOpen?: boolean;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { MacOSCalendar } from './MacOSCalender';
 import DayDetailsSidebar from './DayDetailsSidebar';
 import 'temporal-polyfill/global';
@@ -8,7 +8,7 @@ type HomeWorkspaceProps = {
 };
 
 export default function HomeWorkspace({ publishedDays }: HomeWorkspaceProps) {
-    // Initial state: Today, or maybe null? Let's default to today as per typical calendar behavior.
+    // 初始状态默认今天（符合常见日历行为）。
     const [selectedDate, setSelectedDate] = useState<string | null>(
         Temporal.Now.plainDateISO().toString()
     );
@@ -22,7 +22,7 @@ export default function HomeWorkspace({ publishedDays }: HomeWorkspaceProps) {
                         publishedDays={publishedDays}
                         selectedDate={selectedDate}
                         onSelectDate={setSelectedDate}
-                        dayHrefBase={undefined} // Disable link navigation
+                        dayHrefBase={undefined} // 禁用链接跳转
                     />
                 </div>
             </div>

@@ -8,4 +8,3 @@ export function getBusinessDate(date = new Date()) {
 		day: '2-digit'
 	}).format(date);
 }
-

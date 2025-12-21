@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { createOpenAiCompatibleClient } from '../../lib/llm/openaiCompatible';
+import { createOpenAiCompatibleClient } from '../../lib/llm/client';
 
 export const POST: APIRoute = async ({ request, locals }) => {
 	try {
@@ -30,7 +30,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 			});
 		}
 
-		// Use the native OpenAI client helper
+		// 使用 OpenAI 客户端封装
 		const client = createOpenAiCompatibleClient({
 			LLM_API_KEY: apiKey,
 			LLM_BASE_URL: baseURL,
@@ -45,7 +45,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 			stream: true,
 		});
 
-		// Create a simple text stream (sending raw content chunks)
+		// 创建简单文本流（发送原始内容块）
 		const stream = new ReadableStream({
 			async start(controller) {
 				const encoder = new TextEncoder();

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { requireAdmin } from '../../../../lib/admin';
 import { getDb } from '../../../../lib/db';
 import { badRequest, json } from '../../../../lib/http';
-import { getBusinessDate } from '../../../../lib/time';
+
 import { fetchAndStoreDailyWords } from '../../../../lib/words/dailyWords';
 
 const bodySchema = z.object({
@@ -15,11 +15,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
 	if (denied) return denied;
 
 	try {
+		const raw = await request.text();
+		if (!raw.trim()) return badRequest('请求体为空');
 		let body: unknown;
 		try {
-			body = await request.json();
-		} catch {
-			body = {};
+			body = JSON.parse(raw);
+		} catch (err) {
+			return badRequest('请求体不是合法 JSON', { message: err instanceof Error ? err.message : String(err) });
 		}
 
 		const parsed = bodySchema.safeParse(body);

@@ -3,18 +3,18 @@ import 'temporal-polyfill/global';
 
 type CalendarProps = {
     className?: string;
-    publishedDays?: string[]; // ISO 8601 strings (YYYY-MM-DD)
+    publishedDays?: string[]; // ISO 8601 字符串（YYYY-MM-DD）
     dayHrefBase?: string;
     selectedDate?: string | null;
     onSelectDate?: (date: string) => void;
 };
 
 export const MacOSCalendar: React.FC<CalendarProps> = ({ className, publishedDays = [], dayHrefBase, selectedDate, onSelectDate }) => {
-    // Initialize with today's date
+    // 初始化为今天
     const today = Temporal.Now.plainDateISO();
     const [currentMonth, setCurrentMonth] = useState(today.with({ day: 1 }));
 
-    // Navigation
+    // 导航
     const nextMonth = () => setCurrentMonth(currentMonth.add({ months: 1 }));
     const prevMonth = () => setCurrentMonth(currentMonth.subtract({ months: 1 }));
     const goToday = () => {
@@ -23,7 +23,7 @@ export const MacOSCalendar: React.FC<CalendarProps> = ({ className, publishedDay
         if (onSelectDate) onSelectDate(t.toString());
     }
 
-    // Generate days
+    // 生成日期
     const days = useMemo(() => {
         const startDate = currentMonth.subtract({ days: currentMonth.dayOfWeek - 1 });
 
@@ -40,7 +40,7 @@ export const MacOSCalendar: React.FC<CalendarProps> = ({ className, publishedDay
 
     return (
         <div className={`flex flex-col h-full w-full bg-white/70 backdrop-blur-2xl rounded-xl border border-white/20 shadow-2xl overflow-hidden font-sans text-stone-800 transition-all duration-300 ${className}`}>
-            {/* Header */}
+            {/* 头部 */}
             <header className="flex items-center justify-between px-6 py-4 border-b border-black/5">
                 <div className="flex items-end gap-3">
                     <div className="flex flex-col">
@@ -76,14 +76,14 @@ export const MacOSCalendar: React.FC<CalendarProps> = ({ className, publishedDay
                 </div>
             </header>
 
-            {/* Grid Header */}
+            {/* 星期表头 */}
             <div className="grid grid-cols-7 px-4 py-2 text-xs font-semibold text-stone-400 uppercase tracking-wider">
                 {weekDays.map(day => (
                     <div key={day} className="text-center py-1">{day}</div>
                 ))}
             </div>
 
-            {/* Date Grid */}
+            {/* 日期网格 */}
             <div className="flex-1 grid grid-cols-7 grid-rows-6 px-4 pb-4 gap-1">
                 {days.map(date => {
                     const dateStr = date.toString();
@@ -115,7 +115,7 @@ export const MacOSCalendar: React.FC<CalendarProps> = ({ className, publishedDay
                                 </span>
                             ) : null}
 
-                            {/* Event indicators */}
+                            {/* 事件指示 */}
                             <div className="flex gap-1 mt-auto mx-auto h-1.5">
                                 {isPublished && (
                                     <div className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : isToday ? 'bg-blue-400' : 'bg-amber-500'}`} />
@@ -138,7 +138,7 @@ export const MacOSCalendar: React.FC<CalendarProps> = ({ className, publishedDay
                         )
                     }
 
-                    // Fallback to legacy href behavior if no onSelectDate provided
+                    // 未提供 onSelectDate 时回退为 href 行为
                     const href = dayHrefBase ? `${dayHrefBase}/${dateStr}` : undefined;
                     if (href) {
                         return (
