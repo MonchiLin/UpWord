@@ -49,57 +49,61 @@ export const ArticleReader: React.FC<ArticleReaderProps> = ({
     }, [activeId]);
 
     return (
-        <div className={clsx("max-w-[1000px] mx-auto p-4 bg-white", className)}>
-            {/* 难度切换 */}
-            <div className="flex gap-2 mb-6">
-                {[1, 2, 3].map((l) => {
-                    const isActive = level === l;
-                    return (
-                        <button
-                            key={l}
-                            onClick={() => onLevelChange?.(l as 1 | 2 | 3)}
-                            className={clsx(
-                                "h-[34px] px-[9px] text-[16px] cursor-pointer leading-[24px] border-2 transition-all duration-75 uppercase font-medium tracking-wide flex items-center justify-center",
-                                isActive
-                                    ? "bg-[#1a202c] border-[#1a202c]"
-                                    : "bg-white text-[#777777] border-[#e5e5e5] hover:bg-gray-50"
-                            )}
-                            style={{
-                                fontFamily: 'inherit',
-                                borderRadius: '6px',
-                                color: isActive ? '#ffffff' : '#777777',
-                                boxShadow: isActive ? 'none' : '0px 2px 0px 0px #e5e5e5',
-                                transform: isActive ? 'translateY(2px)' : 'none'
-                            }}
-                        >
-                            Level {l}
-                        </button>
-                    );
-                })}
-            </div>
+        <div className={clsx("w-full bg-transparent", className)}>
+            {/* 顶部元数据与难度切换区域 */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 pb-8 border-b border-gray-100">
+                {/* 标题与元数据 */}
+                <div className="flex-1">
+                    <h1
+                        className="mb-3 font-bold text-[#111111] tracking-tight"
+                        style={{ fontSize: '32px', lineHeight: '1.2' }}
+                    >
+                        {title}
+                    </h1>
 
-            {/* 标题区 */}
-            <div className="mb-6">
-                <h1
-                    className="mb-2 font-bold text-[#111111]"
-                    style={{ fontSize: '32px', lineHeight: '38.4px' }}
-                >
-                    {title}
-                </h1>
+                    <div
+                        className="flex flex-wrap gap-x-6 gap-y-2 items-center text-sm font-medium text-gray-500"
+                    >
+                        <span className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-gray-300"></span>
+                            {publishDate}
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-gray-300"></span>
+                            {stats.readCount} reads
+                        </span>
+                    </div>
+                </div>
 
-                <div
-                    className="flex gap-4 items-center"
-                    style={{ fontSize: '13px', lineHeight: '24px', color: '#999999' }}
-                >
-                    <span>{publishDate}</span>
-                    <span>{stats.wordCount} words</span>
-                    <span>{stats.readingTime}</span>
-                    <span>{stats.readCount} reads</span>
+                {/* Segmented Control for Level */}
+                <div className="bg-gray-100/80 p-1.5 rounded-xl inline-flex self-start md:self-center shrink-0">
+                    {[1, 2, 3].map((l) => {
+                        const isActive = level === l;
+                        return (
+                            <button
+                                key={l}
+                                onClick={() => onLevelChange?.(l as 1 | 2 | 3)}
+                                className={clsx(
+                                    "relative px-4 py-1.5 text-sm font-semibold transition-colors duration-200 z-10",
+                                    isActive ? "text-gray-900" : "text-gray-500 hover:text-gray-700"
+                                )}
+                            >
+                                {isActive && (
+                                    <motion.div
+                                        layoutId="level-indicator"
+                                        className="absolute inset-0 bg-white rounded-lg shadow-sm border border-black/5 -z-10"
+                                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                    />
+                                )}
+                                Level {l}
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 
             {/* 正文区 */}
-            <article className="mb-10" ref={contentRef}>
+            <article ref={contentRef}>
                 {content.map((text, idx) => (
                     <TokenizedParagraph
                         key={idx}
@@ -110,6 +114,13 @@ export const ArticleReader: React.FC<ArticleReaderProps> = ({
                     />
                 ))}
             </article>
+
+            {/* 底部统计 */}
+            <div className="mt-12 text-center text-gray-400 text-sm font-medium flex items-center justify-center gap-2">
+                <span>{stats.wordCount} words</span>
+                <span className="w-1 h-1 rounded-full bg-gray-300"></span>
+                <span>{stats.readingTime}</span>
+            </div>
         </div>
     );
 };
@@ -153,21 +164,20 @@ const TokenizedParagraph = React.memo(({ index, text, targetWords, activeWordId 
         return parts;
     }, [text]);
 
-    // Visual Style
+    // Visual Style Update: text-[19px], leading-relaxed (1.8), #333 text color
     const pClassName = clsx(
-        "mb-6 text-[#333333] transition-colors duration-300 rounded-lg p-1 -ml-1",
+        "mb-7 text-[#333333] transition-colors duration-300 rounded-lg p-1 -ml-1",
         isAudioActive && "bg-orange-50/50 border-l-4 border-orange-400 pl-3",
     );
 
     return (
-        <p className={pClassName} style={{ fontSize: '18px', lineHeight: '27px' }}>
+        <p className={pClassName} style={{ fontSize: '18px', lineHeight: '1.6' }}>
             {tokens.map((token, i) => {
                 const lowerPart = token.text.toLowerCase();
                 const isTarget = token.isWord && targetWords.some(w => w.toLowerCase() === lowerPart);
 
                 // Highlight Logic:
-                // Check if audioCharIndex falls within this token's range [start, end)
-                // This is robust because we use the EXACT same text source as the one sent to TTS.
+                // Check if audioCharIndex falls within token [start, end)
                 const isSpeaking = isAudioActive && (audioCharIndex >= token.start && audioCharIndex < token.end);
 
                 if (isSpeaking) {
@@ -191,8 +201,8 @@ const TokenizedParagraph = React.memo(({ index, text, targetWords, activeWordId 
                             } : {}}
                             style={{
                                 color: '#ea580c',
-                                fontWeight: 700,
-                                borderBottom: '1px dotted #ea580c',
+                                fontWeight: 600,
+                                borderBottom: '2px dotted #ea580c', // Thicker dotted line for better visibility
                                 cursor: 'pointer',
                                 display: 'inline-block'
                             }}

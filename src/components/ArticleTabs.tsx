@@ -576,24 +576,26 @@ export default function ArticleTabs(props: ArticleTabsProps) {
 
 	return (
 		<div className="relative">
-			<ArticleReader
-				id={props.articleId}
-				title={props.title || ''}
-				publishDate={props.dateLabel || ''}
-				stats={{
-					wordCount: wordStats.count,
-					readingTime: `${wordStats.minutes} ${minuteLabel}`,
-					readCount: props.reads || 0
-				}}
-				level={level}
-				content={contentParagraphs}
-				targetWords={props.targetWords ?? []}
-				onLevelChange={(newLevel) => {
-					closeFloatingUi();
-					setLevel(newLevel);
-				}}
-				contentRef={contentRef}
-			/>
+			<div className="bg-white rounded-3xl border border-gray-100 p-6 md:p-8">
+				<ArticleReader
+					id={props.articleId}
+					title={props.title || ''}
+					publishDate={props.dateLabel || ''}
+					stats={{
+						wordCount: wordStats.count,
+						readingTime: `${wordStats.minutes} ${minuteLabel}`,
+						readCount: props.reads || 0
+					}}
+					level={level}
+					content={contentParagraphs}
+					targetWords={props.targetWords ?? []}
+					onLevelChange={(newLevel) => {
+						closeFloatingUi();
+						setLevel(newLevel);
+					}}
+					contentRef={contentRef}
+				/>
+			</div>
 
 			{/* 管理员 / 高亮 UI 覆盖层 */}
 			{/* 其余 portal 逻辑保持不变 */}

@@ -122,32 +122,28 @@ const sourceAnchorId = sources.length > 0 ? "article-sources" : null;
 >
 	{
 		row ? (
-			<div class="flex flex-col lg:flex-row gap-6">
+			<div class="flex flex-col lg:flex-row gap-10">
 				{/* Main Content */}
 				<main
 					class={`flex-1 min-w-0 ${sidebarWords.length === 0 ? "max-w-3xl mx-auto" : ""}`}
 				>
-					<div class="space-y-6">
-						<div class="rounded-2xl border border-[#e5e5e5] bg-white p-6">
-							{parsed?.result?.articles ? (
-								<ArticleTabs
-									client:load
-									articleId={row.articles.id}
-									articles={parsed.result.articles}
-									initialIsAdmin={isAdmin}
-									title={row.articles.title}
-									dateLabel={dateLabel}
-									sourceAnchorId={sourceAnchorId}
-									targetWords={sidebarWords.map(
-										(w) => w.word,
-									)}
-								/>
-							) : (
-								<div class="rounded-xl border border-black/10 bg-white/60 p-5 text-sm opacity-70">
-									内容解析失败（content_json 非预期结构）。
-								</div>
-							)}
-						</div>
+					<div class="space-y-8">
+						{parsed?.result?.articles ? (
+							<ArticleTabs
+								client:load
+								articleId={row.articles.id}
+								articles={parsed.result.articles}
+								initialIsAdmin={isAdmin}
+								title={row.articles.title}
+								dateLabel={dateLabel}
+								sourceAnchorId={sourceAnchorId}
+								targetWords={sidebarWords.map((w) => w.word)}
+							/>
+						) : (
+							<div class="rounded-xl border border-black/10 bg-white/60 p-5 text-sm opacity-70">
+								内容解析失败（content_json 非预期结构）。
+							</div>
+						)}
 
 						{sources.length > 0 ? (
 							<div
