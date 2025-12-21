@@ -27,33 +27,28 @@ function WordCard({ wordInfo }: { wordInfo: WordInfo }) {
 
     return (
         <div
-            className={`group relative rounded-xl p-4 transition-all duration-300 cursor-pointer overflow-hidden ${isActive
-                ? 'bg-white/80 backdrop-blur-md shadow-lg ring-1 ring-orange-400/30'
-                : 'bg-white/40 backdrop-blur-sm hover:bg-white/60 hover:shadow-md border border-white/20'
+            className={`group relative pl-4 py-2 transition-all duration-300 cursor-pointer ${isActive
+                ? 'border-l-4 border-slate-900'
+                : 'border-l-4 border-transparent hover:border-stone-200'
                 }`}
             onClick={() => setHighlightedWord(wordInfo.word)}
         >
-            {/* Active Glow Effect */}
-            {isActive && (
-                <div className="absolute inset-0 bg-gradient-to-r from-orange-100/30 to-transparent opacity-50 pointer-events-none" />
-            )}
-
-            <div className="relative flex items-start justify-between gap-3">
+            <div className="relative flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
                     <div className="flex items-baseline gap-2 mb-1">
-                        <div className={`text-lg font-bold tracking-tight ${isActive ? 'text-orange-600' : 'text-stone-800'}`}>
+                        <div className={`text-base font-bold font-serif tracking-tight ${isActive ? 'text-slate-900' : 'text-stone-700'}`}>
                             {wordInfo.word}
                         </div>
                         {wordInfo.phonetic && (
-                            <div className="text-xs font-mono text-stone-500 opacity-80">{wordInfo.phonetic}</div>
+                            <div className="text-xs font-mono text-stone-400">{wordInfo.phonetic}</div>
                         )}
                     </div>
 
-                    <div className="space-y-1.5">
+                    <div className="space-y-1">
                         {wordInfo.definitions.map((def, i) => (
-                            <div key={i} className="text-sm leading-snug line-clamp-2 text-stone-600">
-                                <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-stone-100/80 text-stone-500 mr-2 uppercase tracking-wide">
-                                    {def.pos}
+                            <div key={i} className="text-sm leading-snug line-clamp-3 text-stone-500 font-serif">
+                                <span className="italic text-stone-400 mr-1">
+                                    {def.pos}.
                                 </span>
                                 {def.definition}
                             </div>
@@ -63,13 +58,13 @@ function WordCard({ wordInfo }: { wordInfo: WordInfo }) {
 
                 <button
                     type="button"
-                    className={`w-8 h-8 flex items-center justify-center rounded-full transition-all shrink-0 ${isActive
-                        ? 'bg-orange-100 text-orange-600'
-                        : 'bg-white/50 text-stone-400 hover:bg-white hover:text-stone-600 hover:shadow-sm'}`}
+                    className={`p-1 rounded-full transition-all shrink-0 ${isActive
+                        ? 'text-slate-900'
+                        : 'text-stone-300 hover:text-stone-500'}`}
                     title="Pronounce"
                     onClick={(e) => speak(wordInfo.word, e)}
                 >
-                    <SoundOutlined className="text-sm" />
+                    <SoundOutlined className="text-xs" />
                 </button>
             </div>
         </div>
@@ -80,11 +75,13 @@ export function WordSidebar({ words }: { words: WordInfo[] }) {
     if (!words || words.length === 0) return null;
 
     return (
-        <div className="space-y-3">
-            <div className="text-xs font-bold uppercase tracking-widest text-stone-400/80 px-2 mb-2">
-                Vocabulary
+        <div className="space-y-4 font-serif">
+            <div className="flex items-center justify-between mb-4 border-b-2 border-slate-900 pb-2">
+                <div className="text-xs font-bold uppercase tracking-widest text-slate-900">
+                    Margin Notes
+                </div>
             </div>
-            <div className="grid grid-cols-1 gap-3">
+            <div className="flex flex-col space-y-4">
                 {words.map((w) => (
                     <WordCard key={w.word} wordInfo={w} />
                 ))}

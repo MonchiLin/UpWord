@@ -20,7 +20,7 @@ export class EdgeTTSClient {
 
     // Voices: en-US-GuyNeural (Male), en-US-JennyNeural (Female), en-US-AnaNeural (Female, Childish?)
     // Provide a default
-    constructor(private voice: string = "en-US-GuyNeural") { }
+    constructor(public readonly voice: string = "en-US-GuyNeural") { }
 
     /**
      * Synthesize text to speech

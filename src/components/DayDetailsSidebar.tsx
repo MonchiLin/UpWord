@@ -122,112 +122,114 @@ export default function DayDetailsSidebar({ date, className }: DayDetailsSidebar
 
     if (!date) {
         return (
-            <div className={`p-6 bg-white/60 backdrop-blur-xl border-l border-white/20 h-full overflow-y-auto ${className}`}>
-                <div className="flex flex-col items-center justify-center h-full text-stone-300 gap-2">
-                    <BookOpen size={24} className="opacity-50" />
-                    <p className="font-serif italic">Select a date to start reading</p>
-                </div>
+            <div className={`p-8 h-full flex flex-col items-center justify-center text-stone-400 ${className}`}>
+                <div className="w-16 h-px bg-stone-300 mb-4"></div>
+                <p className="font-serif italic text-lg">Select an edition from the archive</p>
             </div>
         );
     }
 
     return (
-        <div className={`flex flex-col h-full bg-white/60 backdrop-blur-xl border-l border-white/20 text-sm overflow-hidden transition-all duration-300 ${className}`}>
-            <div className="p-6 pb-2 shrink-0">
-                <div className="flex items-center justify-between gap-3">
-                    <div className="flex flex-col">
-                        <span className="text-xs font-semibold text-stone-400 uppercase tracking-widest mb-1">Select Date</span>
-                        <h2 className="text-3xl font-bold tracking-tight text-stone-800 font-serif">
-                            {date ? (
-                                <span>
-                                    {new Date(date).getDate()}
-                                    <span className="text-lg text-stone-400 font-normal ml-2 font-sans">
-                                        {new Date(date).toLocaleString('en-US', { month: 'short' })}
-                                    </span>
-                                </span>
-                            ) : '—'}
+        <div className={`flex flex-col h-full font-serif text-slate-900 ${className}`}>
+            {/* 顶部刊头信息 */}
+            <div className="pb-6 border-b-2 border-slate-900 mb-6">
+                <div className="flex items-end justify-between">
+                    <div>
+                        <span className="block text-xs font-bold tracking-widest uppercase text-stone-500 mb-1">
+                            Daily Edition
+                        </span>
+                        <h2 className="text-5xl font-black tracking-tight text-slate-900 font-serif leading-none">
+                            {new Date(date).getDate()}
                         </h2>
+                        <span className="text-xl italic text-stone-600 font-serif">
+                            {new Date(date).toLocaleString('en-US', { month: 'long', year: 'numeric' })}
+                        </span>
                     </div>
 
                     {date && (
-                        <Tooltip title="今日单词" placement="bottom">
-                            <button
-                                onClick={openWords}
-                                className="p-2 text-stone-400 hover:text-stone-700 hover:bg-black/5 rounded-full transition-all"
-                            >
-                                <BookOpen size={20} strokeWidth={1.5} />
-                            </button>
-                        </Tooltip>
+                        <div className="flex gap-2">
+                            <Tooltip title="Vocabulary Index">
+                                <button
+                                    onClick={openWords}
+                                    className="flex items-center gap-2 px-3 py-1.5 border border-stone-300 hover:bg-stone-100 hover:border-stone-400 transition-colors rounded-sm group"
+                                >
+                                    <span className="text-xs font-sans font-bold uppercase tracking-wider text-stone-500 group-hover:text-stone-800">Index</span>
+                                    <BookOpen size={16} className="text-stone-400 group-hover:text-stone-800" />
+                                </button>
+                            </Tooltip>
+                        </div>
                     )}
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-6">
+            {/* 文章列表 - 报纸栏目样式 */}
+            <div className="flex-1 space-y-8">
                 {loading ? (
-                    <div className="animate-pulse space-y-4">
-                        <div className="h-20 bg-stone-200 rounded-xl"></div>
-                        <div className="h-32 bg-stone-200 rounded-xl"></div>
+                    <div className="animate-pulse space-y-8">
+                        {[1, 2].map(i => (
+                            <div key={i} className="space-y-3">
+                                <div className="h-6 bg-stone-200 w-3/4"></div>
+                                <div className="h-4 bg-stone-200"></div>
+                                <div className="h-4 bg-stone-200 w-5/6"></div>
+                            </div>
+                        ))}
                     </div>
                 ) : (
                     <>
-                        <div className="space-y-2">
+                        {/* Admin Control Hook */}
+                        <div className="mb-8">
                             <AdminDayPanel date={date} />
                         </div>
 
                         {data.publishedTaskGroups.length > 0 ? (
-                            <div className="space-y-6">
+                            <div className="space-y-0 divide-y divide-stone-200 border-b border-stone-200">
                                 {data.publishedTaskGroups.map((group, groupIdx) => (
                                     <div
                                         key={group.task.id}
-                                        className="relative animate-in fade-in slide-in-from-right-4 duration-700 fill-mode-backwards"
+                                        className="py-6 first:pt-0 animate-in fade-in slide-in-from-bottom-2 duration-700"
                                         style={{ animationDelay: `${groupIdx * 100}ms` }}
                                     >
-                                        {/* 时间线装饰 (Optional) */}
-                                        <div className="absolute left-0 top-0 bottom-0 w-px bg-stone-200/50 -ml-4 hidden"></div>
-
-
-
-                                        <div className="grid gap-2">
+                                        <div className="grid gap-8">
                                             {group.articles.length === 0 ? (
-                                                <div className="text-xs text-stone-400 italic pl-4">
-                                                    Empty content
+                                                <div className="text-sm text-stone-400 italic font-serif">
+                                                    No articles in this section.
                                                 </div>
                                             ) : (
-                                                group.articles.map((a, idx) => (
-                                                    <div
-                                                        key={a.id}
-                                                        className="group/card relative rounded-xl hover:bg-white/60 hover:shadow-sm border border-transparent hover:border-white/40 p-3 transition-all duration-300 cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
-                                                    >
-                                                        <a
-                                                            href={`/article/${a.id}`}
-                                                            className="block"
-                                                        >
-                                                            <div className="flex flex-col gap-1">
-
-                                                                <h3 className="font-serif text-lg text-stone-800 leading-snug group-hover/card:text-black transition-colors">
+                                                group.articles.map((a) => (
+                                                    <div key={a.id} className="group relative">
+                                                        <a href={`/article/${a.id}`} className="block group-hover:opacity-70 transition-opacity">
+                                                            <div className="flex flex-col gap-2">
+                                                                <h3 className="font-serif text-2xl font-bold text-slate-900 leading-tight">
                                                                     {a.title}
                                                                 </h3>
+                                                                <p className="font-serif text-stone-600 leading-relaxed line-clamp-2">
+                                                                    {/* 假摘要，实际上我们会用副标题或内容前几行 */}
+                                                                    Exploring the nuances of language and vocabulary through the lens of {a.model}...
+                                                                </p>
+                                                                <div className="pt-2 flex items-center justify-between">
+                                                                    <span className="text-xs font-sans font-bold uppercase tracking-widest text-stone-400">Read Article</span>
+                                                                    {/* Delete Action */}
+                                                                    <Popconfirm
+                                                                        title="Archive Article"
+                                                                        description="Remove this article from the edition?"
+                                                                        onConfirm={(e) => {
+                                                                            e?.stopPropagation();
+                                                                            deleteArticle(a.id);
+                                                                        }}
+                                                                        okText="Archive"
+                                                                        cancelText="Cancel"
+                                                                        okButtonProps={{ danger: true, size: 'small' }}
+                                                                    >
+                                                                        <button
+                                                                            className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-600 text-stone-300 transition-all"
+                                                                            onClick={(e) => e.preventDefault()}
+                                                                        >
+                                                                            <Trash2 size={14} />
+                                                                        </button>
+                                                                    </Popconfirm>
+                                                                </div>
                                                             </div>
                                                         </a>
-                                                        <Popconfirm
-                                                            title="删除文章"
-                                                            description="Are you sure?"
-                                                            onConfirm={(e) => {
-                                                                e?.stopPropagation();
-                                                                deleteArticle(a.id);
-                                                            }}
-                                                            okText="Delete"
-                                                            cancelText="Cancel"
-                                                            okButtonProps={{ danger: true, size: 'small' }}
-                                                            cancelButtonProps={{ size: 'small' }}
-                                                        >
-                                                            <button
-                                                                className="absolute top-3 right-3 p-1.5 rounded-full opacity-0 group-hover/card:opacity-100 hover:bg-red-50 text-stone-300 hover:text-red-500 transition-all scale-90 hover:scale-100"
-                                                                onClick={(e) => e.preventDefault()}
-                                                            >
-                                                                <Trash2 size={14} />
-                                                            </button>
-                                                        </Popconfirm>
                                                     </div>
                                                 ))
                                             )}
@@ -236,11 +238,8 @@ export default function DayDetailsSidebar({ date, className }: DayDetailsSidebar
                                 ))}
                             </div>
                         ) : (
-                            <div className="flex flex-col items-center justify-center py-20 text-stone-300 gap-3">
-                                <div className="p-4 rounded-full bg-stone-100/50">
-                                    <BookOpen size={24} className="opacity-50" />
-                                </div>
-                                <p className="text-sm font-medium tracking-wide">No reading for this day</p>
+                            <div className="py-12 flex flex-col items-center justify-center text-stone-400 gap-4 border-y border-stone-200">
+                                <span className="font-serif italic text-lg text-stone-500">No content published for this date.</span>
                             </div>
                         )}
                     </>
@@ -256,7 +255,6 @@ export default function DayDetailsSidebar({ date, className }: DayDetailsSidebar
                     </div>
                 }
                 placement="right"
-                width={400}
                 onClose={() => setWordsOpen(false)}
                 open={wordsOpen}
                 styles={{
@@ -272,6 +270,7 @@ export default function DayDetailsSidebar({ date, className }: DayDetailsSidebar
                         padding: '16px 24px'
                     },
                     wrapper: {
+                        width: 400,
                         boxShadow: '-8px 0 24px rgba(0, 0, 0, 0.08)'
                     }
                 }}

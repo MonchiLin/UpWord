@@ -6,6 +6,11 @@ export default {
 	darkMode: 'class',
 	theme: {
 		extend: {
+			fontFamily: {
+				fontFamily: {
+					serif: ['Lora', '"Noto Serif SC"', 'ui-serif', 'Georgia', 'Cambria', '"Times New Roman"', 'Times', 'serif'],
+				},
+			},
 			colors: {
 				paper: {
 					DEFAULT: '#F9F9F8',

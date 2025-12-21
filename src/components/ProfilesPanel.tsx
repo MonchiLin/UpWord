@@ -1,7 +1,7 @@
 import { Pencil1Icon, PlusIcon, ReloadIcon, TrashIcon } from '@radix-ui/react-icons';
-import { Badge, Button, Flex, Table, Text, TextArea, TextField } from '@radix-ui/themes';
-import { Modal, Input } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
+import Modal from './ui/Modal';
+
 
 type GenerationProfile = {
 	id: string;
@@ -88,7 +88,7 @@ function parseJsonField(label: string, raw: string) {
 	try {
 		return { ok: true as const, value: JSON.parse(raw) as unknown };
 	} catch (e) {
-		return { ok: false as const, message: `${label} 不是合法 JSON：${(e as Error).message}` };
+		return { ok: false as const, message: `${label} Invalid JSON: ${(e as Error).message}` };
 	}
 }
 
@@ -122,7 +122,6 @@ export default function ProfilesPanel(props: { adminKey: string }) {
 	useEffect(() => {
 		if (!adminKey) return;
 		void refresh();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [adminKey]);
 
 	function openCreate() {
@@ -142,13 +141,13 @@ export default function ProfilesPanel(props: { adminKey: string }) {
 
 		const name = draft.name.trim();
 		const topicPreference = draft.topic_preference.trim();
-		if (!name) return setError('name 不能为空');
-		if (!topicPreference) return setError('topic_preference 不能为空');
+		if (!name) return setError('name is required');
+		if (!topicPreference) return setError('topic_preference is required');
 
 		const concurrency = Number(draft.concurrency);
 		const timeoutMs = Number(draft.timeout_ms);
-		if (!Number.isFinite(concurrency) || concurrency <= 0 || !Number.isInteger(concurrency)) return setError('concurrency 必须是正整数');
-		if (!Number.isFinite(timeoutMs) || timeoutMs <= 0 || !Number.isInteger(timeoutMs)) return setError('timeout_ms 必须是正整数');
+		if (!Number.isFinite(concurrency) || concurrency <= 0 || !Number.isInteger(concurrency)) return setError('concurrency must be a positive integer');
+		if (!Number.isFinite(timeoutMs) || timeoutMs <= 0 || !Number.isInteger(timeoutMs)) return setError('timeout_ms must be a positive integer');
 
 		const modelSettingParsed = parseJsonField('model_setting', draft.model_setting_json);
 		if (!modelSettingParsed.ok) return setError(modelSettingParsed.message);
@@ -199,182 +198,194 @@ export default function ProfilesPanel(props: { adminKey: string }) {
 	}
 
 	function confirmDelete(p: GenerationProfile) {
-		Modal.confirm({
-			title: '确认删除？',
-			content: `将删除 profile "${p.name}"。若该 profile 已被 tasks 引用，将删除失败。`,
-			okText: '删除',
-			okType: 'danger',
-			cancelText: '取消',
-			onOk: () => removeProfile(p.id)
-		});
+		if (window.confirm(`Delete profile "${p.name}"? If it is referenced by tasks, deletion will fail.`)) {
+			removeProfile(p.id);
+		}
 	}
 
 	return (
-		<Flex direction="column" gap="4">
-			<Flex align="center" justify="between" wrap="wrap" gap="3">
-				<Flex direction="column" gap="1">
-					<Text size="2" weight="medium">
-						Generation Profiles
-					</Text>
-					<Text size="1" color="gray">
-						点击"生成"会对所有 profiles 都生成，生成完成后在"当日任务"里选择发布哪一套。
-					</Text>
-				</Flex>
+		<div className="space-y-6">
+			{/* Header Actions */}
+			<div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+				<div className="space-y-1">
+					<h3 className="text-lg font-serif font-bold text-stone-900">Generation Profiles</h3>
+					<p className="text-sm text-stone-500 font-serif italic">
+						Configure AI profiles for article generation.
+					</p>
+				</div>
+				<div className="flex items-center gap-3">
+					<button
+						onClick={refresh}
+						disabled={loading}
+						className="px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-stone-600 hover:text-stone-900 border border-transparent hover:border-stone-300 rounded-sm transition-all"
+					>
+						<div className="flex items-center gap-2">
+							<ReloadIcon className={loading ? 'animate-spin' : ''} />
+							Refresh
+						</div>
+					</button>
+					<button
+						onClick={openCreate}
+						disabled={loading}
+						className="px-4 py-1.5 bg-stone-900 !text-white text-sm font-bold rounded-sm hover:bg-stone-700"
+					>
+						<div className="flex items-center gap-2">
+							<PlusIcon />
+							New Profile
+						</div>
+					</button>
+				</div>
+			</div>
 
-				<Flex gap="2" align="center">
-					<Button type="button" size="1" variant="soft" onClick={refresh} disabled={loading}>
-						<ReloadIcon /> 刷新
-					</Button>
-					<Button type="button" size="1" color="orange" onClick={openCreate} disabled={loading}>
-						<PlusIcon /> 新建
-					</Button>
-				</Flex>
-			</Flex>
-
-			{error ? (
-				<Text size="2" color="red">
+			{error && (
+				<div className="text-sm text-red-600 bg-red-50 p-4 border-l-2 border-red-600 font-serif italic">
 					{error}
-				</Text>
-			) : null}
+				</div>
+			)}
 
-			<Table.Root variant="surface">
-				<Table.Header>
-					<Table.Row>
-						<Table.ColumnHeaderCell>名称</Table.ColumnHeaderCell>
-						<Table.ColumnHeaderCell>Model</Table.ColumnHeaderCell>
-						<Table.ColumnHeaderCell>并发/超时</Table.ColumnHeaderCell>
-						<Table.ColumnHeaderCell>操作</Table.ColumnHeaderCell>
-					</Table.Row>
-				</Table.Header>
-				<Table.Body>
-					{rows.length === 0 ? (
-						<Table.Row>
-							<Table.Cell colSpan={4}>
-								<Text size="2" color="gray">
-									暂无 profiles。请先创建一个。
-								</Text>
-							</Table.Cell>
-						</Table.Row>
-					) : (
-						rows.map((p) => (
-							<Table.Row key={p.id}>
-								<Table.RowHeaderCell>
-									<Flex direction="column" gap="1">
-										<Text size="2" weight="medium">
-											{p.name}
-										</Text>
-										<Flex gap="1" wrap="wrap">
+			{/* Table */}
+			<div className="border border-stone-200 overflow-hidden">
+				<table className="w-full text-left border-collapse">
+					<thead>
+						<tr className="bg-stone-50 border-b border-stone-200 text-xs font-bold uppercase tracking-widest text-stone-500">
+							<th className="p-4 font-medium">Name / Topics</th>
+							<th className="p-4 font-medium">Model</th>
+							<th className="p-4 font-medium">Concurrency</th>
+							<th className="p-4 font-medium text-right">Actions</th>
+						</tr>
+					</thead>
+					<tbody className="divide-y divide-stone-200">
+						{rows.length === 0 ? (
+							<tr>
+								<td colSpan={4} className="p-8 text-center text-stone-400 font-serif italic">
+									No profiles found. Create one to get started.
+								</td>
+							</tr>
+						) : (
+							rows.map((p) => (
+								<tr key={p.id} className="group hover:bg-stone-50 transition-colors">
+									<td className="p-4">
+										<div className="font-serif font-bold text-stone-900 mb-2">{p.name}</div>
+										<div className="flex flex-wrap gap-1">
 											{splitTopicTags(p.topic_preference).map((t) => (
-												<Badge key={t} variant="soft" color="gray">
+												<span key={t} className="px-2 py-0.5 bg-white border border-stone-200 text-[10px] text-stone-500 uppercase tracking-wide rounded-full">
 													{t}
-												</Badge>
+												</span>
 											))}
-										</Flex>
-									</Flex>
-								</Table.RowHeaderCell>
-								<Table.Cell>
-									<Badge variant="soft">{summarizeModelSetting(p.model_setting)}</Badge>
-								</Table.Cell>
-								<Table.Cell>
-									<Text size="1" color="gray">
+										</div>
+									</td>
+									<td className="p-4 text-sm text-stone-600 font-mono">
+										{summarizeModelSetting(p.model_setting)}
+									</td>
+									<td className="p-4 text-sm text-stone-500">
 										{p.concurrency} / {p.timeout_ms}ms
-									</Text>
-								</Table.Cell>
-								<Table.Cell>
-									<Flex gap="2" align="center" wrap="wrap">
-										<Button type="button" size="1" variant="soft" onClick={() => openEdit(p)} disabled={loading}>
-											<Pencil1Icon /> 编辑
-										</Button>
-										<Button type="button" size="1" variant="soft" color="red" onClick={() => confirmDelete(p)} disabled={loading}>
-											<TrashIcon /> 删除
-										</Button>
-									</Flex>
-								</Table.Cell>
-							</Table.Row>
-						))
-					)}
-				</Table.Body>
-			</Table.Root>
+									</td>
+									<td className="p-4 text-right">
+										<div className="flex justify-end gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
+											<button
+												onClick={() => openEdit(p)}
+												className="p-1 text-stone-400 hover:text-stone-900 transition-colors"
+												title="Edit"
+											>
+												<Pencil1Icon />
+											</button>
+											<button
+												onClick={() => confirmDelete(p)}
+												className="p-1 text-stone-400 hover:text-red-600 transition-colors"
+												title="Delete"
+											>
+												<TrashIcon />
+											</button>
+										</div>
+									</td>
+								</tr>
+							))
+						)}
+					</tbody>
+				</table>
+			</div>
 
+			{/* Editor Modal */}
 			<Modal
-				title={editorMode === 'create' ? '新建 Profile' : '编辑 Profile'}
+				title={editorMode === 'create' ? 'Create Profile' : 'Edit Profile'}
 				open={editorOpen}
-				onCancel={() => setEditorOpen(false)}
-				footer={null}
-				width={760}
+				onClose={() => setEditorOpen(false)}
+				width={700}
 			>
-				<p className="text-sm text-gray-500 mb-4">用于配置模型设置、主题偏好与超时等。</p>
+				<div className="space-y-6">
+					<p className="text-sm text-stone-500 font-serif italic mb-4">
+						Configure AI model settings, topic preferences, and execution parameters.
+					</p>
 
-				<Flex direction="column" gap="4">
-					<Flex direction="column" gap="2">
-						<Text size="2" weight="medium">
-							name
-						</Text>
-						<TextField.Root value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} />
-					</Flex>
-
-					<Flex direction="column" gap="2">
-						<Text size="2" weight="medium">
-							topic_preference
-						</Text>
-						<TextArea
-							value={draft.topic_preference}
-							onChange={(e) => setDraft((d) => ({ ...d, topic_preference: e.target.value }))}
-							style={{ minHeight: 70 }}
-						/>
-						<Flex gap="1" wrap="wrap">
-							{splitTopicTags(draft.topic_preference).map((t) => (
-								<Badge key={t} variant="soft" color="gray">
-									{t}
-								</Badge>
-							))}
-						</Flex>
-					</Flex>
-
-					<Flex gap="4" wrap="wrap">
-						<Flex direction="column" gap="2" style={{ flex: 1, minWidth: 220 }}>
-							<Text size="2" weight="medium">
-								concurrency
-							</Text>
-							<TextField.Root
-								type="number"
-								value={draft.concurrency}
-								onChange={(e) => setDraft((d) => ({ ...d, concurrency: e.target.value }))}
+					<div className="space-y-4">
+						<div className="space-y-1">
+							<label className="block text-xs font-bold uppercase tracking-widest text-stone-700">Name</label>
+							<input
+								type="text"
+								value={draft.name}
+								onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
+								className="w-full px-3 py-2 bg-white border border-stone-300 focus:border-stone-500 text-stone-900 text-sm focus:outline-none"
+								placeholder="e.g. Daily General"
 							/>
-						</Flex>
-						<Flex direction="column" gap="2" style={{ flex: 1, minWidth: 220 }}>
-							<Text size="2" weight="medium">
-								timeout_ms
-							</Text>
-							<TextField.Root
-								type="number"
-								value={draft.timeout_ms}
-								onChange={(e) => setDraft((d) => ({ ...d, timeout_ms: e.target.value }))}
+						</div>
+
+						<div className="space-y-1">
+							<label className="block text-xs font-bold uppercase tracking-widest text-stone-700">Topics</label>
+							<textarea
+								value={draft.topic_preference}
+								onChange={(e) => setDraft((d) => ({ ...d, topic_preference: e.target.value }))}
+								className="w-full px-3 py-2 bg-white border border-stone-300 focus:border-stone-500 text-stone-900 text-sm min-h-[80px] focus:outline-none"
+								placeholder="Keywords separated by commas"
 							/>
-						</Flex>
-					</Flex>
+						</div>
 
-					<Flex direction="column" gap="2">
-						<Text size="2" weight="medium">
-							model_setting (JSON)
-						</Text>
-						<Input.TextArea
-							value={draft.model_setting_json}
-							onChange={(e) => setDraft((d) => ({ ...d, model_setting_json: e.target.value }))}
-							style={{ minHeight: 180 }}
-						/>
-					</Flex>
+						<div className="grid grid-cols-2 gap-4">
+							<div className="space-y-1">
+								<label className="block text-xs font-bold uppercase tracking-widest text-stone-700">Concurrency</label>
+								<input
+									type="number"
+									value={draft.concurrency}
+									onChange={(e) => setDraft((d) => ({ ...d, concurrency: e.target.value }))}
+									className="w-full px-3 py-2 bg-white border border-stone-300 focus:border-stone-500 text-stone-900 text-sm focus:outline-none"
+								/>
+							</div>
+							<div className="space-y-1">
+								<label className="block text-xs font-bold uppercase tracking-widest text-stone-700">Timeout (ms)</label>
+								<input
+									type="number"
+									value={draft.timeout_ms}
+									onChange={(e) => setDraft((d) => ({ ...d, timeout_ms: e.target.value }))}
+									className="w-full px-3 py-2 bg-white border border-stone-300 focus:border-stone-500 text-stone-900 text-sm focus:outline-none"
+								/>
+							</div>
+						</div>
 
-					<Flex gap="3" justify="end" mt="2">
-						<Button type="button" variant="soft" onClick={() => setEditorOpen(false)} disabled={loading}>
-							取消
-						</Button>
-						<Button color="orange" onClick={() => void submit()} disabled={loading}>
-							保存
-						</Button>
-					</Flex>
-				</Flex>
+						<div className="space-y-1">
+							<label className="block text-xs font-bold uppercase tracking-widest text-stone-700">Model Setting (JSON)</label>
+							<textarea
+								value={draft.model_setting_json}
+								onChange={(e) => setDraft((d) => ({ ...d, model_setting_json: e.target.value }))}
+								className="w-full px-3 py-2 bg-white border border-stone-300 focus:border-stone-500 text-stone-900 text-sm font-mono min-h-[150px] focus:outline-none"
+							/>
+						</div>
+					</div>
+
+					<div className="flex justify-end gap-3 pt-6 border-t border-stone-200">
+						<button
+							onClick={() => setEditorOpen(false)}
+							className="px-4 py-2 bg-stone-100 text-stone-600 text-xs font-bold uppercase tracking-widest hover:bg-stone-200 transition-colors"
+						>
+							Cancel
+						</button>
+						<button
+							onClick={() => void submit()}
+							className="px-6 py-2 bg-stone-900 !text-white text-sm font-bold rounded-sm hover:bg-stone-700"
+						>
+							Save Profile
+						</button>
+					</div>
+				</div>
 			</Modal>
-		</Flex>
+		</div>
 	);
 }

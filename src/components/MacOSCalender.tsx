@@ -39,52 +39,46 @@ export const MacOSCalendar: React.FC<CalendarProps> = ({ className, publishedDay
     const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
     return (
-        <div className={`flex flex-col h-full w-full bg-white/60 backdrop-blur-2xl rounded-xl border border-white/40 shadow-2xl overflow-hidden font-sans text-stone-800 transition-all duration-300 ${className}`}>
-            {/* 头部 */}
-            <header className="flex items-center justify-between px-6 py-4 border-b border-black/5">
-                <div className="flex items-end gap-3">
-                    <div className="flex flex-col">
-                        <h2 className="text-2xl font-bold tracking-tight">
-                            {currentMonth.toLocaleString('en-US', { month: 'long' })}
-                        </h2>
-                        <span className="text-sm font-medium text-stone-500">
-                            {currentMonth.year}
-                        </span>
-                    </div>
-                    {selectedDate === today.toString() && (
-                        <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-600">
-                            今日
-                        </span>
-                    )}
+        <div className={`flex flex-col w-full font-serif text-slate-900 ${className}`}>
+            {/* 头部 - 极简 */}
+            <header className="flex items-center justify-between py-4 mb-2">
+                <div className="flex flex-col">
+                    <span className="text-sm font-bold tracking-widest uppercase text-stone-500 mb-1">
+                        {currentMonth.year}
+                    </span>
+                    <h2 className="text-4xl font-black tracking-tight font-serif text-slate-900/90 leading-none">
+                        {currentMonth.toLocaleString('en-US', { month: 'long' })}
+                    </h2>
                 </div>
 
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={goToday}
-                        className="px-4 py-1.5 text-sm font-medium bg-stone-200/50 hover:bg-stone-300/50 rounded-md transition-colors"
-                    >
-                        Today
-                    </button>
-                    <div className="flex items-center bg-stone-100/50 rounded-md p-0.5">
-                        <button onClick={prevMonth} className="p-1.5 hover:bg-white/50 rounded transition-colors" aria-label="Previous Month">
+                <div className="flex items-center gap-1">
+                    <div className="flex items-center border border-stone-200 rounded-sm">
+                        <button onClick={prevMonth} className="p-1 hover:bg-stone-100 transition-colors" aria-label="Previous Month">
                             <ChevronLeftIcon />
                         </button>
-                        <button onClick={nextMonth} className="p-1.5 hover:bg-white/50 rounded transition-colors" aria-label="Next Month">
+                        <div className="w-px h-4 bg-stone-200"></div>
+                        <button onClick={nextMonth} className="p-1 hover:bg-stone-100 transition-colors" aria-label="Next Month">
                             <ChevronRightIcon />
                         </button>
                     </div>
+                    <button
+                        onClick={goToday}
+                        className="ml-2 px-3 py-1 text-xs font-bold uppercase tracking-widest border border-stone-200 hover:bg-stone-100 transition-colors rounded-sm"
+                    >
+                        Today
+                    </button>
                 </div>
             </header>
 
-            {/* 星期表头 */}
-            <div className="grid grid-cols-7 px-4 py-2 text-xs font-semibold text-stone-400 uppercase tracking-wider">
+            {/* 星期表头 - 更粗的线条 */}
+            <div className="grid grid-cols-7 py-2 border-y-2 border-slate-900 mb-2">
                 {weekDays.map(day => (
-                    <div key={day} className="text-center py-1">{day}</div>
+                    <div key={day} className="text-center text-xs font-bold uppercase tracking-widest text-slate-900">{day}</div>
                 ))}
             </div>
 
-            {/* 日期网格 */}
-            <div className="flex-1 grid grid-cols-7 grid-rows-6 px-4 pb-4 gap-1">
+            {/* 日期网格 - 干净的平铺 */}
+            <div className="grid grid-cols-7 gap-y-4 gap-x-1">
                 {days.map(date => {
                     const dateStr = date.toString();
                     const isCurrentMonth = date.month === currentMonth.month;
@@ -92,35 +86,26 @@ export const MacOSCalendar: React.FC<CalendarProps> = ({ className, publishedDay
                     const isPublished = publishedDays.includes(dateStr);
                     const isSelected = selectedDate === dateStr;
 
+                    // 选中态：实心圆 (Deep Oxford Blue)
+                    // 今天：空心圆
+                    // 有文章：下方小点
                     const dayClassName = `
-                        relative group flex flex-col p-2 rounded-lg transition-all duration-200
-                        ${!isCurrentMonth ? 'opacity-30' : 'opacity-100'}
-                        ${isSelected ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' :
-                            isToday ? 'bg-blue-100/50 text-blue-700' : 'hover:bg-stone-100/50'}
-                        ${!isSelected && !isToday && isPublished ? 'bg-amber-50 ring-1 ring-amber-300' : ''}
-                        cursor-pointer
+                        relative group flex flex-col items-center justify-center h-10 w-10 mx-auto transition-all cursor-pointer rounded-full
+                        ${!isCurrentMonth ? 'opacity-20' : 'opacity-100'}
+                        ${isSelected ? 'bg-slate-900 text-[#F3F2EE]' : 'hover:bg-stone-200'}
+                        ${isToday && !isSelected ? 'ring-2 ring-slate-400' : ''}
                     `;
 
                     const content = (
                         <>
-                            <span className={`
-                                text-sm font-semibold w-7 h-7 flex items-center justify-center rounded-full
-                                ${isToday && !isSelected ? 'bg-blue-100' : ''}
-                            `}>
+                            <span className={`text-base font-serif font-medium ${isSelected ? 'font-bold' : ''}`}>
                                 {date.day}
                             </span>
-                            {isToday ? (
-                                <span className={`mt-1 text-[10px] font-semibold tracking-widest ${isSelected || isToday ? 'opacity-80' : ''}`}>
-                                    Today
-                                </span>
-                            ) : null}
 
-                            {/* 事件指示 */}
-                            <div className="flex gap-1 mt-auto mx-auto h-1.5">
-                                {isPublished && (
-                                    <div className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : isToday ? 'bg-blue-400' : 'bg-amber-500'}`} />
-                                )}
-                            </div>
+                            {/* 事件指示 - 极简点 */}
+                            {isPublished && !isSelected && (
+                                <div className="absolute bottom-1.5 w-1 h-1 rounded-full bg-red-800" />
+                            )}
                         </>
                     );
 
@@ -138,15 +123,13 @@ export const MacOSCalendar: React.FC<CalendarProps> = ({ className, publishedDay
                         )
                     }
 
-                    // 未提供 onSelectDate 时回退为 href 行为
+                    // Fallback href behavior
                     const href = dayHrefBase ? `${dayHrefBase}/${dateStr}` : undefined;
                     if (href) {
                         return (
                             <a
                                 key={dateStr}
                                 href={href}
-                                aria-label={`Open ${dateStr}`}
-                                aria-current={isToday ? 'date' : undefined}
                                 className={dayClassName}
                             >
                                 {content}

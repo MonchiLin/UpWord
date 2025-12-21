@@ -19,6 +19,7 @@ export interface AudioState {
     audioUrl: string | null;
     wordAlignments: WordBoundary[];
     isLoading: boolean;
+    voice: string;
 }
 
 export const audioState = map<AudioState>({
@@ -30,10 +31,15 @@ export const audioState = map<AudioState>({
     isSupported: true, // Audio element is universally supported
     audioUrl: null,
     wordAlignments: [],
-    isLoading: false
+    isLoading: false,
+    voice: 'en-US-GuyNeural'
 });
 
 // Actions
+export const setVoice = (voice: string) => {
+    audioState.setKey('voice', voice);
+};
+
 export const setPlaylist = (paragraphs: string[]) => {
     // Reset state when new content loads
     // Clean text: remove newlines that might break basic TTS flow

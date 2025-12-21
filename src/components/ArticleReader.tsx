@@ -50,71 +50,61 @@ export const ArticleReader: React.FC<ArticleReaderProps> = ({
 
     return (
         <div className={clsx("w-full transition-all duration-500", className)}>
-            {/* Paper Container */}
-            <div className="relative mx-auto max-w-3xl bg-white/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/50 p-8 md:p-12 lg:p-16 ring-1 ring-black/5">
+            {/* Editorial Layout: No Container, just Content */}
 
-                {/* 顶部元数据与难度切换区域 */}
-                <div className="flex flex-col gap-8 mb-12 pb-8 border-b border-stone-200/60">
-                    <div className="flex items-start justify-between gap-4">
-                        <div className="space-y-4">
-                            <h1 className="text-3xl md:text-4xl font-bold text-stone-900 tracking-tight leading-tight font-display">
-                                {title}
-                            </h1>
-                            <div className="flex items-center gap-4 text-sm font-medium text-stone-500 uppercase tracking-wider">
-                                <span>{publishDate}</span>
-                                <span className="w-1 h-1 rounded-full bg-stone-300"></span>
-                                <span>{stats.readCount} reads</span>
-                            </div>
-                        </div>
-
-                        {/* Segmented Control for Level */}
-                        <div className="bg-stone-100/80 p-1.5 rounded-xl inline-flex shrink-0 border border-stone-200/50">
-                            {[1, 2, 3].map((l) => {
-                                const isActive = level === l;
-                                return (
-                                    <button
-                                        key={l}
-                                        onClick={() => onLevelChange?.(l as 1 | 2 | 3)}
-                                        className={clsx(
-                                            "relative px-3 py-1 text-xs font-bold transition-colors duration-200 z-10 uppercase tracking-wide",
-                                            isActive ? "text-stone-800" : "text-stone-400 hover:text-stone-600"
-                                        )}
-                                    >
-                                        {isActive && (
-                                            <motion.div
-                                                layoutId="level-indicator"
-                                                className="absolute inset-0 bg-white rounded-lg shadow-sm border border-black/5 -z-10"
-                                                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                            />
-                                        )}
-                                        L{l}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </div>
-
-                {/* 正文区 */}
-                <article ref={contentRef} className="font-serif leading-loose text-lg md:text-xl text-stone-800 space-y-8">
-                    {content.map((text, idx) => (
-                        <TokenizedParagraph
-                            key={idx}
-                            index={idx}
-                            text={text}
-                            targetWords={targetWords}
-                            activeWordId={activeId}
-                        />
-                    ))}
-                </article>
-
-                {/* 底部统计 */}
-                <div className="mt-16 pt-8 border-t border-stone-200/60 text-center flex items-center justify-center gap-3 text-sm font-medium text-stone-400 uppercase tracking-widest">
-                    <span>{stats.wordCount} words</span>
-                    <span className="w-1 h-1 rounded-full bg-stone-300"></span>
+            {/* Article Header */}
+            <header className="mb-12 md:mb-16">
+                {/* Meta Top Line */}
+                <div className="flex items-center gap-3 text-xs md:text-sm font-bold tracking-widest uppercase text-stone-500 mb-6 border-b-2 border-slate-900 pb-2">
+                    <span className="text-slate-900">{publishDate}</span>
+                    <span className="text-stone-300">|</span>
+                    <span>{stats.readCount} Reads</span>
+                    <span className="text-stone-300">|</span>
                     <span>{stats.readingTime}</span>
                 </div>
-            </div>
+
+                {/* Huge Serif Title */}
+                <h1 className="text-4xl md:text-6xl font-black text-slate-900 tracking-tight leading-[1.1] font-serif mb-8">
+                    {title}
+                </h1>
+
+                {/* Level Control - Integrated & Minimal */}
+                <div className="flex items-center justify-between border-t border-b border-stone-200 py-3">
+                    <span className="text-xs font-serif italic text-stone-500">Reading Level Adjustment</span>
+                    <div className="flex gap-1">
+                        {[1, 2, 3].map((l) => {
+                            const isActive = level === l;
+                            return (
+                                <button
+                                    key={l}
+                                    onClick={() => onLevelChange?.(l as 1 | 2 | 3)}
+                                    className={clsx(
+                                        "w-6 h-6 flex items-center justify-center text-xs font-bold transition-all rounded-sm border leading-none",
+                                        isActive
+                                            ? "bg-slate-900 !text-white border-slate-900"
+                                            : "bg-transparent text-stone-400 border-transparent hover:border-stone-200 hover:text-stone-600"
+                                    )}
+                                >
+                                    {l}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            </header>
+
+            {/* Article Content */}
+            <article ref={contentRef} className="font-serif leading-loose text-xl md:text-2xl text-slate-800/90 space-y-8">
+                {content.map((text, idx) => (
+                    <TokenizedParagraph
+                        key={idx}
+                        index={idx}
+                        text={text}
+                        targetWords={targetWords}
+                        activeWordId={activeId}
+                    />
+                ))}
+            </article>
         </div>
     );
 };

@@ -14,25 +14,27 @@ export default function HomeWorkspace({ publishedDays }: HomeWorkspaceProps) {
     );
 
     return (
-        <div className="relative flex h-[calc(100vh-64px)] w-full overflow-hidden transition-all duration-700">
-            {/* Immersive Background moved to Global Layout */}
-
-            <div className="flex-1 p-4 lg:p-8 overflow-hidden flex flex-col items-center justify-center">
-                <div className="max-w-4xl w-full h-full max-h-[800px]">
+        <div className="relative w-full max-w-7xl mx-auto px-4 py-8 md:py-12">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-12 items-start">
+                {/* Left Column: Calendar (Index) */}
+                <div className="md:col-span-4 lg:col-span-4 sticky top-24">
                     <MacOSCalendar
-                        className="h-full shadow-2xl ring-1 ring-black/5"
+                        className="w-full"
                         publishedDays={publishedDays}
                         selectedDate={selectedDate}
                         onSelectDate={setSelectedDate}
-                        dayHrefBase={undefined} // 禁用链接跳转
+                        dayHrefBase={undefined}
+                    />
+                </div>
+
+                {/* Right Column: Feed (Content) */}
+                <div className="md:col-span-8 lg:col-span-8 min-h-[500px]">
+                    <DayDetailsSidebar
+                        date={selectedDate}
+                        className="w-full"
                     />
                 </div>
             </div>
-
-            <DayDetailsSidebar
-                date={selectedDate}
-                className="w-[340px] flex-shrink-0 shadow-2xl z-10 border-l border-white/40"
-            />
         </div>
     );
 }
