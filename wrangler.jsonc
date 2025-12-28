@@ -13,13 +13,6 @@
       "database_id": "9eb2facb-b945-4df0-a94e-1ae5ccfb87c4"
     }
   ],
-  "kv_namespaces": [
-    {
-      "binding": "SESSION",
-      "id": "00000000000000000000000000000000"
-      // TODO: replace with `wrangler kv namespace create SESSION` output
-    }
-  ],
   "assets": {
     "binding": "ASSETS",
     "directory": "./dist"

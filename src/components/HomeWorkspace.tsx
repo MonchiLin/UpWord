@@ -28,8 +28,8 @@ export default function HomeWorkspace({ publishedDays, initialDate }: HomeWorksp
                     />
                 </div>
 
-                {/* Right Column: Feed (Content) */}
-                <div className="md:col-span-8 lg:col-span-8 min-h-[500px]">
+                {/* Right Column: Feed (Content) - scrollable */}
+                <div className="md:col-span-8 lg:col-span-8 min-h-[500px] max-h-[calc(100vh-8rem)] overflow-y-auto">
                     <DayDetailsSidebar
                         date={selectedDate}
                         className="w-full"

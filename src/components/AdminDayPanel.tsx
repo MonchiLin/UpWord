@@ -137,7 +137,11 @@ export default function AdminDayPanel(props: { date: string; onRefreshRequest?: 
 		setLoading(true);
 		setError(null);
 		try {
-			await fetchJson(`/api/admin/tasks/${taskId}/delete`, adminKey, { method: 'POST' });
+			await fetchJson(`/api/admin/tasks/${taskId}/delete`, adminKey, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: '{}'
+			});
 			await refresh();
 		} catch (e) {
 			setError((e as Error).message);
@@ -186,6 +190,8 @@ export default function AdminDayPanel(props: { date: string; onRefreshRequest?: 
 							tasks={tasks}
 							onRefresh={refresh}
 							onDelete={deleteTask}
+							adminKey={adminKey}
+							taskDate={props.date}
 						/>
 					</div>
 				</div>

@@ -16,6 +16,10 @@ export function unauthorized() {
 	return json({ ok: false, error: 'unauthorized' }, { status: 401 });
 }
 
+export function forbidden(message?: string) {
+	return json({ ok: false, error: 'forbidden', message: message || 'Access denied' }, { status: 403 });
+}
+
 export function notFound() {
 	return json({ ok: false, error: 'not_found' }, { status: 404 });
 }

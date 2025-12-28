@@ -32,7 +32,11 @@ export async function fetchJson<T = unknown>(url: string, adminKey: string, init
 export function formatTime(iso: string | null | undefined): string {
     if (!iso) return '-';
     try {
-        return new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        return new Date(iso).toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZone: 'Asia/Shanghai'
+        });
     } catch {
         return iso;
     }

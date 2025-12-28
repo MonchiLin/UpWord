@@ -25,7 +25,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 		const tasks = await queue.enqueue(taskDate, 'manual');
 
 		// Start processing the queue immediately (in background)
-		locals.runtime.ctx.waitUntil(queue.processQueue(taskDate, locals.runtime.env));
+		locals.runtime.ctx.waitUntil(queue.processQueue(locals.runtime.env));
 
 		return json({ ok: true, task_date: taskDate, tasks }, { status: 201 });
 	} catch (err) {

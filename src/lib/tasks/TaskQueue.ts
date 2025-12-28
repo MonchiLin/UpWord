@@ -2,7 +2,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { DrizzleD1Database } from 'drizzle-orm/d1';
 import * as schema from '../../../db/schema';
 import { articles, dailyWords, generationProfiles, tasks } from '../../../db/schema';
-import { generateDailyNewsWithWordSelection, type CandidateWord } from '../llm/openaiCompatible';
+import { generateDailyNewsWithWordSelection, type CandidateWord, type GenerationCheckpoint } from '../llm/openaiCompatible';
 
 type Db = DrizzleD1Database<typeof schema>;
 
@@ -128,16 +128,14 @@ export class TaskQueue {
     /**
      * Atomically claim a queued task using optimistic locking
      * Returns the claimed task or null if none available
+     * Global queue - processes tasks from any date
      */
-    async claimTask(taskDate: string): Promise<typeof tasks.$inferSelect | null> {
-        // First, find a candidate task
+    async claimTask(): Promise<typeof tasks.$inferSelect | null> {
+        // Find oldest queued task (any date)
         const candidates = await this.db
             .select()
             .from(tasks)
-            .where(and(
-                eq(tasks.taskDate, taskDate),
-                eq(tasks.status, 'queued')
-            ))
+            .where(eq(tasks.status, 'queued'))
             .orderBy(tasks.createdAt)
             .limit(1);
 
@@ -147,7 +145,7 @@ export class TaskQueue {
         const now = new Date().toISOString();
 
         // Attempt to claim with optimistic lock (check version hasn't changed)
-        const result = await this.db
+        await this.db
             .update(tasks)
             .set({
                 status: 'running',
@@ -160,8 +158,7 @@ export class TaskQueue {
                 eq(tasks.version, candidate.version)
             ));
 
-        // Check if we actually updated (rowsAffected not directly available in drizzle-d1)
-        // Re-query to verify
+        // Re-query to verify we got it
         const updated = await this.db
             .select()
             .from(tasks)
@@ -173,7 +170,7 @@ export class TaskQueue {
 
         if (updated.length === 0) {
             // Someone else claimed it, try again
-            return this.claimTask(taskDate);
+            return this.claimTask();
         }
 
         return updated[0];
@@ -211,20 +208,50 @@ export class TaskQueue {
     }
 
     /**
-     * Process the queue - claim and execute tasks one by one
+     * Process the global queue - claim and execute all pending tasks
      */
-    async processQueue(taskDate: string, env: EnvWithModel) {
-        console.log(`[TaskQueue] Starting queue processing for ${taskDate}`);
+    async processQueue(env: EnvWithModel) {
+        console.log(`[TaskQueue] Starting global queue processing`);
+
+        // Auto-recover stuck tasks (running for more than 2 minutes)
+        const stuckTimeout = 2 * 60 * 1000; // 2 minutes
+        const cutoffTime = new Date(Date.now() - stuckTimeout).toISOString();
+
+        const runningTasks = await this.db
+            .select({ id: tasks.id, startedAt: tasks.startedAt })
+            .from(tasks)
+            .where(eq(tasks.status, 'running'));
+
+        const stuckTasks = runningTasks.filter(t => t.startedAt && t.startedAt < cutoffTime);
+
+        if (stuckTasks.length > 0) {
+            console.log(`[TaskQueue] Found ${stuckTasks.length} stuck tasks, resetting to queued...`);
+            for (const stuck of stuckTasks) {
+                await this.db
+                    .update(tasks)
+                    .set({
+                        status: 'queued',
+                        startedAt: null,
+                        version: sql`${tasks.version} + 1`
+                    })
+                    .where(eq(tasks.id, stuck.id));
+                console.log(`[TaskQueue] Reset stuck task ${stuck.id}`);
+            }
+        } else if (runningTasks.length > 0) {
+            console.log(`[TaskQueue] ${runningTasks.length} tasks are currently running (within timeout).`);
+        }
 
         while (true) {
-            // Claim next task
-            const task = await this.claimTask(taskDate);
+            // Claim next task (global, any date)
+            const task = await this.claimTask();
             if (!task) {
-                console.log(`[TaskQueue] No more tasks to process for ${taskDate}`);
+                if (runningTasks.length === 0) {
+                    console.log(`[TaskQueue] No more tasks to process`);
+                }
                 break;
             }
 
-            console.log(`[TaskQueue] Processing task ${task.id}`);
+            console.log(`[TaskQueue] Processing task ${task.id} for date ${task.taskDate}`);
 
             try {
                 await this.executeTask(env, task);
@@ -285,12 +312,34 @@ export class TaskQueue {
 
         console.log(`[Task ${task.id}] Starting LLM generation with model: ${model}`);
 
+        // Try to load checkpoint from resultJson
+        let checkpoint: GenerationCheckpoint | null = null;
+        if (task.resultJson) {
+            try {
+                const parsed = JSON.parse(task.resultJson);
+                if (parsed.stage && parsed.history) {
+                    checkpoint = parsed as GenerationCheckpoint;
+                    console.log(`[Task ${task.id}] Resuming from checkpoint: ${checkpoint.stage}`);
+                }
+            } catch (e) {
+                console.error(`[Task ${task.id}] Failed to parse checkpoint:`, e);
+            }
+        }
+
         const output = await generateDailyNewsWithWordSelection({
             env,
             model,
             currentDate: task.taskDate,
             topicPreference: profile.topicPreference,
-            candidateWords: candidates
+            candidateWords: candidates,
+            checkpoint,
+            onCheckpoint: async (cp) => {
+                await this.db
+                    .update(tasks)
+                    .set({ resultJson: JSON.stringify(cp) })
+                    .where(eq(tasks.id, task.id));
+                console.log(`[Task ${task.id}] Saved checkpoint: ${cp.stage}`);
+            }
         });
 
         const articleId = crypto.randomUUID();

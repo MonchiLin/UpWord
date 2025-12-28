@@ -1,19 +1,56 @@
 import { RotateCw, Trash2 } from 'lucide-react';
-import { type TaskRow, formatTime } from './shared';
+import { type TaskRow, formatTime, fetchJson } from './shared';
 import { clsx } from 'clsx';
+import { useState } from 'react';
 
 type TaskQueueListProps = {
     tasks: TaskRow[];
     loading?: boolean;
     onRefresh: () => void;
     onDelete: (id: string) => void;
+    adminKey?: string | null;
+    taskDate?: string;
 };
 
-export default function TaskQueueList({ tasks, onRefresh, onDelete }: TaskQueueListProps) {
+export default function TaskQueueList({ tasks, onRefresh, onDelete, adminKey, taskDate }: TaskQueueListProps) {
+    const [deleting, setDeleting] = useState(false);
+    const failedTasks = tasks.filter(t => t.status === 'failed');
+
+    async function deleteAllFailed() {
+        if (!adminKey || failedTasks.length === 0) return;
+        if (!confirm(`确定删除所有 ${failedTasks.length} 个失败的任务吗？`)) return;
+        setDeleting(true);
+        try {
+            await fetchJson('/api/admin/tasks/delete-failed', adminKey, {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ task_date: taskDate })
+            });
+            onRefresh();
+        } catch (e) {
+            console.error(e);
+            alert((e as Error).message || '删除失败');
+        } finally {
+            setDeleting(false);
+        }
+    }
+
     return (
         <div className="space-y-3">
             <div className="flex items-center justify-between border-b border-stone-200 pb-1">
-                <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Task Queue</span>
+                <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Task Queue</span>
+                    {failedTasks.length > 0 && (
+                        <button
+                            onClick={deleteAllFailed}
+                            disabled={deleting}
+                            className="px-2 py-0.5 text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 rounded hover:bg-red-100 hover:border-red-300 uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer"
+                            title={`Delete all ${failedTasks.length} failed tasks`}
+                        >
+                            {deleting ? 'Deleting...' : `🗑 Clear ${failedTasks.length} Failed`}
+                        </button>
+                    )}
+                </div>
                 <button onClick={onRefresh} className="text-stone-400 hover:text-stone-900 transition-colors" title="Refresh">
                     <RotateCw size={12} />
                 </button>

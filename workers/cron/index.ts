@@ -24,43 +24,47 @@ export default {
 		const taskDate = now.format('YYYY-MM-DD');
 		const hour = now.hour();
 
-		console.log(`[cron] Triggered at ${now.format('YYYY-MM-DD HH:mm:ss')} (Asia/Shanghai)`);
 
-		// === 1. Fetch Words (每天 10:00) ===
-		if (hour === 10) {
-			console.log(`[cron] Starting fetchAndStoreDailyWords for ${taskDate}`);
-			try {
-				const result = await fetchAndStoreDailyWords(db, {
-					taskDate,
-					shanbayCookie: env.SHANBAY_COOKIE
-				});
-				console.log(`[cron] Fetch result:`, result);
-			} catch (err) {
-				console.error('[cron] Fetch failed:', err);
-			}
+		// === 1. Fetch Words (Keep this fast enough for CF) ===
+		console.log(`[cron] Fetching words for ${taskDate}`);
+		try {
+			await fetchAndStoreDailyWords(db, {
+				taskDate,
+				shanbayCookie: env.SHANBAY_COOKIE
+			});
+		} catch (err) {
+			console.error('[cron] Word fetch failed:', err);
 		}
 
-		// === 2. Auto-enqueue Tasks (11:00 - 15:00 only) ===
-		const isAutoEnqueueTime = (hour >= 11 && hour <= 15);
-
-		if (isAutoEnqueueTime) {
-			console.log(`[cron] Auto-enqueue time window, creating tasks for ${taskDate}`);
-			try {
-				const queue = new TaskQueue(db);
-				await queue.enqueue(taskDate, 'cron');
-			} catch (err) {
-				console.error('[cron] Auto-enqueue failed:', err);
-			}
-		}
-
-		// === 3. Process Queue (every 5 minutes, all day) ===
-		// This handles both auto-enqueued tasks and manually created tasks
-		console.log(`[cron] Processing queue for ${taskDate}`);
+		// === 2. Auto Enqueue (Keep this fast enough for CF) ===
+		console.log(`[cron] Auto-enqueuing tasks for ${taskDate}`);
 		try {
 			const queue = new TaskQueue(db);
-			await queue.processQueue(taskDate, env as any);
+			await queue.enqueue(taskDate, 'cron');
 		} catch (err) {
-			console.error('[cron] Queue processing failed:', err);
+			console.error('[cron] Enqueue failed:', err);
+		}
+
+		// === 3. Trigger Docker Processing (The heavy lifting) ===
+		// We call the Docker app to handle long-running LLM research/generation
+		const dockerAppUrl = env.DOCKER_APP_URL;
+		if (dockerAppUrl && env.ADMIN_KEY) {
+			console.log(`[cron] Triggering Docker processing at ${dockerAppUrl}`);
+			ctx.waitUntil(
+				fetch(`${dockerAppUrl}/api/admin/tasks/cron`, {
+					method: 'POST',
+					headers: {
+						'x-admin-key': env.ADMIN_KEY,
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({})
+				})
+			);
+		} else {
+			// Fallback: Still try to process in CF if no docker URL or ADMIN_KEY is set
+			console.log(`[cron] DOCKER_APP_URL or ADMIN_KEY not set, falling back to local processing`);
+			const queue = new TaskQueue(db);
+			ctx.waitUntil(queue.processQueue(env as any));
 		}
 	}
 };

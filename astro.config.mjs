@@ -2,7 +2,7 @@
 import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
 import tailwindcss from '@tailwindcss/vite';
-import cloudflare from '@astrojs/cloudflare';
+import node from '@astrojs/node';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { storybookTest } from "@storybook/addon-vitest/vitest-plugin";
@@ -55,5 +55,5 @@ export default defineConfig({
     },
   },
 
-  adapter: cloudflare({imageService: "compile"})
+  adapter: node({ mode: 'standalone' })
 });
