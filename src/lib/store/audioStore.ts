@@ -1,12 +1,5 @@
 import { map } from 'nanostores';
-
-export interface WordBoundary {
-    audioOffset: number; // milliseconds
-    duration: number;
-    text: string;
-    textOffset: number;
-    wordLength: number;
-}
+import type { WordBoundary } from '../tts/types';
 
 export interface AudioState {
     playlist: string[];      // Array of text paragraphs
@@ -14,7 +7,6 @@ export interface AudioState {
     charIndex: number;       // Current character index within the paragraph
     isPlaying: boolean;
     playbackRate: number;    // 0.75, 1.0, 1.25, 1.5
-    isSupported: boolean;    // Web Speech API support
     // Edge TTS specific
     audioUrl: string | null;
     wordAlignments: WordBoundary[];
@@ -25,10 +17,9 @@ export interface AudioState {
 export const audioState = map<AudioState>({
     playlist: [],
     currentIndex: 0,
-    charIndex: 0,
+    charIndex: -1, // -1 means no word highlighted
     isPlaying: false,
     playbackRate: 1.0,
-    isSupported: true, // Audio element is universally supported
     audioUrl: null,
     wordAlignments: [],
     isLoading: false,
@@ -41,17 +32,11 @@ export const setVoice = (voice: string) => {
 };
 
 export const setPlaylist = (paragraphs: string[]) => {
-    // Reset state when new content loads
-    // Clean text: remove newlines that might break basic TTS flow
     const clean = paragraphs.map(p => p.replace(/\s+/g, ' ').trim()).filter(Boolean);
     audioState.setKey('playlist', clean);
     audioState.setKey('currentIndex', 0);
     audioState.setKey('isPlaying', false);
-
-    // Cancel any ongoing speech
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-    }
+    audioState.setKey('charIndex', -1);
 };
 
 export const playParagraph = (index: number) => {

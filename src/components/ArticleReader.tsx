@@ -35,14 +35,10 @@ export const ArticleReader: React.FC<ArticleReaderProps> = ({
 }) => {
     const activeId = useStore(highlightedWordId);
 
-    // Auto-scroll logic when highlighted word changes
     useEffect(() => {
         if (!activeId) return;
-
-        // Slight delay to ensure DOM is ready
         const selector = `[data-word="${activeId.toLowerCase()}"]`;
         const element = document.querySelector(selector);
-
         if (element) {
             element.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
@@ -50,11 +46,7 @@ export const ArticleReader: React.FC<ArticleReaderProps> = ({
 
     return (
         <div className={clsx("w-full transition-all duration-500", className)}>
-            {/* Editorial Layout: No Container, just Content */}
-
-            {/* Article Header */}
             <header className="mb-12 md:mb-16">
-                {/* Meta Top Line with Level Control */}
                 <div className="flex items-center justify-between text-xs md:text-sm font-bold tracking-widest uppercase text-stone-500 mb-6 border-b-2 border-slate-900 pb-2">
                     <div className="flex items-center gap-3">
                         <span className="text-slate-900">{publishDate}</span>
@@ -83,15 +75,12 @@ export const ArticleReader: React.FC<ArticleReaderProps> = ({
                         })}
                     </div>
                 </div>
-
-                {/* Huge Serif Title */}
                 <h1 className="text-4xl md:text-6xl font-black text-slate-900 tracking-tight leading-[1.1] font-serif">
                     {title}
                 </h1>
             </header>
 
-            {/* Article Content */}
-            <article ref={contentRef} className="font-serif leading-loose text-xl md:text-2xl text-slate-800/90 space-y-8">
+            <article ref={contentRef} className="font-serif leading-loose text-lg md:text-xl text-slate-800/90 space-y-8">
                 {content.map((text, idx) => (
                     <TokenizedParagraph
                         key={idx}
@@ -106,32 +95,26 @@ export const ArticleReader: React.FC<ArticleReaderProps> = ({
     );
 };
 
-// Memoized paragraph component to prevent regex re-computation and ensure stable offsets
+// Optimized paragraph component with CSS-based highlight transitions
 const TokenizedParagraph = React.memo(({ index, text, targetWords, activeWordId }: {
     index: number;
     text: string;
     targetWords: string[];
     activeWordId: string | null;
 }) => {
-    // Audio State
     const audio = useStore(audioState);
     const isPlaying = audio.isPlaying;
     const isAudioActive = isPlaying && audio.currentIndex === index;
     const audioCharIndex = audio.charIndex;
 
-    // Pre-calculate tokens and their offsets once per text change
-    // We strictly use regex to find tokens and track their absolute start/end indices
     const tokens = React.useMemo(() => {
         const parts: { text: string; start: number; end: number; isWord: boolean }[] = [];
         let offset = 0;
-        // Split by word boundary but keep delimiters. 
-        // Note: JS split with capture group includes delimiters.
         const rawParts = text.split(/(\b)/);
 
         rawParts.forEach(part => {
             if (!part) return;
             const len = part.length;
-            // Naive word check: has alphanumeric char
             const isWord = /\w/.test(part);
 
             parts.push({
@@ -145,25 +128,41 @@ const TokenizedParagraph = React.memo(({ index, text, targetWords, activeWordId 
         return parts;
     }, [text]);
 
-    // Visual Style Update: text-[19px], leading-relaxed (1.8), #333 text color
     const pClassName = clsx(
-        "mb-8 text-stone-800 transition-colors duration-300 rounded-lg p-1 -ml-1",
-        isAudioActive && "bg-orange-50/50 border-l-4 border-orange-400 pl-4",
+        "mb-8 text-stone-800 rounded-lg p-1 -ml-1",
+        // Smooth paragraph highlight when active
+        isAudioActive && "bg-orange-50/50 border-l-4 border-orange-400 pl-4"
     );
 
     return (
-        <p className={pClassName}>
+        <p className={pClassName} style={{ transition: 'background-color 0.2s, border-color 0.2s, padding-left 0.2s' }}>
             {tokens.map((token, i) => {
                 const lowerPart = token.text.toLowerCase();
                 const isTarget = token.isWord && targetWords.some(w => w.toLowerCase() === lowerPart);
 
-                // Highlight Logic:
-                // Check if audioCharIndex falls within token [start, end)
-                const isSpeaking = isAudioActive && (audioCharIndex >= token.start && audioCharIndex < token.end);
+                // Word is speaking if charIndex falls within its range
+                const isSpeaking = isAudioActive && audioCharIndex >= 0 &&
+                    audioCharIndex >= token.start && audioCharIndex < token.end;
+
+                // Common style for smooth transition
+                const baseStyle: React.CSSProperties = {
+                    transition: 'background-color 0.15s ease-out, color 0.15s ease-out',
+                    borderRadius: '2px',
+                    padding: '0 2px',
+                    margin: '0 -2px',
+                };
 
                 if (isSpeaking) {
                     return (
-                        <span key={i} className="bg-orange-200 rounded px-0.5 -mx-0.5 transition-colors duration-75 text-gray-900 font-medium">
+                        <span
+                            key={i}
+                            style={{
+                                ...baseStyle,
+                                backgroundColor: 'rgb(254 215 170)', // orange-200
+                                color: '#1f2937', // gray-800
+                                fontWeight: 500,
+                            }}
+                        >
                             {token.text}
                         </span>
                     );
@@ -183,7 +182,7 @@ const TokenizedParagraph = React.memo(({ index, text, targetWords, activeWordId 
                             style={{
                                 color: '#ea580c',
                                 fontWeight: 600,
-                                borderBottom: '2px dotted #ea580c', // Thicker dotted line for better visibility
+                                borderBottom: '2px dotted #ea580c',
                                 cursor: 'pointer',
                                 display: 'inline-block'
                             }}
@@ -197,7 +196,7 @@ const TokenizedParagraph = React.memo(({ index, text, targetWords, activeWordId 
                     );
                 }
 
-                return <span key={i}>{token.text}</span>;
+                return <span key={i} style={baseStyle}>{token.text}</span>;
             })}
         </p>
     );
