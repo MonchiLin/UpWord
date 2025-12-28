@@ -20,7 +20,7 @@ import {
 import { createOpenAiCompatibleClient, type OpenAiCompatibleEnv } from './client';
 
 // xhigh medium low auto
-const reasoningEffort = "medium"
+const reasoningEffort = "xhigh"
 
 // ============================================
 // 候选词类型
