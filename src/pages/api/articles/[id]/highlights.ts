@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { and, eq, isNotNull, isNull } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { articles, highlights, tasks } from '../../../../../db/schema';
 import { getDb } from '../../../../lib/db';
 import { json, notFound } from '../../../../lib/http';
@@ -13,8 +13,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
 	const articleRows = await db
 		.select({ id: articles.id })
 		.from(articles)
-		.innerJoin(tasks, eq(articles.generationTaskId, tasks.id))
-		.where(and(eq(articles.id, articleId), eq(articles.status, 'published'), isNotNull(tasks.publishedAt)))
+		.where(eq(articles.id, articleId))
 		.limit(1);
 
 	if (!articleRows[0]) return notFound();
@@ -22,7 +21,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
 	const rows = await db
 		.select()
 		.from(highlights)
-		.where(and(eq(highlights.articleId, articleId), isNull(highlights.deletedAt)))
+		.where(eq(highlights.articleId, articleId))
 		.orderBy(highlights.createdAt);
 
 	return json({

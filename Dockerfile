@@ -1,17 +1,13 @@
 # Build stage
-FROM node:20-slim AS base
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
-
-FROM base AS build
-COPY . /usr/src/app
+FROM oven/bun:1 AS build
 WORKDIR /usr/src/app
-RUN npm install
-RUN npm run build
+COPY package.json bun.lock* ./
+RUN bun install --frozen-lockfile
+COPY . .
+RUN bun run build
 
 # Runtime stage
-FROM node:20-slim AS runtime
+FROM oven/bun:1-slim AS runtime
 WORKDIR /app
 COPY --from=build /usr/src/app/dist ./dist
 COPY --from=build /usr/src/app/node_modules ./node_modules
@@ -21,5 +17,4 @@ ENV HOST=0.0.0.0
 ENV PORT=4321
 EXPOSE 4321
 
-# 使用 Node.js 运行构建好的项目
-CMD ["node", "./dist/server/entry.mjs"]
+CMD ["bun", "run", "./dist/server/entry.mjs"]
