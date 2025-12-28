@@ -31,7 +31,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 		const taskDate = parsed.data.task_date;
 		const result = await fetchAndStoreDailyWords(db, {
 			taskDate,
-			shanbayCookie: locals.runtime.env.SHANBAY_COOKIE
+			shanbayCookie: process.env.SHANBAY_COOKIE || ''
 		});
 
 		return json(

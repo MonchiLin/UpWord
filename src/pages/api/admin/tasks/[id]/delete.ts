@@ -42,7 +42,9 @@ export const POST: APIRoute = async ({ request, locals, params }) => {
 
 		// 删除后尝试处理下一个任务
 		const queue = new TaskQueue(db);
-		locals.runtime.ctx.waitUntil(queue.processQueue(locals.runtime.env));
+		queue.processQueue(process.env as any).catch(err => {
+			console.error('Background processQueue failed:', err);
+		});
 
 		return json({ ok: true });
 	} catch (err) {

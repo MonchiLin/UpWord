@@ -20,7 +20,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         console.log('[Docker Cron] Triggered queue processing');
 
         // 注意：在 Node 环境下，任务会一直运行直到结束，不会被杀死
-        queue.processQueue(locals.runtime?.env || process.env).catch(err => {
+        queue.processQueue(process.env as any).catch(err => {
             console.error('[Docker Cron] Background process failed:', err);
         });
 

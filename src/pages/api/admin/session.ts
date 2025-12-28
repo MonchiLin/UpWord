@@ -18,7 +18,7 @@ function setCookie(name: string, value: string, options: { secure: boolean; maxA
 }
 
 export const POST: APIRoute = async ({ request, locals, url }) => {
-	const expected = locals.runtime.env.ADMIN_KEY;
+	const expected = process.env.ADMIN_KEY;
 	if (!expected) return unauthorized();
 
 	let key: string | null = request.headers.get('x-admin-key');
