@@ -93,7 +93,7 @@ export default function TaskQueueList({ tasks, onRefresh, onDelete, adminKey, ta
                             {t.status === 'running' && <span className="text-orange-600 font-bold">Processing</span>}
                         </div>
 
-                        {t.error_message && (
+                        {t.status === 'failed' && t.error_message && (
                             <div className="text-[10px] text-red-600 font-serif italic mt-1 bg-red-50 p-1.5 leading-tight">
                                 {t.error_message}
                             </div>

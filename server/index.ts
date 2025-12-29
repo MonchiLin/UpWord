@@ -203,11 +203,19 @@ const app = new Elysia()
     // End of Daily Content API
     // Delete task
     .delete("/api/tasks/:id", async ({ params: { id } }) => {
-        await db.run(sql`DELETE FROM tasks WHERE id = ${id}`);
+        // Delete highlights for all articles in this task
+        // We use a subquery to find usage. 
+        // Note: D1/SQLite supports scalar subqueries in DELETE.
+        await db.run(sql`
+            DELETE FROM highlights 
+            WHERE article_id IN (SELECT id FROM articles WHERE generation_task_id = ${id})
+        `);
+        // Delete articles
         await db.run(sql`DELETE FROM articles WHERE generation_task_id = ${id}`);
+        // Delete task
+        await db.run(sql`DELETE FROM tasks WHERE id = ${id}`);
         return { status: "ok" };
     })
-    // Article operations
     // Article operations
     .get("/api/articles/:id", async ({ params: { id } }) => {
         try {
@@ -226,23 +234,29 @@ const app = new Elysia()
         }
     })
     .delete("/api/articles/:id", async ({ params: { id } }) => {
+        await db.run(sql`DELETE FROM highlights WHERE article_id = ${id}`);
         await db.run(sql`DELETE FROM articles WHERE id = ${id}`);
         return { status: "ok" };
     })
     // Admin Bulk Operations
     .post("/api/admin/tasks/delete-failed", async () => {
         try {
-            // Find failed tasks first ? Or just delete.
-            // Need to delete related articles if any (unlikely for failed, but good practice)
-            // Get IDs first
+            // Find failed tasks first
             const failedTasks = await db.all(sql`SELECT id FROM tasks WHERE status = 'failed'`);
             if (failedTasks.length === 0) return { status: "ok", count: 0 };
 
             const ids = failedTasks.map((t: any) => t.id);
-            // Loop delete for safety/simplicity with raw sql
+            // Loop for safety
             for (const id of ids) {
-                await db.run(sql`DELETE FROM tasks WHERE id = ${id}`);
+                // Delete highlights
+                await db.run(sql`
+                    DELETE FROM highlights 
+                    WHERE article_id IN (SELECT id FROM articles WHERE generation_task_id = ${id})
+                `);
+                // Delete articles
                 await db.run(sql`DELETE FROM articles WHERE generation_task_id = ${id}`);
+                // Delete task
+                await db.run(sql`DELETE FROM tasks WHERE id = ${id}`);
             }
             return { status: "ok", count: ids.length };
         } catch (e: any) {
@@ -301,6 +315,35 @@ const app = new Elysia()
         }
     })
     .delete("/api/profiles/:id", async ({ params: { id }, error }) => {
+        // Prevent deleting last profile? Optional. 
+        // Iterate tasks to delete them nicely with cascade logic (Highlights -> Articles -> Tasks)
+        // Or pure SQL cascade if we trust IDs. 
+        // Let's reuse the logic: delete highlights -> articles -> tasks where profile_id matches.
+
+        // 1. Find all tasks for this profile
+        const profileTasks = await db.all(sql`SELECT id FROM tasks WHERE profile_id = ${id}`);
+        const taskIds = profileTasks.map((t: any) => t.id);
+
+        if (taskIds.length > 0) {
+            // 2. Delete Highlights for these tasks
+            // Can use nested subquery: SELECT id FROM articles WHERE generation_task_id IN (...)
+            const placeholders = taskIds.map(() => '?').join(',');
+            // Manually construct IN clause for raw SQL
+            const inClause = taskIds.map(tid => `'${tid}'`).join(',');
+
+            await db.run(sql.raw(`
+                DELETE FROM highlights 
+                WHERE article_id IN (SELECT id FROM articles WHERE generation_task_id IN (${inClause}))
+            `));
+
+            // 3. Delete Articles
+            await db.run(sql.raw(`DELETE FROM articles WHERE generation_task_id IN (${inClause})`));
+
+            // 4. Delete Tasks
+            await db.run(sql.raw(`DELETE FROM tasks WHERE id IN (${inClause})`));
+        }
+
+        // 5. Delete Profile
         await db.run(sql`DELETE FROM generation_profiles WHERE id = ${id}`);
         return { status: "ok" };
     })

@@ -176,7 +176,9 @@ export class TaskQueue {
             UPDATE tasks 
             SET status = 'running', 
                 started_at = ${now}, 
-                version = version + 1 
+                version = version + 1,
+                error_message = NULL,
+                error_context_json = NULL
             WHERE id = ${candidate.id} 
               AND status = 'queued' 
               AND version = ${candidate.version}
@@ -209,7 +211,9 @@ export class TaskQueue {
             SET status = 'succeeded', 
                 result_json = ${resultJson}, 
                 finished_at = ${now}, 
-                published_at = ${now} 
+                published_at = ${now},
+                error_message = NULL,
+                error_context_json = NULL
             WHERE id = ${taskId}
         `);
     }
