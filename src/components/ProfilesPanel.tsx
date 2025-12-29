@@ -1,6 +1,7 @@
 import { Pencil1Icon, PlusIcon, ReloadIcon, TrashIcon } from '@radix-ui/react-icons';
 import { useEffect, useMemo, useState } from 'react';
 import Modal from './ui/Modal';
+import { apiFetch } from '../lib/api';
 
 type GenerationProfile = {
     id: string;
@@ -19,20 +20,6 @@ type ProfileDraft = {
     concurrency: string;
     timeout_minutes: string;
 };
-
-async function adminFetchJson(url: string, adminKey: string, init?: RequestInit) {
-    const resp = await fetch(url, {
-        ...init,
-        headers: {
-            ...(init?.headers ?? {}),
-            'x-admin-key': adminKey
-        }
-    });
-    const text = await resp.text();
-    const data = text ? JSON.parse(text) : null;
-    if (!resp.ok) throw new Error(data?.message || `HTTP ${resp.status}`);
-    return data;
-}
 
 function splitTopicTags(input: string) {
     const parts = input
@@ -79,8 +66,8 @@ export default function ProfilesPanel(props: { adminKey: string }) {
         setLoading(true);
         setError(null);
         try {
-            const data = await adminFetchJson('http://localhost:3000/api/profiles', adminKey);
-            setProfiles((data ?? []) as GenerationProfile[]);
+            const data = await apiFetch<GenerationProfile[]>('/api/profiles', { token: adminKey });
+            setProfiles(data || []);
         } catch (e) {
             setError((e as Error).message);
         } finally {
@@ -128,14 +115,16 @@ export default function ProfilesPanel(props: { adminKey: string }) {
         setLoading(true);
         try {
             if (editorMode === 'create') {
-                await adminFetchJson('http://localhost:3000/api/profiles', adminKey, {
+                await apiFetch('/api/profiles', {
                     method: 'POST',
+                    token: adminKey,
                     headers: { 'content-type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
             } else if (draft.id) {
-                await adminFetchJson(`http://localhost:3000/api/profiles/${encodeURIComponent(draft.id)}`, adminKey, {
+                await apiFetch(`/api/profiles/${encodeURIComponent(draft.id)}`, {
                     method: 'PUT',
+                    token: adminKey,
                     headers: { 'content-type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
@@ -153,7 +142,10 @@ export default function ProfilesPanel(props: { adminKey: string }) {
         setLoading(true);
         setError(null);
         try {
-            await adminFetchJson(`http://localhost:3000/api/profiles/${encodeURIComponent(id)}`, adminKey, { method: 'DELETE' });
+            await apiFetch(`/api/profiles/${encodeURIComponent(id)}`, {
+                method: 'DELETE',
+                token: adminKey
+            });
             await refresh();
         } catch (e) {
             setError((e as Error).message);

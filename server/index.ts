@@ -1,14 +1,13 @@
 import { Elysia } from "elysia";
 import { swagger } from "@elysiajs/swagger";
 import { cors } from "@elysiajs/cors";
-import { drizzle } from 'drizzle-orm/bun-sqlite';
 import { eq, desc, and, inArray } from 'drizzle-orm';
-import { Database } from 'bun:sqlite';
 import * as schema from './db/schema';
+import { db } from './src/db/client';
 
-// Setup Database
-const sqlite = new Database('local.db');
-const db = drizzle(sqlite, { schema });
+console.log("Using D1 (Strict). Skipping runtime migration (Managed via Wrangler/Drizzle Kit).");
+
+
 
 // Initialize TaskQueue
 import { TaskQueue } from './src/services/tasks/TaskQueue';
@@ -18,10 +17,11 @@ import { fetchAndStoreDailyWords } from './src/services/dailyWords';
 const queue = new TaskQueue(db);
 
 // Environment Validation (for Worker)
+// Environment Validation (for Worker)
 const env = {
-    LLM_API_KEY: process.env.VITE_LLM_API_KEY || process.env.LLM_API_KEY || '',
-    LLM_BASE_URL: process.env.VITE_LLM_BASE_URL || process.env.LLM_BASE_URL || '',
-    LLM_MODEL_DEFAULT: process.env.VITE_LLM_MODEL_DEFAULT || process.env.LLM_MODEL_DEFAULT || 'gpt-4o'
+    LLM_API_KEY: process.env.LLM_API_KEY,
+    LLM_BASE_URL: process.env.LLM_BASE_URL,
+    LLM_MODEL_DEFAULT: process.env.LLM_MODEL_DEFAULT
 };
 
 if (!env.LLM_API_KEY) console.warn("WARNING: LLM_API_KEY is missing. Worker will fail.");
@@ -85,7 +85,7 @@ const app = new Elysia()
         // Actually, previous logic read it from 'cookie' header.
 
         // Always use environment cookie as per user request
-        const cookie = process.env.SHANBAY_COOKIE || "";
+        const cookie = process.env.SHANBAY_COOKIE;
 
         console.log(`[Fetch Words] Using Env Cookie. Length: ${cookie.length}`);
 

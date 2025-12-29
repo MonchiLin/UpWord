@@ -2,16 +2,12 @@
 import Layout from "../layouts/Layout.astro";
 import HomeWorkspace from "@/components/HomeWorkspace";
 
-// Use environment variable for API URL (Cloudflare Pages requires this)
-const API_BASE = import.meta.env.PUBLIC_API_BASE || "http://localhost:3000";
+import { apiFetch } from "../lib/api";
 
 let publishedDays: string[] = [];
 try {
-	const resp = await fetch(`${API_BASE}/api/days`);
-	if (resp.ok) {
-		const data = await resp.json();
-		publishedDays = data.days || [];
-	}
+	const data = await apiFetch<{ days: string[] }>('/api/days');
+	publishedDays = data.days || [];
 } catch (e) {
 	console.error("Failed to fetch days:", e);
 }

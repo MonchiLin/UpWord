@@ -16,24 +16,23 @@ import {
 } from "../../lib/articles/utils";
 import type { ArticleParsedContent } from "../../lib/articles/types";
 
+import { apiFetch } from "../../lib/api";
+
 const id = Astro.params.id;
 if (!id) Astro.response.status = 404;
 
-// const db = getDb(Astro.locals);
-// const row = id ? await getArticleWithDetails(db, id) : null;
-// Use environment variable for API URL
-const API_BASE = import.meta.env.PUBLIC_API_BASE || "http://localhost:3000";
+let row: any = null;
 
 if (id) {
     try {
-        const resp = await fetch(`${API_BASE}/api/articles/${id}`);
-        if (resp.ok) {
-            row = await resp.json();
-            // Check if backend returned error object
-            if (row.error) row = null;
+        row = await apiFetch(`/api/articles/${id}`);
+    } catch (e: any) {
+        console.error("Failed to fetch article:", e);
+        if (e.message.includes("404")) {
+             Astro.response.status = 404;
+        } else {
+             // If error is not 404, valid error?
         }
-    } catch (e) {
-        console.error("Failed to fetch article from backend:", e);
     }
 }
 

@@ -3,6 +3,7 @@ import { Button, Input } from 'antd'; // 引入 Antd 组件
 import { forwardRef, lazy, memo, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ArticleReader } from './ArticleReader';
+import { apiFetch } from '../lib/api';
 
 const { TextArea } = Input
 
@@ -87,23 +88,17 @@ type NoteEditorState =
 		note: string | null;
 	};
 
-// Use environment variable for API URL
-const API_BASE = import.meta.env.PUBLIC_API_BASE || "http://localhost:3000";
-
 async function fetchHighlights(articleId: string) {
-	const resp = await fetch(`${API_BASE}/api/articles/${encodeURIComponent(articleId)}/highlights`);
-	const text = await resp.text();
-	const data = text ? JSON.parse(text) : null;
-	if (!resp.ok) throw new Error(data?.message || `HTTP ${resp.status}`);
-	return (data ?? []) as HighlightItem[];
+	const data = await apiFetch<{ highlights: HighlightItem[] } | HighlightItem[]>(`/api/articles/${encodeURIComponent(articleId)}/highlights`);
+	// Handle both potential response shapes just in case, though apiFetch usually returns data directly
+	if (Array.isArray(data)) return data;
+	return (data as any).highlights || [];
 }
 
 async function checkAdminSession(adminKey: string) {
 	try {
-		const resp = await fetch(`${API_BASE}/api/auth/check`, {
-			headers: { 'x-admin-key': adminKey }
-		});
-		return resp.ok;
+		await apiFetch('/api/auth/check', { token: adminKey });
+		return true;
 	} catch {
 		return false;
 	}
@@ -117,27 +112,7 @@ async function checkAdminSession(adminKey: string) {
 
 // Actually, I should update adminFetchJson next.
 
-async function adminFetchJson(url: string, adminKey: string | null, init?: RequestInit) {
-	const resp = await fetch(url, {
-		...init,
-		// credentials: 'same-origin', // No longer needed for backend
-		headers: {
-			...(init?.headers ?? {}),
-			...(adminKey ? { 'x-admin-key': adminKey } : {})
-		}
-	});
-	const text = await resp.text();
-	// Verify JSON validity
-	try {
-		const data = text ? JSON.parse(text) : null;
-		if (!resp.ok) throw new Error(data?.message || `HTTP ${resp.status}`);
-		return data;
-	} catch {
-		// If not json (maybe 200 OK empty), return null
-		if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-		return null;
-	}
-}
+
 
 function getHighlightLevel(style: any | null): Level | null {
 	const n = style?.level;
@@ -343,7 +318,10 @@ export default function ArticleTabs(props: ArticleTabsProps) {
 							if (!window.confirm('删除该批注？')) return;
 							(async () => {
 								try {
-									await adminFetchJson(`${API_BASE}/api/highlights/${encodeURIComponent(id)}`, adminKey, { method: 'DELETE' });
+									await apiFetch(`/api/highlights/${encodeURIComponent(id)}`, {
+										method: 'DELETE',
+										token: adminKey
+									});
 									highlighterRef.current?.remove?.(id);
 									appliedIdsRef.current.delete(id);
 									setHighlights((prev) => prev.filter((h) => h.id !== id));
@@ -532,11 +510,12 @@ export default function ArticleTabs(props: ArticleTabsProps) {
 		try {
 			if (noteEditor.mode === 'create') {
 				// Use backend API for creation
-				await adminFetchJson(`${API_BASE}/api/highlights`, adminKey, {
+				await apiFetch('/api/highlights', {
 					method: 'POST',
+					token: adminKey,
 					headers: { 'content-type': 'application/json' },
 					body: JSON.stringify({
-						articleId: noteEditor.articleId, // Backend expects separate articleId
+						articleId: noteEditor.articleId,
 						id: noteEditor.source.id,
 						start_meta: noteEditor.source.start_meta,
 						end_meta: noteEditor.source.end_meta,
@@ -548,10 +527,10 @@ export default function ArticleTabs(props: ArticleTabsProps) {
 				await refreshHighlights();
 				closeNoteEditor({ cancelCreateHighlight: false });
 			} else {
-				// Use backend API for update (PUT preferred for full resource, or PATCH if supported)
-				// Backend implementation uses PUT /api/highlights/:id for updates
-				await adminFetchJson(`${API_BASE}/api/highlights/${encodeURIComponent(noteEditor.id)}`, adminKey, {
+				// Use backend API for update
+				await apiFetch(`/api/highlights/${encodeURIComponent(noteEditor.id)}`, {
 					method: 'PUT',
+					token: adminKey,
 					headers: { 'content-type': 'application/json' },
 					body: JSON.stringify({ note: nextNote })
 				});
@@ -686,7 +665,10 @@ export default function ArticleTabs(props: ArticleTabsProps) {
 										<div className="flex justify-between gap-2 mt-2">
 											{noteEditor.mode === 'edit' && <Button onClick={async () => {
 												try {
-													await adminFetchJson(`/api/admin/highlights/${encodeURIComponent(noteEditor.id)}`, adminKey, { method: 'DELETE' });
+													await apiFetch(`/api/highlights/${encodeURIComponent(noteEditor.id)}`, {
+														method: 'DELETE',
+														token: adminKey
+													});
 													highlighterRef.current?.remove?.(noteEditor.id);
 													appliedIdsRef.current.delete(noteEditor.id);
 													setHighlights((prev) => prev.filter((h) => h.id !== noteEditor.id));

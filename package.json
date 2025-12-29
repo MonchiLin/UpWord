@@ -67,6 +67,7 @@
     "storybook": "^10.1.10",
     "typescript": "^5.9.3",
     "vite-tsconfig-paths": "^6.0.2",
-    "vitest": "^4.0.16"
+    "vitest": "^4.0.16",
+    "wrangler": "^4.54.0"
   }
 }

@@ -4,15 +4,15 @@ import ProfilesPanel from './ProfilesPanel';
 import Modal from './ui/Modal';
 import { clsx } from 'clsx';
 
+import { apiFetch } from '../lib/api';
+
 const ADMIN_KEY_STORAGE = 'luma-words_admin_key';
 
 // Check key validity against backend
 async function verifyKey(key: string) {
 	try {
-		const resp = await fetch('http://localhost:3000/api/auth/check', {
-			headers: { 'x-admin-key': key }
-		});
-		return resp.ok;
+		await apiFetch('/api/auth/check', { token: key });
+		return true;
 	} catch {
 		return false;
 	}

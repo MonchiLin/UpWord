@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Drawer, Tabs, Tooltip, Popconfirm, message } from 'antd';
 import { BookOpen, Trash2 } from 'lucide-react';
 import AdminDayPanel from './AdminDayPanel';
+import { apiFetch } from '../lib/api';
 
 type Article = {
     id: string;
@@ -47,20 +48,14 @@ export default function DayDetailsSidebar({ date, className }: DayDetailsSidebar
         // 只有第一次或者数据为空时才显示 loading 状态，避免轮询时的频繁闪烁
         if (data.publishedTaskGroups.length === 0) setLoading(true);
 
-        fetch(`http://localhost:3000/api/day/${date}`)
-            .then(res => res.json())
-            .then((json: any) => {
+        apiFetch<{ publishedTaskGroups: PublishedTaskGroup[] }>(`/api/day/${date}`)
+            .then(json => {
                 if (canceled) return;
-                if (json.error || json.status === 'error') { // Backend returns status: 'error'
-                    console.error(json.error || json.message);
-                    // 仅当出错且无数据时才重置
-                    if (data.publishedTaskGroups.length === 0) setData({ publishedTaskGroups: [] });
-                } else {
-                    setData(json);
-                }
+                setData(json);
             })
             .catch(err => {
                 console.error(err);
+                if (data.publishedTaskGroups.length === 0) setData({ publishedTaskGroups: [] });
             })
             .finally(() => {
                 if (!canceled) setLoading(false);
@@ -90,14 +85,10 @@ export default function DayDetailsSidebar({ date, className }: DayDetailsSidebar
         }
 
         try {
-            const resp = await fetch(`http://localhost:3000/api/articles/${articleId}`, {
+            await apiFetch(`/api/articles/${articleId}`, {
                 method: 'DELETE',
-                headers: { 'X-Admin-Key': adminKey }
+                token: adminKey
             });
-            const json: { ok?: boolean; error?: string } = await resp.json();
-            if (!resp.ok) {
-                throw new Error(json.error || '删除失败');
-            }
             message.success('文章已删除');
             // 更新本地状态，移除该文章
             setData(prev => ({
@@ -118,9 +109,7 @@ export default function DayDetailsSidebar({ date, className }: DayDetailsSidebar
         if (wordsLoading || newWords.length > 0 || reviewWords.length > 0) return;
         setWordsLoading(true);
         try {
-            const resp = await fetch(`http://localhost:3000/api/day/${date}/words`);
-            const json: any = await resp.json();
-            if (!resp.ok) throw new Error(json?.error || 'Failed to load words');
+            const json = await apiFetch<any>(`/api/day/${date}/words`);
             setNewWords(Array.isArray(json?.new_words) ? json.new_words : []);
             setReviewWords(Array.isArray(json?.review_words) ? json.review_words : []);
         } catch (err) {
