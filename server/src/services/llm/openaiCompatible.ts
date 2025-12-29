@@ -22,12 +22,16 @@ async function safeLLMCall<T>(
     operationName: string,
     call: () => Promise<T>
 ): Promise<T> {
+    const callStartTime = Date.now();
+    const callStartISO = new Date().toISOString();
     try {
         return await call();
     } catch (e: any) {
+        const elapsedMs = Date.now() - callStartTime;
+        const elapsedMinutes = (elapsedMs / 1000 / 60).toFixed(2);
         if (e instanceof APIConnectionTimeoutError) {
-            console.error(`[${operationName}] Client Timeout:`, e);
-            throw new Error(`Client Timeout: The request exceeded our local timeout limit (Local).`);
+            console.error(`[${operationName}] Client Timeout after ${elapsedMinutes} min (started: ${callStartISO}):`, e);
+            throw new Error(`Client Timeout: ${operationName} timed out after ${elapsedMinutes} minutes (started: ${callStartISO}).`);
         }
         if (e instanceof APIConnectionError) {
             console.error(`[${operationName}] Connection Error:`, e);
