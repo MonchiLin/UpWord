@@ -87,42 +87,56 @@ type NoteEditorState =
 		note: string | null;
 	};
 
+// Use environment variable for API URL
+const API_BASE = import.meta.env.PUBLIC_API_BASE || "http://localhost:3000";
+
 async function fetchHighlights(articleId: string) {
-	const resp = await fetch(`/api/articles/${encodeURIComponent(articleId)}/highlights`);
+	const resp = await fetch(`${API_BASE}/api/articles/${encodeURIComponent(articleId)}/highlights`);
 	const text = await resp.text();
 	const data = text ? JSON.parse(text) : null;
 	if (!resp.ok) throw new Error(data?.message || `HTTP ${resp.status}`);
-	return (data?.highlights ?? []) as HighlightItem[];
+	return (data ?? []) as HighlightItem[];
 }
 
-async function checkAdminSession() {
-	const resp = await fetch('/api/admin/check', { credentials: 'same-origin' });
-	return resp.ok;
+async function checkAdminSession(adminKey: string) {
+	try {
+		const resp = await fetch(`${API_BASE}/api/auth/check`, {
+			headers: { 'x-admin-key': adminKey }
+		});
+		return resp.ok;
+	} catch {
+		return false;
+	}
 }
 
-async function loginAdmin(adminKey: string) {
-	const resp = await fetch('/api/admin/session', {
-		method: 'POST',
-		credentials: 'same-origin',
-		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({ key: adminKey })
-	});
-	return resp.ok;
-}
+// Unused legacy login function removed or kept? 
+// SettingsPanel uses direct call now. This file doesn't need login, only check.
+// I'll keep a placeholder or remove it.
+// The original file used loginAdmin in useEffect, I need to check that usage later.
+// For now, I'll update signature.
+
+// Actually, I should update adminFetchJson next.
 
 async function adminFetchJson(url: string, adminKey: string | null, init?: RequestInit) {
 	const resp = await fetch(url, {
 		...init,
-		credentials: 'same-origin',
+		// credentials: 'same-origin', // No longer needed for backend
 		headers: {
 			...(init?.headers ?? {}),
 			...(adminKey ? { 'x-admin-key': adminKey } : {})
 		}
 	});
 	const text = await resp.text();
-	const data = text ? JSON.parse(text) : null;
-	if (!resp.ok) throw new Error(data?.message || `HTTP ${resp.status}`);
-	return data;
+	// Verify JSON validity
+	try {
+		const data = text ? JSON.parse(text) : null;
+		if (!resp.ok) throw new Error(data?.message || `HTTP ${resp.status}`);
+		return data;
+	} catch {
+		// If not json (maybe 200 OK empty), return null
+		if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+		return null;
+	}
 }
 
 function getHighlightLevel(style: any | null): Level | null {
@@ -329,7 +343,7 @@ export default function ArticleTabs(props: ArticleTabsProps) {
 							if (!window.confirm('删除该批注？')) return;
 							(async () => {
 								try {
-									await adminFetchJson(`/api/admin/highlights/${encodeURIComponent(id)}`, adminKey, { method: 'DELETE' });
+									await adminFetchJson(`${API_BASE}/api/highlights/${encodeURIComponent(id)}`, adminKey, { method: 'DELETE' });
 									highlighterRef.current?.remove?.(id);
 									appliedIdsRef.current.delete(id);
 									setHighlights((prev) => prev.filter((h) => h.id !== id));
@@ -517,10 +531,12 @@ export default function ArticleTabs(props: ArticleTabsProps) {
 
 		try {
 			if (noteEditor.mode === 'create') {
-				await adminFetchJson(`/api/admin/articles/${encodeURIComponent(noteEditor.articleId)}/highlights`, adminKey, {
+				// Use backend API for creation
+				await adminFetchJson(`${API_BASE}/api/highlights`, adminKey, {
 					method: 'POST',
 					headers: { 'content-type': 'application/json' },
 					body: JSON.stringify({
+						articleId: noteEditor.articleId, // Backend expects separate articleId
 						id: noteEditor.source.id,
 						start_meta: noteEditor.source.start_meta,
 						end_meta: noteEditor.source.end_meta,
@@ -532,8 +548,10 @@ export default function ArticleTabs(props: ArticleTabsProps) {
 				await refreshHighlights();
 				closeNoteEditor({ cancelCreateHighlight: false });
 			} else {
-				await adminFetchJson(`/api/admin/highlights/${encodeURIComponent(noteEditor.id)}`, adminKey, {
-					method: 'PATCH',
+				// Use backend API for update (PUT preferred for full resource, or PATCH if supported)
+				// Backend implementation uses PUT /api/highlights/:id for updates
+				await adminFetchJson(`${API_BASE}/api/highlights/${encodeURIComponent(noteEditor.id)}`, adminKey, {
+					method: 'PUT',
 					headers: { 'content-type': 'application/json' },
 					body: JSON.stringify({ note: nextNote })
 				});
