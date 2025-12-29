@@ -1,5 +1,5 @@
 import { OpenAI, APIConnectionTimeoutError, APIConnectionError, APIError } from 'openai';
-// ... previous imports ...
+import { z } from 'zod';
 
 // Helper for error classification
 /**
