@@ -1,10 +1,18 @@
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+// Global default timezone
+dayjs.tz.setDefault('Asia/Shanghai');
+
 export const BUSINESS_TIMEZONE = 'Asia/Shanghai';
 
-export function getBusinessDate(date = new Date()) {
-    return new Intl.DateTimeFormat('en-CA', {
-        timeZone: BUSINESS_TIMEZONE,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-    }).format(date);
+export function getBusinessDate(date: Date | string = new Date()) {
+    return dayjs(date).tz(BUSINESS_TIMEZONE).format('YYYY-MM-DD');
 }
+
+export { dayjs };
+

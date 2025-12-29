@@ -32,14 +32,12 @@ export async function fetchJson<T = unknown>(url: string, adminKey: string, init
     return data as T;
 }
 
+import dayjs from 'dayjs';
+
 export function formatTime(iso: string | null | undefined): string {
     if (!iso) return '-';
     try {
-        return new Date(iso).toLocaleTimeString('en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false // 24-hour format
-        });
+        return dayjs(iso).format('HH:mm');
     } catch {
         return iso;
     }

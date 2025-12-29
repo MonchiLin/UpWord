@@ -5,7 +5,7 @@ import { eq, desc, and, inArray, sql } from 'drizzle-orm';
 import * as schema from './db/schema';
 import { db } from './src/db/client';
 import { TaskQueue } from './src/services/tasks/TaskQueue';
-import { getBusinessDate } from './src/lib/time';
+import { getBusinessDate, dayjs } from './src/lib/time';
 import { fetchAndStoreDailyWords } from './src/services/dailyWords';
 
 console.log("Using D1 (Strict). Skipping runtime migration (Managed via Wrangler/Drizzle Kit).");
@@ -378,18 +378,49 @@ const app = new Elysia()
         return { status: "ok" };
     })
     // Task Admin Actions
-    .post("/api/admin/tasks/delete-failed", async () => {
+    .post("/api/admin/tasks/delete-failed", async ({ body }: any) => {
         try {
-            const failedTasks = await db.all(sql`SELECT id FROM tasks WHERE status = 'failed'`);
-            if (failedTasks.length === 0) return { status: "ok", count: 0 };
+            const date = body?.task_date;
 
-            const ids = failedTasks.map((t: any) => t.id);
-            for (const id of ids) {
-                await db.run(sql`DELETE FROM tasks WHERE id = ${id}`);
-                await db.run(sql`DELETE FROM articles WHERE generation_task_id = ${id}`);
+            // Build query for failed tasks
+            // Note: simple D1 proxy SQL construction
+            let queryStr = "SELECT id FROM tasks WHERE status = 'failed'";
+            if (date) {
+                queryStr += ` AND task_date = '${date}'`;
             }
 
-            return { status: "ok", count: ids.length };
+            const failedTasks = await db.all(sql.raw(queryStr));
+            if (failedTasks.length === 0) return { status: "ok", count: 0 };
+
+            const taskIds = failedTasks.map((t: any) => t.id);
+            let deletedCount = 0;
+
+            for (const taskId of taskIds) {
+                try {
+                    // 1. Find Articles for this task
+                    const articles = await db.all(sql`SELECT id FROM articles WHERE generation_task_id = ${taskId}`);
+                    const articleIds = articles.map((a: any) => a.id);
+
+                    if (articleIds.length > 0) {
+                        // 2. Delete Highlights for these articles
+                        // Explicitly delete by ID list to avoid complex subquery DELETE issues
+                        const articleIdList = articleIds.map(id => `'${id}'`).join(',');
+                        await db.run(sql.raw(`DELETE FROM highlights WHERE article_id IN (${articleIdList})`));
+
+                        // 3. Delete Articles
+                        await db.run(sql`DELETE FROM articles WHERE generation_task_id = ${taskId}`);
+                    }
+
+                    // 4. Delete Tasks
+                    await db.run(sql`DELETE FROM tasks WHERE id = ${taskId}`);
+                    deletedCount++;
+                } catch (e: any) {
+                    console.error(`Failed to delete task ${taskId}:`, e.message);
+                    // Continue deleting others even if one fails
+                }
+            }
+
+            return { status: "ok", count: deletedCount, totalFound: taskIds.length };
         } catch (e: any) {
             return { status: "error", message: e.message };
         }
@@ -425,23 +456,10 @@ let lastCronRunDate = '';
 
 function runCronScheduler() {
     setInterval(async () => {
-        const now = new Date();
-        // Beijing Time (UTC+8)
-        // We need to shift UTC time. 
-        // Or simpler: use toLocaleString with timeZone
-        const tzOptions = { timeZone: 'Asia/Shanghai', hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit' } as const;
-        // Format: "MM/DD/YYYY, HH" (depends on locale) -> let's parse robustly or use offset
-
-        // Manual offset: UTC+8
-        const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
-        const bjMs = utcMs + (8 * 60 * 60 * 1000);
-        const bjDate = new Date(bjMs);
-
-        const hour = bjDate.getHours();
-        const yyyy = bjDate.getFullYear();
-        const mm = String(bjDate.getMonth() + 1).padStart(2, '0');
-        const dd = String(bjDate.getDate()).padStart(2, '0');
-        const todayStr = `${yyyy}-${mm}-${dd}`;
+        // Use dayjs with configured timezone (Asia/Shanghai)
+        const now = dayjs();
+        const hour = now.hour();
+        const todayStr = now.format('YYYY-MM-DD');
 
         // Run between 09:00 and 10:00
         if (hour === 9) {
@@ -468,15 +486,8 @@ app.post("/api/cron/trigger", async ({ request, error }: any) => {
     const key = request.headers.get ? request.headers.get('x-admin-key') : request.headers['x-admin-key'];
     if (key !== process.env.ADMIN_KEY) return error(401, { error: "Unauthorized" });
 
-    const now = new Date();
-    // Use simple local date for manual trigger, or same bj logic?
-    // Let's use simple generic YYYY-MM-DD from server time (usually UTC in docker), 
-    // but better to align with Scheduler logic if possible.
-    // For manual trigger, let's stick to simple ISO date part if sufficient, or BJ date.
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-    const taskDate = `${yyyy}-${mm}-${dd}`;
+    // Use dayjs for consistency
+    const taskDate = dayjs().format('YYYY-MM-DD');
 
     try {
         const res = await executeCronLogic(taskDate, '[API Cron Trigger]');
