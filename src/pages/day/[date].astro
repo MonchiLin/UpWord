@@ -8,7 +8,6 @@
 import Layout from "@/layouts/Layout.astro";
 import MacOSCalendarAstro from "@/components/MacOSCalendar.astro";
 import DayFeed from "@/components/DayFeed.astro";
-import AdminDayPanel from "@/components/AdminDayPanel";
 import { apiFetch } from "@/lib/api";
 
 // 获取路由参数
@@ -64,11 +63,6 @@ try {
                 class="md:col-span-8 lg:col-span-8 min-h-[500px]"
                 transition:animate="slide"
             >
-                <!-- 管理员面板保持为 React Island -->
-                <div class="mb-8">
-                    <AdminDayPanel client:idle date={date} />
-                </div>
-                
                 <!-- 文章列表 - 纯 Astro 组件 -->
                 <DayFeed date={date} data={dayData} />
             </div>

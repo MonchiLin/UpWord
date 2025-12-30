@@ -7,14 +7,14 @@ import { apiFetch } from '../lib/api';
 
 const ADMIN_KEY_STORAGE = 'luma-words_admin_key';
 
-export default function AdminDayPanel(props: { date: string; onRefreshRequest?: () => void }) {
+export default function AdminDayPanel(props: { date: string; onRefreshRequest?: () => void; isDrawerMode?: boolean }) {
 	const [adminKey, setAdminKey] = useState<string | null>(null);
 	const [isAdmin, setIsAdmin] = useState(false);
 	const [tasks, setTasks] = useState<TaskRow[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	// 默认不折叠，方便用户直接操作，或者根据用户习惯改为 true
-	const [collapsed, setCollapsed] = useState(true);
+	// 默认不折叠如果是在 Drawer 模式，否则默认折叠
+	const [collapsed, setCollapsed] = useState(!props.isDrawerMode);
 
 	const canUse = useMemo(() => isAdmin && !!adminKey, [isAdmin, adminKey]);
 
@@ -44,6 +44,11 @@ export default function AdminDayPanel(props: { date: string; onRefreshRequest?: 
 			canceled = true;
 		};
 	}, [adminKey]);
+
+	// 强制展开如果是在 Drawer 模式
+	useEffect(() => {
+		if (props.isDrawerMode) setCollapsed(false);
+	}, [props.isDrawerMode]);
 
 	// 加载任务
 	async function refresh() {
@@ -79,13 +84,7 @@ export default function AdminDayPanel(props: { date: string; onRefreshRequest?: 
 					const newTasks = data?.tasks ?? [];
 					setTasks(newTasks);
 
-					// 检查是否有任务刚刚完成 (从我们的视角看，只要有 succeeded 的任务，也许是新的)
-					// 更精确的做法：保存上一帧状态。但这里简化处理：只要 wheel 在转，每次拉取到新状态后，
-					// 如果发现有 succeeded 的任务且之前 tasks 里对应状态不是 succeeded (或者简单地，通知父级尝试刷新)
-					// 为了避免过度刷新，我们只在检测到“任务数量”或“完成状态”变化时触发？
-					// 这里的简单策略：只要处于 Active 轮询模式，每当发现有任务变成了 succeeded，就触发一次内容刷新。
-					// 实际上，只要轮询到数据，为了保险起见，都可以尝试让父组件刷新一下内容（如果 payload 不大）。
-					// 鉴于 10s 一次，频率不高，我们尝试：如果本次结果中有 succeeded 的任务，且当前组件处于轮询态，就请求父组件刷新。
+					// 检查是否有任务刚刚完成
 					const hasSucceeded = newTasks.some(t => t.status === 'succeeded');
 					if (hasSucceeded && props.onRefreshRequest) {
 						props.onRefreshRequest();
@@ -128,9 +127,6 @@ export default function AdminDayPanel(props: { date: string; onRefreshRequest?: 
 				token: adminKey,
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ task_date: props.date }),
-				// Backend needs cookie to fetch Shanbay, server has it in env.
-				// If it needs user browser cookie, credentials: include.
-				// Assuming server side fetcher uses server env cookie primarily now.
 			});
 			if (props.onRefreshRequest) props.onRefreshRequest();
 			alert('Words fetched (scheduled). Check day view.');
@@ -161,6 +157,32 @@ export default function AdminDayPanel(props: { date: string; onRefreshRequest?: 
 	}
 
 	if (!canUse) return null;
+
+	if (props.isDrawerMode) {
+		return (
+			<div className="space-y-6">
+				<AdminActions
+					loading={loading}
+					onFetchWords={fetchWords}
+					onGenerate={generate}
+				/>
+
+				{error && (
+					<div className="text-xs font-serif text-red-700 bg-red-50 p-3 italic border-l-2 border-red-700">
+						Error: {error}
+					</div>
+				)}
+
+				<TaskQueueList
+					tasks={tasks}
+					onRefresh={refresh}
+					onDelete={deleteTask}
+					adminKey={adminKey}
+					taskDate={props.date}
+				/>
+			</div>
+		);
+	}
 
 	return (
 		<div className="mb-8 border-b border-stone-200 pb-4">

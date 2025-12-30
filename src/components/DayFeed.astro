@@ -10,6 +10,8 @@ interface Article {
     title: string;
 }
 
+import AdminDrawer from "@/components/AdminDrawer";
+
 interface Props {
     date: string;
     data: { articles: Article[] };
@@ -29,9 +31,7 @@ const monthYear = dateObj.toLocaleString('en-US', { month: 'long', year: 'numeri
         <h2 class="text-3xl font-bold tracking-tight text-slate-900 leading-none">
             {dayNum} <span class="text-xl font-normal italic text-stone-500 ml-1">{monthYear}</span>
         </h2>
-        <span class="text-[10px] font-bold tracking-[0.2em] uppercase text-stone-400">
-            Daily Edition
-        </span>
+        <AdminDrawer client:idle date={date} />
     </div>
 
     <!-- Compact List -->
