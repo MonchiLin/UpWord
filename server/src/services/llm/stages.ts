@@ -1,102 +1,37 @@
-import { OpenAI, APIConnectionTimeoutError, APIConnectionError, APIError } from 'openai';
-import { z } from 'zod';
-
-// Helper for error classification
 /**
- * OpenAI Compatible LLM Service
+ * LLM 生成阶段函数
  * 
- * Implements a multi-stage Chain-of-Thought (CoT) pipeline for article generation.
- * 
- * Stages:
- * 1. Word Selection: Picks words from candidate list based on user preference.
- * 2. Research: Performs web search to gather context using `web_search` tool.
- * 3. Draft Generation: Synthesizes research into a cohesive article.
- * 4. JSON Conversion: Formats the draft into the final strict JSON schema.
- * 
- * Features:
- * - Robust Error Handling: Classifies ClientTimeout vs UpstreamError.
- * - Checkpointing: Saves progress after each stage to allow resumption.
- * - Type Safety: Validates LLM output with Zod schemas.
+ * 四阶段 CoT 流水线：选词 → 研究 → 草稿 → JSON 转换
  */
-async function safeLLMCall<T>(
-    operationName: string,
-    call: () => Promise<T>
-): Promise<T> {
-    const callStartTime = Date.now();
-    const callStartISO = new Date().toISOString();
-    try {
-        return await call();
-    } catch (e: any) {
-        const elapsedMs = Date.now() - callStartTime;
-        const elapsedMinutes = (elapsedMs / 1000 / 60).toFixed(2);
-        if (e instanceof APIConnectionTimeoutError) {
-            console.error(`[${operationName}] Client Timeout after ${elapsedMinutes} min (started: ${callStartISO}):`, e);
-            throw new Error(`Client Timeout: ${operationName} timed out after ${elapsedMinutes} minutes (started: ${callStartISO}).`);
-        }
-        if (e instanceof APIConnectionError) {
-            console.error(`[${operationName}] Connection Error:`, e);
-            throw new Error(`Connection Error: Failed to connect to upstream LLM provider. (Network/DNS)`);
-        }
-        if (e instanceof APIError) {
-            const status = e.status;
-            console.error(`[${operationName}] Upstream API Error (${status}):`, e);
-            if (status === 408) throw new Error(`Upstream Timeout: Server returned 408 Request Timeout.`);
-            if (status === 504) throw new Error(`Upstream Timeout: Server returned 504 Gateway Timeout.`);
-            if (status === 502) throw new Error(`Upstream Error: Server returned 502 Bad Gateway.`);
-            if (status === 500) throw new Error(`Upstream Error: Server Internal Error (500).`);
-            throw new Error(`Upstream API Error: ${status} - ${e.message}`);
-        }
-        console.error(`[${operationName}] Unknown Error:`, e);
-        throw e;
-    }
-}
-
 
 import type { DailyNewsOutput } from '../../schemas/dailyNews';
 import { dailyNewsOutputSchema } from '../../schemas/dailyNews';
-import { SOURCE_URL_LIMIT, WORD_SELECTION_MAX_WORDS, WORD_SELECTION_MIN_WORDS } from './llmLimits';
+import { SOURCE_URL_LIMIT } from './limits';
 import {
     appendResponseToHistory,
     collectHttpUrlsFromUnknown,
     extractHttpUrlsFromText,
-    normalizeDailyNewsOutput,
     normalizeWordSelectionPayload
-} from './openaiHelpers';
+} from './helpers';
 import {
     WORD_SELECTION_SYSTEM_PROMPT,
     buildDraftGenerationUserPrompt,
     buildJsonConversionUserPrompt,
     buildResearchUserPrompt,
     buildWordSelectionUserPrompt
-} from './openaiPrompts';
-
-import { createOpenAiCompatibleClient, type OpenAiCompatibleEnv } from './client';
+} from './prompts';
+import { safeLLMCall } from './errors';
+import type { CandidateWord, ConversationHistory, OpenAiClient } from './types';
+import { wordSelectionSchema } from './types';
 
 // xhigh medium low auto
-const reasoningEffort = "xhigh"
+export const reasoningEffort = "xhigh";
 
 // ============================================
-// 候选词类型
+// Stage 1: 选词
 // ============================================
 
-export type CandidateWord = {
-    word: string;
-    type: 'new' | 'review';
-};
-
-// ============================================
-// 选词 schema
-// ============================================
-
-const wordSelectionSchema = z.object({
-    selected_words: z.array(z.string()).min(WORD_SELECTION_MIN_WORDS).max(WORD_SELECTION_MAX_WORDS),
-    selection_reasoning: z.string().optional()
-});
-
-type OpenAiClient = ReturnType<typeof createOpenAiCompatibleClient>;
-type ConversationHistory = any[];
-
-async function runWordSelection(args: {
+export async function runWordSelection(args: {
     client: OpenAiClient;
     history: ConversationHistory;
     model: string;
@@ -165,7 +100,11 @@ async function runWordSelection(args: {
     };
 }
 
-async function runResearch(args: {
+// ============================================
+// Stage 2: 联网研究
+// ============================================
+
+export async function runResearch(args: {
     client: OpenAiClient;
     history: ConversationHistory;
     model: string;
@@ -225,7 +164,11 @@ async function runResearch(args: {
     };
 }
 
-async function runDraftGeneration(args: {
+// ============================================
+// Stage 3: 草稿生成
+// ============================================
+
+export async function runDraftGeneration(args: {
     client: OpenAiClient;
     history: ConversationHistory;
     model: string;
@@ -267,14 +210,18 @@ async function runDraftGeneration(args: {
     };
 }
 
-async function runJsonConversion(args: {
+// ============================================
+// Stage 4: JSON 转换
+// ============================================
+
+export async function runJsonConversion(args: {
     client: OpenAiClient;
     history: ConversationHistory;
     model: string;
     draftText: string;
     sourceUrls: string[];
     selectedWords: string[];
-}) {
+}): Promise<{ history: ConversationHistory; output: DailyNewsOutput; usage: unknown }> {
     console.log('[LLM Stage 4/4] JSON Conversion - START', { draftLength: args.draftText.length });
     const stageStart = Date.now();
 
@@ -311,133 +258,5 @@ async function runJsonConversion(args: {
         history,
         output: first.data,
         usage: genResp.usage ?? null
-    };
-}
-
-// ============================================
-// 多轮生成主流程
-// ============================================
-
-export type GenerationCheckpoint = {
-    stage: 'word_selection' | 'research' | 'draft' | 'conversion';
-    history: ConversationHistory;
-    selectedWords?: string[];
-    sourceUrls?: string[];
-    draftText?: string;
-    usage?: Record<string, any>;
-};
-
-export async function generateDailyNewsWithWordSelection(args: {
-    env: OpenAiCompatibleEnv;
-    model: string;
-    currentDate: string;
-    topicPreference: string;
-    candidateWords: CandidateWord[];
-    checkpoint?: GenerationCheckpoint | null;
-    onCheckpoint?: (checkpoint: GenerationCheckpoint) => Promise<void>;
-}): Promise<{ output: DailyNewsOutput; selectedWords: string[]; usage: unknown }> {
-    const client = createOpenAiCompatibleClient(args.env);
-
-    let history: ConversationHistory = args.checkpoint?.history || [];
-    let selectedWords = args.checkpoint?.selectedWords || [];
-    let sourceUrls = args.checkpoint?.sourceUrls || [];
-    let draftText = args.checkpoint?.draftText || '';
-    let usage: any = args.checkpoint?.usage || {};
-
-    const currentStage = args.checkpoint?.stage || 'start';
-
-    // Stage 1: Word Selection
-    if (currentStage === 'start') {
-        const res = await runWordSelection({
-            client,
-            history,
-            model: args.model,
-            candidateWords: args.candidateWords,
-            topicPreference: args.topicPreference,
-            currentDate: args.currentDate
-        });
-        history = res.history;
-        selectedWords = res.selectedWords;
-        usage.word_selection = res.usage;
-
-        if (args.onCheckpoint) {
-            await args.onCheckpoint({
-                stage: 'word_selection',
-                history,
-                selectedWords,
-                usage
-            });
-        }
-    }
-
-    // Stage 2: Research
-    if (currentStage === 'start' || currentStage === 'word_selection') {
-        const res = await runResearch({
-            client,
-            history,
-            model: args.model,
-            selectedWords,
-            topicPreference: args.topicPreference,
-            currentDate: args.currentDate
-        });
-        history = res.history;
-        sourceUrls = res.sourceUrls;
-        usage.research = res.usage;
-
-        if (args.onCheckpoint) {
-            await args.onCheckpoint({
-                stage: 'research',
-                history,
-                selectedWords,
-                sourceUrls,
-                usage
-            });
-        }
-    }
-
-    // Stage 3: Draft Generation
-    if (currentStage === 'start' || currentStage === 'word_selection' || currentStage === 'research') {
-        const res = await runDraftGeneration({
-            client,
-            history,
-            model: args.model,
-            selectedWords,
-            sourceUrls,
-            currentDate: args.currentDate,
-            topicPreference: args.topicPreference
-        });
-        history = res.history;
-        draftText = res.draftText;
-        usage.draft = res.usage;
-
-        if (args.onCheckpoint) {
-            await args.onCheckpoint({
-                stage: 'draft',
-                history,
-                selectedWords,
-                sourceUrls,
-                draftText: res.draftText,
-                usage
-            });
-        }
-    }
-
-    // Stage 4: Conversion
-    const generation = await runJsonConversion({
-        client,
-        history,
-        model: args.model,
-        draftText: typeof draftText === 'string' ? draftText : '',
-        sourceUrls,
-        selectedWords
-    });
-
-    return {
-        output: normalizeDailyNewsOutput(generation.output),
-        selectedWords,
-        usage: {
-            ...usage,
-            generation: generation.usage ?? null
-        }
     };
 }

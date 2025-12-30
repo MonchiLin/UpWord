@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
-import { generateDailyNewsWithWordSelection, type CandidateWord, type GenerationCheckpoint } from '../llm/openaiCompatible';
+import { generateDailyNewsWithGemini, type GeminiCheckpoint } from '../llm/geminiPipeline';
+import type { CandidateWord } from '../llm/types';
 
 // Interface for loose typing since we are using raw SQL
 interface Db {
@@ -9,7 +10,7 @@ interface Db {
 
 export type TaskEnv = {
     LLM_API_KEY: string;
-    LLM_BASE_URL: string;
+    LLM_BASE_URL?: string;
     LLM_MODEL_DEFAULT: string;
 };
 
@@ -321,19 +322,19 @@ export class TaskQueue {
         // Checkpoint Resumption Logic
         // If the task previously failed mid-execution, it may have saved a checkpoint in `result_json`.
         // We restore the state (history, selected words, etc.) to avoid re-doing expensive steps.
-        let checkpoint: GenerationCheckpoint | null = null;
+        let checkpoint: GeminiCheckpoint | null = null;
         if (task.result_json) {
             try {
                 const parsed = JSON.parse(task.result_json);
                 if (parsed.stage && parsed.history) {
-                    checkpoint = parsed as GenerationCheckpoint;
+                    checkpoint = parsed as GeminiCheckpoint;
                     console.log(`[Task ${task.id}] Resuming from checkpoint: ${checkpoint.stage}`);
                 }
             } catch (e) { }
         }
 
-        const output = await generateDailyNewsWithWordSelection({
-            env,
+        const output = await generateDailyNewsWithGemini({
+            env: { GEMINI_API_KEY: env.LLM_API_KEY, GEMINI_BASE_URL: env.LLM_BASE_URL },
             model,
             currentDate: task.task_date,
             topicPreference: profile.topic_preference,

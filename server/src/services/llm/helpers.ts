@@ -1,5 +1,5 @@
 import type { DailyNewsOutput } from '../../schemas/dailyNews';
-import { WORD_SELECTION_MAX_WORDS } from './llmLimits';
+import { WORD_SELECTION_MAX_WORDS } from './limits';
 
 // openaiCompatible 辅助函数
 function ensureContentParagraphs(content: string, level: number) {
