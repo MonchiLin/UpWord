@@ -22,7 +22,7 @@ if (!date || !dateRegex.test(date)) {
 
 // 服务端预取数据
 let publishedDays: string[] = [];
-let dayData: { publishedTaskGroups: any[] } = { publishedTaskGroups: [] };
+let dayData: { articles: any[] } = { articles: [] };
 
 try {
     const daysResponse = await apiFetch<{ days: string[] }>('/api/days');
@@ -34,7 +34,7 @@ try {
 try {
     dayData = await apiFetch(`/api/day/${date}`);
     // 只有在有内容时才启用缓存
-    if (dayData.publishedTaskGroups?.length > 0) {
+    if (dayData.articles?.length > 0) {
         // 有文章发布，启用 Cloudflare 边缘缓存 (5分钟)
         Astro.response.headers.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=3600');
     } else {

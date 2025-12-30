@@ -21,28 +21,16 @@ export const contentRoutes = new Elysia({ prefix: '/api' })
             `);
 
             const taskIds = taskRows.map((t: any) => t.id);
-            let articleRows: any[] = [];
+            let articles: any[] = [];
 
             if (taskIds.length > 0) {
-                const sqlQuery = `SELECT * FROM articles WHERE generation_task_id IN (${taskIds.map(id => `'${id}'`).join(',')}) ORDER BY model`;
-                articleRows = await db.all(sql.raw(sqlQuery));
+                // Fetch articles for these tasks
+                // Order by generation_task_id to group by task time roughly, then by model for consistency
+                const sqlQuery = `SELECT * FROM articles WHERE generation_task_id IN (${taskIds.map(id => `'${id}'`).join(',')}) ORDER BY generation_task_id, model`;
+                articles = await db.all(sql.raw(sqlQuery));
             }
 
-            const articlesByTaskId = articleRows.reduce((acc: any, article: any) => {
-                const taskId = article.generation_task_id;
-                if (!acc[taskId]) acc[taskId] = [];
-                acc[taskId].push(article);
-                return acc;
-            }, {});
-
-            const publishedTaskGroups = taskRows
-                .map((task: any) => ({
-                    task,
-                    articles: articlesByTaskId[task.id] ?? []
-                }))
-                .filter((group: any) => group.articles.length > 0);
-
-            return { publishedTaskGroups };
+            return { articles };
         } catch (e: any) {
             console.error(`[GET /api/day/${date}] Error:`, e);
             return { status: "error", message: e.message };

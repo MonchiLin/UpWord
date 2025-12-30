@@ -1,5 +1,6 @@
 ---
 import "../styles/global.css";
+import "../styles/grain-overlay.css";
 import SettingsPanel from "../components/SettingsPanel";
 import { ClientRouter } from "astro:transitions";
 
@@ -30,6 +31,9 @@ const resolvedMainClass = mainClass ?? "mx-auto max-w-8xl px-4";
 <body
 		class="min-h-screen flex flex-col bg-[#F3F2EE] text-slate-900 antialiased selection:bg-[#F3E5AB] selection:text-black"
 	>
+		<!-- 拟真纸张质感叠加层 -->
+		<div id="paper-grain"></div>
+
 		<header
 			class="sticky top-0 z-10 border-b border-stone-300 bg-[#F3F2EE]/95 transition-colors"
 		>

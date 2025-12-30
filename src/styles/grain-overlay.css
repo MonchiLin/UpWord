@@ -1,0 +1,32 @@
+/**
+ * 拟真纸张质感滤镜 (Refined Version)
+ * 
+ * Update V2:
+ * 1. 使用 fractalNoise + 高频 (0.8) 获得细腻质感
+ * 2. 增加 feColorMatrix 去色，避免 RGB 杂色
+ * 3. 极低透明度 (0.05) + Multiply 混合，模拟纸张纹理
+ */
+
+#paper-grain {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9998;
+    pointer-events: none;
+    opacity: 0.05;
+    /* 只有 5% 不透明度，极度微弱 */
+    mix-blend-mode: multiply;
+
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opaciy='1'/%3E%3C/svg%3E");
+
+    background-repeat: repeat;
+}
+
+/* 暗黑模式下可能需要稍微亮一点的叠加 */
+:global(.dark) #paper-grain {
+    opacity: 0.05;
+    mix-blend-mode: soft-light;
+    filter: invert(1);
+}

@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
-import { generateDailyNews3StageWithGemini, type GeminiCheckpoint3 } from '../llm/geminiPipeline3';
-import type { CandidateWord } from '../llm/types';
+import { generateDailyNews3StageWithGemini } from '../llm/geminiPipeline3';
+import type { CandidateWord, GeminiCheckpoint3 } from '../llm/types';
 
 // Interface for loose typing since we are using raw SQL
 interface Db {

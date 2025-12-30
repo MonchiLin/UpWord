@@ -88,8 +88,8 @@ const targetWords = sidebarWords.map((w: any) => w.word.toLowerCase());
                     <!-- 文章容器 -->
                     <div class="bg-white rounded-3xl border border-gray-100 p-6 md:p-8">
                         <!-- 文章头部 -->
-                        <header class="mb-12 md:mb-16">
-                            <div class="flex items-center justify-between text-xs md:text-sm font-bold tracking-widest uppercase text-stone-500 mb-6 border-b-2 border-slate-900 pb-2">
+                        <header class="mb-6 md:mb-8">
+                            <div class="flex items-center justify-between text-xs md:text-sm font-bold tracking-widest uppercase text-stone-500 mb-4 border-b border-slate-900 pb-2">
                                 <div class="flex items-center gap-3">
                                     <span class="text-slate-900">{dateLabel}</span>
                                     <span class="text-stone-300">|</span>
@@ -103,25 +103,25 @@ const targetWords = sidebarWords.map((w: any) => w.word.toLowerCase());
                                             type="button"
                                             data-level-btn={level}
                                             class:list={[
-                                                "level-btn w-6 h-6 flex items-center justify-center text-xs font-bold transition-all rounded-sm border leading-none",
+                                                "level-btn w-8 h-6 flex items-center justify-center text-xs font-bold transition-all rounded-sm border leading-none",
                                                 level === 1 
                                                     ? "bg-slate-900 text-white border-slate-900" 
                                                     : "bg-transparent text-stone-400 border-transparent hover:border-stone-200 hover:text-stone-600"
                                             ]}
                                         >
-                                            {level}
+                                            L{level}
                                         </button>
                                     ))}
                                 </div>
                             </div>
                             
-                            <h1 class="text-2xl md:text-4xl font-black text-slate-900 tracking-tight leading-[1.1] font-serif">
+                            <h1 class="text-2xl md:text-3xl font-black text-slate-900 tracking-tight leading-[1.2] font-serif">
                                 {title}
                             </h1>
                         </header>
                         
                         <!-- 三个难度的文章内容 -->
-                        <article id="article-content" class="font-serif leading-loose text-lg md:text-xl text-slate-800/90 space-y-8">
+                        <article id="article-content" class="font-serif leading-loose text-lg text-slate-800/90 md:text-xl">
                             {sortedArticles.map((article: any) => {
                                 const stats = getReadingStats(article.content);
                                 const paragraphs = article.content?.split('\n').filter((p: string) => p.trim()) || [];
@@ -134,7 +134,7 @@ const targetWords = sidebarWords.map((w: any) => w.word.toLowerCase());
                                         data-minutes={stats.minutes}
                                     >
                                         {paragraphs.map((paragraph: string) => (
-                                            <p class="mb-8 text-stone-800 rounded-lg">
+                                            <p class="mb-6 indent-8 text-justify">
                                                 {paragraph}
                                             </p>
                                         ))}
@@ -234,10 +234,30 @@ const targetWords = sidebarWords.map((w: any) => w.word.toLowerCase());
 <style>
     /* 默认只显示 Level 1 */
     .article-level {
-        display: none;
+        opacity: 0;
+        visibility: hidden;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        transition: opacity 0.5s ease;
+        z-index: 1;
+        pointer-events: none;
     }
     .article-level[data-active] {
-        display: block;
+        opacity: 1;
+        visibility: visible;
+        position: relative;
+        z-index: 2;
+        pointer-events: auto;
+    }
+    
+    /* 容器动画 */
+    #article-content {
+        position: relative;
+        transition: height 0.5s ease;
+        /* 防止高度塌陷时的抖动 */
+        min-height: 200px; 
     }
     
     /* 难度按钮激活状态 */
@@ -269,10 +289,18 @@ const targetWords = sidebarWords.map((w: any) => w.word.toLowerCase());
         
         function setLevel(level: number) {
             // 切换内容显示
+            // 使用 Grid Layer 或 Absolute Position 过渡
+            // 简单方案：计算高度并设置
+            
+            const container = document.getElementById('article-content');
+            let nextHeight = 0;
+            
             levels.forEach(el => {
                 const elLevel = parseInt(el.getAttribute('data-level') || '0');
                 if (elLevel === level) {
                     el.setAttribute('data-active', '');
+                    nextHeight = el.getBoundingClientRect().height;
+                    
                     // 更新阅读时间
                     const minutes = el.getAttribute('data-minutes') || '1';
                     if (readingTimeEl) {
@@ -282,6 +310,37 @@ const targetWords = sidebarWords.map((w: any) => w.word.toLowerCase());
                     el.removeAttribute('data-active');
                 }
             });
+            
+            // 手动设置容器高如果是 absolute 定位方案 (我们用的是 relative toggle, 但为了 smooth height，还是需要 trick)
+            // 修改了 CSS 为 absolute overlay? 不，文章太长，absolute 会导致 footer 上浮。
+            // 最佳方案：
+            // A (Old) -> Fade Out (Absolute)
+            // B (New) -> Fade In (Relative)
+            // Container -> Animate Height
+            
+            // 为了简单且效果好：
+            // 1. 获取新层的高度，直接设置给 Container
+             // Trick: 我们先让它 block (but opacity 0) 来测量? 
+            // 现在的 CSS .article-level[data-active] 是 relative + visible
+            // 非 active 是 absolute + hidden
+            
+            // 在 React/Vue 中我们会用 FLIP，这里手动：
+            // 由于 active 变为 relative，它撑开了父容器，会有自动的高度变化吗？
+            // transition: height 需要明确的 height 值。
+            
+            // 重新测量 active element 的高度
+             const activeEl = document.querySelector(`.article-level[data-level="${level}"]`);
+             if (activeEl && container) {
+                 // 此时它已经 relative 了，所以 container 理论上已经被撑开
+                 // 但我们要动画...
+                 // 方案：先锁定 container 高度为当前高度
+                 // const currentH = container.offsetHeight;
+                 // container.style.height = `${currentH}px`;
+                 // ... switch class ...
+                 // const newH = activeEl.offsetHeight;
+                 // container.style.height = `${newH}px`;
+                 // setTimeout(() => container.style.height = 'auto', 500);
+             }
             
             // 切换按钮状态
             buttons.forEach(btn => {

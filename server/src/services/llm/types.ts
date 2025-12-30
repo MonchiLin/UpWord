@@ -52,3 +52,16 @@ export const geminiCheckpointSchema = z.object({
 });
 
 export type GeminiCheckpoint = z.infer<typeof geminiCheckpointSchema>;
+
+// ============================================
+// Checkpoint 类型 (Gemini 3-Stage Pipeline)
+// ============================================
+
+export type GeminiCheckpoint3 = {
+    stage: 'search_selection' | 'draft' | 'conversion';
+    selectedWords?: string[];
+    newsSummary?: string;
+    sourceUrls?: string[];
+    draftText?: string;
+    usage?: Record<string, any>;
+};

@@ -6,6 +6,7 @@
 
 import type { DailyNewsOutput } from '../../schemas/dailyNews';
 import { createGeminiClient, type GeminiEnv } from './geminiClient';
+import type { GeminiCheckpoint3 } from './types';
 import {
     runGeminiSearchAndSelection,
     runGeminiDraftGeneration,
@@ -13,15 +14,7 @@ import {
     type GeminiHistory
 } from './geminiStages3';
 
-// Gemini Checkpoint 类型（三阶段版）
-export type GeminiCheckpoint3 = {
-    stage: 'search_selection' | 'draft' | 'conversion';
-    selectedWords?: string[];
-    newsSummary?: string;
-    sourceUrls?: string[];
-    draftText?: string;
-    usage?: Record<string, any>;
-};
+
 
 export async function generateDailyNews3StageWithGemini(args: {
     env: GeminiEnv;

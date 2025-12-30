@@ -30,10 +30,10 @@ const { words } = Astro.props;
     
     <!-- 词汇列表 -->
     
-    <div class="space-y-4 overflow-hidden">
+    <div class="space-y-4">
         {words.map((word) => (
             <div 
-                class="group pb-4 border-b border-stone-100 last:border-0 last:pb-0 cursor-pointer hover:bg-orange-50/50 -mx-2 px-2 py-2 rounded-lg transition-colors"
+                class="group pb-4 border-b border-stone-100 last:border-0 last:pb-0 cursor-pointer -mx-2 px-2 py-2 rounded-lg transition-all duration-300"
                 data-word-card={word.word.toLowerCase()}
             >
                 <div class="flex items-baseline gap-2 mb-1">
@@ -64,22 +64,47 @@ const { words } = Astro.props;
     </div>
 </div>
 
+</script>
+
+<style>
+    /* 移除之前的 active 样式 */
+</style>
+
 <script>
-    // 点击词汇卡片时高亮文章中的对应单词
-    document.querySelectorAll('[data-word-card]').forEach(card => {
-        card.addEventListener('click', () => {
+    /**
+     * Margin Notes Logic
+     * 1. Click Card -> Scroll to Word
+     * (Auto-highlight removed per user request)
+     */
+    
+    // 初始化
+    const cards = document.querySelectorAll<HTMLElement>('[data-word-card]');
+    
+    // A. 侧边栏点击逻辑 (Card -> Text)
+    cards.forEach(card => {
+        card.addEventListener('click', (e) => {
             const word = card.getAttribute('data-word-card');
             if (!word) return;
             
-            // 找到文章中的对应单词
-            const targetWord = document.querySelector(`[data-word="${word}"]`);
-            if (targetWord) {
-                targetWord.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                // 添加闪烁效果
-                targetWord.classList.add('animate-pulse');
-                setTimeout(() => {
-                    targetWord.classList.remove('animate-pulse');
-                }, 1000);
+            // 找到文章中的单词
+            // 注意：Target Word 是由 HighlightManager 动态生成的，可能有多个实例
+            // 我们找第一个可见的或者就在找所有
+            // 由于 HighlightManager 是 Island，所以 Target Word 有特定 Class .target-word
+            // 且内容匹配
+            
+            // 简单起见，利用 xpath 或者 遍历
+            const targetWords = Array.from(document.querySelectorAll('.target-word'))
+                .filter(el => el.textContent?.trim().toLowerCase() === word);
+                
+            if (targetWords.length > 0) {
+                // 滚动到第一个
+                targetWords[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                // 闪烁
+                targetWords[0].animate([
+                    { color: '#ea580c', transform: 'scale(1)' },
+                    { color: '#c2410c', transform: 'scale(1.2)' },
+                    { color: '#ea580c', transform: 'scale(1)' }
+                ], { duration: 600, iterations: 2 });
             }
         });
     });
