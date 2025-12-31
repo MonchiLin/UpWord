@@ -52,5 +52,8 @@ export default defineConfig({
     },
   },
 
-  adapter: cloudflare()
+  adapter: cloudflare(),
+  devToolbar: {
+    enabled: false
+  }
 });

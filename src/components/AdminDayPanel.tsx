@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
+import { message } from 'antd';
 import { type TaskRow, fetchJson } from './admin/shared';
 import AdminActions from './admin/AdminActions';
 import TaskQueueList from './admin/TaskQueueList';
@@ -129,7 +130,7 @@ export default function AdminDayPanel(props: { date: string; onRefreshRequest?: 
 				body: JSON.stringify({ task_date: props.date }),
 			});
 			if (props.onRefreshRequest) props.onRefreshRequest();
-			alert('Words fetched (scheduled). Check day view.');
+			message.success('单词已拉取，请稍后查看');
 		} catch (e) {
 			setError((e as Error).message);
 		} finally {

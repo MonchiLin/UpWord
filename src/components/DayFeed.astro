@@ -10,14 +10,23 @@ interface Article {
     title: string;
 }
 
+interface WordData {
+    new_words: string[];
+    review_words: string[];
+    new_count: number;
+    review_count: number;
+}
+
+import WordsDrawer from "@/components/WordsDrawer";
 import AdminDrawer from "@/components/AdminDrawer";
 
 interface Props {
     date: string;
     data: { articles: Article[] };
+    wordData?: WordData;
 }
 
-const { date, data } = Astro.props;
+const { date, data, wordData } = Astro.props;
 
 // 格式化日期显示
 const dateObj = new Date(date + 'T00:00:00');
@@ -31,7 +40,10 @@ const monthYear = dateObj.toLocaleString('en-US', { month: 'long', year: 'numeri
         <h2 class="text-3xl font-bold tracking-tight text-slate-900 leading-none">
             {dayNum} <span class="text-xl font-normal italic text-stone-500 ml-1">{monthYear}</span>
         </h2>
-        <AdminDrawer client:idle date={date} />
+        <div class="flex items-center gap-4">
+            <WordsDrawer client:idle date={date} wordData={wordData} />
+            <AdminDrawer client:idle date={date} />
+        </div>
     </div>
 
     <!-- Compact List -->

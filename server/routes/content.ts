@@ -36,7 +36,7 @@ export const contentRoutes = new Elysia({ prefix: '/api' })
             return { status: "error", message: e.message };
         }
     })
-    .get('/day/:date/words', async ({ params: { date } }) => {
+    .get('/day/:date/words', async ({ params: { date }, set }) => {
         try {
             const rows = await db.all(sql`SELECT * FROM daily_words WHERE date = ${date} LIMIT 1`);
             const row: any = rows[0];
@@ -48,6 +48,10 @@ export const contentRoutes = new Elysia({ prefix: '/api' })
             const reviewWords = JSON.parse(row.review_words_json);
             const newList = Array.isArray(newWords) ? newWords : [];
             const reviewList = Array.isArray(reviewWords) ? reviewWords : [];
+
+            // 单词数据拉取后永不变更，启用超长期缓存（1年）
+            set.headers['Cache-Control'] = 'public, s-maxage=31536000, immutable';
+
             return {
                 date,
                 new_words: newList,

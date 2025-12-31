@@ -1,15 +1,24 @@
 /**
- * AdminDrawer - 管理抽屉
+ * WordsDrawer - 单词列表抽屉
  * 
- * 独立的管理入口，点击打开右侧抽屉显示管理功能。
+ * 独立的单词列表入口，点击打开右侧抽屉显示当日单词。
  */
 import { useState } from 'react';
 import { Drawer, ConfigProvider } from 'antd';
-import { Settings } from 'lucide-react';
-import AdminDayPanel from './AdminDayPanel';
+import { BookOpen } from 'lucide-react';
+import WordListPanel from './WordListPanel';
 
-export default function AdminDrawer({ date }: { date: string }) {
+interface WordData {
+    new_words: string[];
+    review_words: string[];
+    new_count: number;
+    review_count: number;
+}
+
+export default function WordsDrawer({ date, wordData }: { date: string; wordData?: WordData }) {
     const [open, setOpen] = useState(false);
+
+    const totalCount = wordData ? wordData.new_count + wordData.review_count : 0;
 
     return (
         <ConfigProvider
@@ -22,15 +31,18 @@ export default function AdminDrawer({ date }: { date: string }) {
             <>
                 <button
                     onClick={() => setOpen(true)}
-                    className="flex items-center gap-1 text-[10px] font-bold tracking-[0.15em] uppercase text-stone-400 hover:text-slate-900 transition-colors cursor-pointer"
+                    className="flex items-center gap-1 text-[10px] font-bold tracking-[0.15em] uppercase text-stone-400 hover:text-amber-700 transition-colors cursor-pointer"
                 >
-                    <Settings size={12} />
-                    MANAGE
+                    <BookOpen size={12} />
+                    WORDS
+                    {totalCount > 0 && (
+                        <span className="text-amber-600">({totalCount})</span>
+                    )}
                 </button>
                 <Drawer
                     title={
                         <span className="font-serif italic text-stone-600">
-                            管理 · {date}
+                            单词列表 · {date}
                         </span>
                     }
                     placement="right"
@@ -42,7 +54,7 @@ export default function AdminDrawer({ date }: { date: string }) {
                         body: { padding: '24px' }
                     }}
                 >
-                    <AdminDayPanel date={date} isDrawerMode={true} />
+                    <WordListPanel date={date} initialData={wordData} />
                 </Drawer>
             </>
         </ConfigProvider>
