@@ -115,7 +115,7 @@ const targetWords = sidebarWords.map((w: any) => w.word.toLowerCase());
                                 </div>
                             </div>
                             
-                            <h1 class="text-2xl md:text-3xl font-black text-slate-900 tracking-tight leading-[1.2] font-serif">
+                            <h1 class="text-3xl md:text-5xl font-bold text-slate-900 tracking-tight leading-[1.1] font-display">
                                 {title}
                             </h1>
                         </header>
@@ -133,8 +133,8 @@ const targetWords = sidebarWords.map((w: any) => w.word.toLowerCase());
                                         data-word-count={stats.wordCount}
                                         data-minutes={stats.minutes}
                                     >
-                                        {paragraphs.map((paragraph: string) => (
-                                            <p class="mb-6 indent-8 text-justify">
+                                        {paragraphs.map((paragraph: string, pIndex: number) => (
+                                            <p class={`mb-6 text-justify ${pIndex === 0 ? 'drop-cap-p' : 'indent-8'}`}>
                                                 {paragraph}
                                             </p>
                                         ))}

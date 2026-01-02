@@ -77,34 +77,49 @@ const { words } = Astro.props;
      * (Auto-highlight removed per user request)
      */
     
-    // 初始化
-    const cards = document.querySelectorAll<HTMLElement>('[data-word-card]');
-    
-    // A. 侧边栏点击逻辑 (Card -> Text)
+    import { interactionStore, setActiveWord } from '../lib/store/interactionStore';
+
+    // 1. Sidebar Hover -> Store
+    const cards = document.querySelectorAll('[data-word-card]');
     cards.forEach(card => {
-        card.addEventListener('click', (e) => {
-            const word = card.getAttribute('data-word-card');
-            if (!word) return;
-            
-            // 找到文章中的单词
-            // 注意：Target Word 是由 HighlightManager 动态生成的，可能有多个实例
-            // 我们找第一个可见的或者就在找所有
-            // 由于 HighlightManager 是 Island，所以 Target Word 有特定 Class .target-word
-            // 且内容匹配
-            
-            // 简单起见，利用 xpath 或者 遍历
-            const targetWords = Array.from(document.querySelectorAll('.target-word'))
+        const word = card.getAttribute('data-word-card');
+        
+        card.addEventListener('mouseenter', () => {
+            if (word) setActiveWord(word);
+        });
+        
+        card.addEventListener('mouseleave', () => {
+            setActiveWord(null);
+        });
+
+        // Click logic (Keep existing scroll)
+        card.addEventListener('click', () => {
+             if (!word) return;
+             const targetWords = Array.from(document.querySelectorAll('.target-word'))
                 .filter(el => el.textContent?.trim().toLowerCase() === word);
-                
-            if (targetWords.length > 0) {
-                // 滚动到第一个
-                targetWords[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-                // 闪烁
-                targetWords[0].animate([
-                    { color: '#ea580c', transform: 'scale(1)' },
-                    { color: '#c2410c', transform: 'scale(1.2)' },
-                    { color: '#ea580c', transform: 'scale(1)' }
-                ], { duration: 600, iterations: 2 });
+             if (targetWords.length > 0) {
+                 // Try to find one in viewport first, else first one
+                 const visible = targetWords.find(el => {
+                     const r = el.getBoundingClientRect();
+                     return r.top >= 0 && r.bottom <= window.innerHeight;
+                 });
+                 const target = visible || targetWords[0];
+                 target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+             }
+        });
+    });
+
+    // 2. Store -> Sidebar Active State
+    interactionStore.subscribe(state => {
+        const activeWord = state.activeWord;
+        cards.forEach(card => {
+            const word = card.getAttribute('data-word-card');
+            if (activeWord && word === activeWord) {
+                card.classList.add('scale-105', 'bg-white', 'shadow-xl', 'border-transparent', 'ring-1', 'ring-stone-200');
+                card.classList.remove('border-stone-100');
+            } else {
+                card.classList.remove('scale-105', 'bg-white', 'shadow-xl', 'border-transparent', 'ring-1', 'ring-stone-200');
+                card.classList.add('border-stone-100');
             }
         });
     });

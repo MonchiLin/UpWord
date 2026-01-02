@@ -4,17 +4,19 @@
 @plugin "@tailwindcss/typography";
 
 @theme {
-	--font-sans: "HarmonyOS Sans SC";
-	--font-serif: "HarmonyOS Sans SC";
-	--font-mono: "HarmonyOS Sans SC";
+	--font-sans: "Inter", "HarmonyOS Sans SC", system-ui, sans-serif;
+	--font-serif: "Merriweather", "Noto Serif SC", "Times New Roman", serif;
+	--font-display: "Playfair Display", "Noto Serif SC", serif;
 
 	--color-paper: #F9F9F8;
+	--color-paper-dark: #F2F0EB;
 	--color-paper-ink: #2D2D2D;
 
-	--color-ink: #1A1A1A;
+	--color-ink: #2D2D2D;
+	--color-ink-light: #5A5A5A;
 	--color-ink-fg: #E0E0E0;
 
-	--color-accent: #E65100;
+	--color-accent: #D9480F;
 	--color-accent-soft: #FFAB91;
 }
 
@@ -24,14 +26,39 @@
 	}
 
 	html {
-		background: #fcfbf8;
-		color: #2d2d2d;
+		background: var(--color-paper);
+		color: var(--color-ink);
 	}
 
 	body {
 		margin: 0;
 		min-height: 100vh;
-		font-family: "HarmonyOS Sans SC";
+		font-family: var(--font-sans);
+		/* UI Default */
+		background-color: var(--color-paper);
+	}
+
+	/* Typography Utilities */
+	h1,
+	h2,
+	h3,
+	h4,
+	h5,
+	h6 {
+		font-family: var(--font-display);
+		font-weight: 700;
+	}
+
+	/* Drop Cap for Editorial Feel */
+	.drop-cap-p::first-letter {
+		font-family: var(--font-display);
+		float: left;
+		font-size: 4.8rem;
+		line-height: 0.85;
+		margin-right: 0.75rem;
+		margin-top: -0.2rem;
+		font-weight: 700;
+		color: var(--color-ink);
 	}
 
 	a {
@@ -46,5 +73,28 @@
 	.sx-react-calendar-wrapper {
 		width: 100%;
 		height: 100%;
+	}
+
+	/* Global Target Word Style (Dynamic Content) */
+	.target-word {
+		color: var(--color-accent);
+		font-weight: 600;
+		border-bottom: 2px dotted var(--color-accent);
+		cursor: pointer;
+		transition: all 0.2s ease;
+	}
+
+	.target-word:hover {
+		background-color: var(--color-accent-soft);
+		color: white;
+		border-bottom-style: solid;
+	}
+
+	/* Audio Playback Highlight */
+	.audio-active-sentence {
+		background-color: rgba(217, 72, 15, 0.15);
+		/* Accent with low opacity */
+		box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+		border-radius: 0.25rem;
 	}
 }

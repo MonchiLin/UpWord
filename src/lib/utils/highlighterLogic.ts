@@ -109,8 +109,23 @@ function processTargetWords(container: HTMLElement, text: string, targetWords: s
 
         if (targetWords.includes(word.toLowerCase())) {
             const wSpan = document.createElement('span');
-            wSpan.className = 'target-word cursor-pointer border-b-2 border-dotted border-orange-500 text-orange-600 font-semibold hover:bg-orange-100';
+            wSpan.className = 'target-word'; // Semantic class, styled in global.css
             wSpan.textContent = word;
+            wSpan.dataset.word = word.toLowerCase(); // For Tether to find it
+
+            // Interaction: Link to Store
+            wSpan.addEventListener('mouseenter', () => {
+                // Dispatch custom event for decoupling, or use global store access if possible. 
+                // Since this is a pure utility, dispatching an event is cleaner, but let's use the store directly if we import it.
+                // However, importing store in a utility file might be fine.
+                // Let's use a window event dispatch to avoid circular dependency risks or bundler issues if this file is used weirdly.
+                // Actually, the simplest way is to dispatch a 'word-hover' event.
+                window.dispatchEvent(new CustomEvent('word-hover', { detail: { word } }));
+            });
+            wSpan.addEventListener('mouseleave', () => {
+                window.dispatchEvent(new CustomEvent('word-hover', { detail: { word: null } }));
+            });
+
             wSpan.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const u = new SpeechSynthesisUtterance(word);

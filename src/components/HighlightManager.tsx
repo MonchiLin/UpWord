@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useStore } from '@nanostores/react';
 import { audioState } from '../lib/store/audioStore';
 import { tokenizeSentences, findActiveSid } from '../lib/utils/highlighterLogic';
+import { setLevel, setActiveWord } from '../lib/store/interactionStore';
 
 interface HighlightManagerProps {
     articleId: string;
@@ -20,14 +21,28 @@ export default function HighlightManager({ articleId, targetWords }: HighlightMa
             if (level) {
                 console.log('[HighlightManager] Level changed to:', level);
                 setCurrentLevel(level);
+                setLevel(level); // Sync to store
             }
         };
 
         window.addEventListener('level-change' as any, handleLevelChange);
         const saved = localStorage.getItem('luma-words_preferred_level');
-        if (saved) setCurrentLevel(parseInt(saved) || 1);
+        if (saved) {
+            const l = parseInt(saved) || 1;
+            setCurrentLevel(l);
+            setLevel(l);
+        }
 
         return () => window.removeEventListener('level-change' as any, handleLevelChange);
+    }, []);
+
+    // 监听来自 highlighterLogic 的 hover 事件
+    useEffect(() => {
+        const handleWordHover = (e: CustomEvent) => {
+            setActiveWord(e.detail?.word || null);
+        };
+        window.addEventListener('word-hover' as any, handleWordHover);
+        return () => window.removeEventListener('word-hover' as any, handleWordHover);
     }, []);
 
     // 句子分词核心逻辑 (调用抽离后的工具函数)
@@ -47,7 +62,7 @@ export default function HighlightManager({ articleId, targetWords }: HighlightMa
             const levelContainer = document.querySelector(`.article-level[data-level="${currentLevel}"]`);
             if (levelContainer) {
                 const oldTokens = levelContainer.querySelectorAll(`.s-token[data-sid="${oldSid}"]`);
-                oldTokens.forEach(t => t.classList.remove('bg-orange-100/50', 'shadow-sm'));
+                oldTokens.forEach(t => t.classList.remove('audio-active-sentence'));
             }
             playbackActiveSidRef.current = null;
         }
@@ -68,7 +83,7 @@ export default function HighlightManager({ articleId, targetWords }: HighlightMa
 
         if (targetSid !== -1) {
             const targetTokens = block.querySelectorAll(`.s-token[data-sid="${targetSid}"]`);
-            targetTokens.forEach(t => t.classList.add('bg-orange-100/50', 'shadow-sm'));
+            targetTokens.forEach(t => t.classList.add('audio-active-sentence'));
             playbackActiveSidRef.current = targetSid;
         }
 
