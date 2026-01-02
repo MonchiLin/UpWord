@@ -1,24 +1,30 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
+import sitemap from '@astrojs/sitemap';
 import react from '@astrojs/react';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { storybookTest } from "@storybook/addon-vitest/vitest-plugin";
 import { playwright } from "@vitest/browser-playwright";
+import cloudflare from '@astrojs/cloudflare';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 
-import cloudflare from '@astrojs/cloudflare';
-
 // https://astro.build/config
 export default defineConfig({
+  site: process.env.SITE_URL,
   output: 'server',
   // Disable session storage to avoid KV binding requirements.
   session: {
     driver: 'null'
   },
-  integrations: [react()],
+  integrations: [react(), sitemap()],
+  image: {
+    service: {
+      entrypoint: 'astro/assets/services/noop'
+    }
+  },
 
   vite: {
     plugins: [/** @type {any} */(tailwindcss())],
