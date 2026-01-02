@@ -104,6 +104,23 @@ export default function VisualTether() {
             className="fixed inset-0 pointer-events-none z-50 overflow-visible"
             style={{ width: '100vw', height: '100vh' }}
         >
+            <style>{`
+                @keyframes tether-draw {
+                    from {
+                        opacity: 0;
+                        stroke-dashoffset: 1;
+                    }
+                    to {
+                        opacity: 1;
+                        stroke-dashoffset: 0;
+                    }
+                }
+                .tether-line {
+                    animation: tether-draw 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+                    stroke-dasharray: 1;
+                    stroke-dashoffset: 1; /* Start hidden */
+                }
+            `}</style>
             <defs>
                 <linearGradient id="tetherGradient" x1="0%" y1="0%" x2="100%" y2="0%">
                     <stop offset="0%" stopColor="#D9480F" stopOpacity="0.4" />
@@ -121,12 +138,13 @@ export default function VisualTether() {
                 <path
                     key={i}
                     d={p.path}
+                    pathLength="1"
                     stroke="url(#tetherGradient)"
                     strokeWidth="1.5"
                     fill="none"
                     strokeLinecap="round"
                     filter="url(#glow)"
-                    className="transition-all duration-300"
+                    className="tether-line"
                     style={{ opacity: p.opacity }}
                 />
             ))}
