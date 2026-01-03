@@ -1,7 +1,9 @@
 ---
 import "../styles/global.css";
 import "../styles/grain-overlay.css";
+import "../styles/structure.css";
 import SettingsPanel from "../components/SettingsPanel";
+import HelpPanel from "../components/HelpPanel";
 import { ClientRouter } from "astro:transitions";
 
 type Props = {
@@ -45,8 +47,9 @@ const resolvedMainClass = mainClass ?? "mx-auto max-w-8xl px-4";
 					class="font-serif text-2xl font-bold tracking-tight text-slate-900 hover:text-slate-700 transition-colors"
 					>Aperture Daily</a
 				>
-				<div class="flex items-center gap-2">
+				<div class="flex items-center gap-1">
 					<SettingsPanel client:load />
+					<HelpPanel client:load />
 				</div>
 			</div>
 		</header>

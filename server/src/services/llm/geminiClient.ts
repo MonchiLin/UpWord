@@ -22,16 +22,6 @@ export type GeminiMessage = {
 
 export type GeminiRequest = {
     contents: GeminiMessage[];
-    generationConfig?: {
-        temperature?: number;
-        maxOutputTokens?: number;
-        responseMimeType?: string;
-        thinkingConfig?: {
-            includeThoughts?: boolean;
-            thinkingLevel?: ThinkingLevel;
-        };
-    };
-    tools?: Array<{ googleSearch: Record<string, never> }>;
     systemInstruction?: { parts: Array<{ text: string }> };
 };
 
@@ -76,7 +66,17 @@ export function createGeminiClient(env: GeminiEnv) {
                         'Content-Type': 'application/json',
                         'x-goog-api-key': env.GEMINI_API_KEY,
                     },
-                    body: JSON.stringify(request),
+                    body: JSON.stringify({
+                        generationConfig: {
+                            temperature: 1,
+                            thinkingConfig: {
+                                includeThoughts: true,
+                                thinkingLevel: 'high'
+                            }
+                        },
+                        ...request,
+                        tools: [{ googleSearch: {} }]
+                    }),
                     signal: controller.signal,
                 });
 

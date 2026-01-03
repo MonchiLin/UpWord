@@ -137,11 +137,12 @@ export default function TaskQueueList({ tasks, onRefresh, onDelete, adminKey, ta
                             <div className="flex items-center gap-2">
                                 <span className="font-mono">{formatTime(t.created_at)}</span>
                                 {t.status === 'running' && (() => {
-                                    let stageText = 'Stage 1/3: 搜索选词';
+                                    let stageText = 'Stage 1/4: 搜索选词';
                                     try {
                                         const cp = t.result_json ? JSON.parse(t.result_json) : null;
-                                        if (cp?.stage === 'search_selection') stageText = 'Stage 2/3: 撰写草稿';
-                                        else if (cp?.stage === 'draft') stageText = 'Stage 3/3: 格式转换';
+                                        if (cp?.stage === 'search_selection') stageText = 'Stage 2/4: 撰写草稿';
+                                        else if (cp?.stage === 'draft') stageText = 'Stage 3/4: 格式转换';
+                                        else if (cp?.stage === 'conversion' || cp?.stage === 'grammar_analysis') stageText = 'Stage 4/4: 语法透视';
                                     } catch { }
                                     return (
                                         <span className="text-orange-500 font-serif italic font-medium lowercase tracking-normal bg-orange-50 px-1.5 py-0.5 rounded-sm">

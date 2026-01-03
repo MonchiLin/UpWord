@@ -27,15 +27,11 @@ import {
     safeGeminiCall,
     stripMarkdownCodeBlock,
     type GeminiClient,
-    type GeminiMessage,
-    type ThinkingLevel
+    type GeminiMessage
 } from './geminiClient';
 
 // Gemini 对话历史类型
 export type GeminiHistory = GeminiMessage[];
-
-// Thinking 级别配置
-export const geminiThinkingLevel: ThinkingLevel = 'high';
 
 // Stage 1: 搜索 + 选词
 export async function runGeminiSearchAndSelection(args: {
@@ -64,16 +60,6 @@ export async function runGeminiSearchAndSelection(args: {
     const response = await safeGeminiCall('GeminiSearchAndSelection', async () => {
         return args.client.generateContent(args.model, {
             contents: args.history,
-            generationConfig: {
-                temperature: 1,
-                // 注意：使用 googleSearch 工具时，不能强制 JSON 格式
-                // Gemini 需要先执行搜索，然后以自然语言总结，最后我们从文本中提取 JSON
-                thinkingConfig: {
-                    includeThoughts: true,
-                    thinkingLevel: geminiThinkingLevel
-                }
-            },
-            tools: [{ googleSearch: {} }],
             systemInstruction: { parts: [{ text: systemPrompt }] }
         });
     });
@@ -178,13 +164,6 @@ export async function runGeminiDraftGeneration(args: {
     const response = await safeGeminiCall('GeminiDraftGeneration', async () => {
         return args.client.generateContent(args.model, {
             contents: history,
-            generationConfig: {
-                temperature: 1,
-                thinkingConfig: {
-                    includeThoughts: true,
-                    thinkingLevel: geminiThinkingLevel
-                }
-            },
             systemInstruction: { parts: [{ text: DRAFT_SYSTEM_INSTRUCTION }] }
         });
     });
@@ -226,14 +205,6 @@ export async function runGeminiJsonConversion(args: {
     const response = await safeGeminiCall('GeminiJsonConversion', async () => {
         return args.client.generateContent(args.model, {
             contents: history,
-            generationConfig: {
-                temperature: 1,
-                responseMimeType: 'application/json',
-                thinkingConfig: {
-                    includeThoughts: true,
-                    thinkingLevel: geminiThinkingLevel
-                }
-            },
             systemInstruction: { parts: [{ text: JSON_SYSTEM_INSTRUCTION }] }
         });
     });

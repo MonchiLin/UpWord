@@ -26,14 +26,17 @@ export function tokenizeSentences(
 
     const segmenter = new Intl.Segmenter('en', { granularity: 'sentence' });
 
+    // [Fix] Global Sentence ID counter to ensure uniqueness across paragraphs
+    let globalSentenceIdCounter = 0;
+
     blocks.forEach((block) => {
-        const ttsText = (block as HTMLElement).innerText || '';
+        const ttsText = (block as HTMLElement).textContent || '';
         const rawSentences = Array.from(segmenter.segment(ttsText));
 
-        const sentenceMap: SentenceMapping[] = rawSentences.map((s, i) => ({
+        const sentenceMap: SentenceMapping[] = rawSentences.map((s) => ({
             start: s.index,
             end: s.index + s.segment.length,
-            id: i,
+            id: globalSentenceIdCounter++, // [Fix] Increment global counter
             text: s.segment
         }));
 

@@ -28,8 +28,6 @@ async function getUsedWordsToday(db: Db, taskDate: string): Promise<Set<string>>
     if (todaysTasks.length === 0) return new Set();
 
     const taskIds = todaysTasks.map((t) => t.id);
-    const placeholders = taskIds.map(() => '?').join(',');
-
     // Manual IN clause for raw SQL safely
     // Since IDs are trusted UUIDs, we can inject, but safer to use param array if possible.
     // D1 Proxy simple mode usually requires literal injection for arrays or loops.
@@ -242,7 +240,7 @@ export class TaskQueue {
     async processQueue(env: TaskEnv) {
         // console.log(`[TaskQueue] Starting global queue processing`);
 
-        const stuckTimeout = 2 * 60 * 1000; // 2 minutes
+        const stuckTimeout = 30 * 60 * 1000; // 30 minutes
         // We need to parse ISO dates in JS to compare, or trust SQL comparison if formats match.
         // Let's filter in JS to be safe with string dates.
 
@@ -328,7 +326,7 @@ export class TaskQueue {
             try {
                 const parsed = JSON.parse(task.result_json);
                 // 只接受三阶段的合法 stage 值
-                const validStages = ['search_selection', 'draft', 'conversion'];
+                const validStages = ['search_selection', 'draft', 'conversion', 'grammar_analysis'];
                 if (parsed && typeof parsed === 'object' && 'stage' in parsed && validStages.includes(parsed.stage)) {
                     checkpoint = parsed as GeminiCheckpoint3;
                     console.log(`[Task ${task.id}] Resuming from checkpoint: ${checkpoint.stage}`);
@@ -381,6 +379,28 @@ export class TaskQueue {
             generated: { model, article_id: articleId },
             usage: output.usage ?? null
         };
+
+        // [Fix] Ensure idempotency with manual CASCADE delete
+        // 1. Find existing article(s) that match this task/model combination
+        const existingArticles = await this.db.all(sql`
+            SELECT id FROM articles 
+            WHERE generation_task_id = ${task.id} AND model = ${model} AND variant = 1
+        `);
+
+        if (existingArticles.length > 0) {
+            const articleIds = existingArticles.map(a => `'${a.id}'`).join(',');
+
+            // 2. Delete dependencies first (Foreign Key Constraints)
+            await this.db.run(sql.raw(`DELETE FROM highlights WHERE article_id IN (${articleIds})`));
+            await this.db.run(sql.raw(`DELETE FROM article_word_index WHERE article_id IN (${articleIds})`));
+
+            // 3. Delete the articles
+            await this.db.run(sql.raw(`DELETE FROM articles WHERE id IN (${articleIds})`));
+
+            console.log(`[Task ${task.id}] Cleaned up ${existingArticles.length} existing article(s) before retry.`);
+        }
+
+
 
         await this.db.run(sql`
             INSERT INTO articles (id, generation_task_id, model, variant, title, content_json, status, published_at)

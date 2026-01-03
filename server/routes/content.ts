@@ -26,7 +26,7 @@ export const contentRoutes = new Elysia({ prefix: '/api' })
             if (taskIds.length > 0) {
                 // Fetch articles for these tasks
                 // Order by generation_task_id to group by task time roughly, then by model for consistency
-                const sqlQuery = `SELECT * FROM articles WHERE generation_task_id IN (${taskIds.map(id => `'${id}'`).join(',')}) ORDER BY generation_task_id, model`;
+                const sqlQuery = `SELECT * FROM articles WHERE generation_task_id IN (${taskIds.map(id => `'${id}'`).join(',')}) ORDER BY created_at ASC`;
                 articles = await db.all(sql.raw(sqlQuery));
             }
 

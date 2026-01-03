@@ -14,6 +14,11 @@ export interface ArticleParsedContent {
             content: string;
             title?: string;
             difficulty_desc: string;
+            xray_structure?: Array<{
+                start: number;
+                end: number;
+                role: string;
+            }>;
         }>;
     };
 }

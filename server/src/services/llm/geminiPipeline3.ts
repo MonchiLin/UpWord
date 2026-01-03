@@ -11,10 +11,8 @@ import {
     runGeminiSearchAndSelection,
     runGeminiDraftGeneration,
     runGeminiJsonConversion,
-    type GeminiHistory
 } from './geminiStages3';
-
-
+import { runGeminiGrammarAnalysis } from './geminiStages4';
 
 export async function generateDailyNews3StageWithGemini(args: {
     env: GeminiEnv;
@@ -24,7 +22,7 @@ export async function generateDailyNews3StageWithGemini(args: {
     candidateWords: string[];
     checkpoint?: GeminiCheckpoint3 | null;
     onCheckpoint?: (checkpoint: GeminiCheckpoint3) => Promise<void>;
-}): Promise<{ output: DailyNewsOutput; selectedWords: string[]; usage: unknown }> {
+}): Promise<{ output: DailyNewsOutput; selectedWords: string[]; usage: unknown, structure: any[] }> {
     const client = createGeminiClient(args.env);
 
     let selectedWords = args.checkpoint?.selectedWords || [];
@@ -37,11 +35,9 @@ export async function generateDailyNews3StageWithGemini(args: {
 
     // Stage 1: Search + Selection
     if (currentStage === 'start') {
-        const history: GeminiHistory = [];
-
         const res = await runGeminiSearchAndSelection({
             client,
-            history,
+            history: [],
             model: args.model,
             candidateWords: args.candidateWords,
             topicPreference: args.topicPreference,
@@ -53,8 +49,7 @@ export async function generateDailyNews3StageWithGemini(args: {
         sourceUrls = res.sourceUrls;
         usage.search_selection = res.usage;
 
-        console.log(`[Pipeline 3-Stage] Stage 1 (Search+Selection) Complete. Selected ${selectedWords.length} words: ${JSON.stringify(selectedWords)}`);
-        console.log(`[Pipeline 3-Stage] Found ${sourceUrls.length} source URLs`);
+        console.log(`[Pipeline 3-Stage] Stage 1 (Search+Selection) Complete. Selected ${selectedWords.length} words.`);
 
         if (args.onCheckpoint) {
             await args.onCheckpoint({
@@ -82,7 +77,7 @@ export async function generateDailyNews3StageWithGemini(args: {
         draftText = res.draftText;
         usage.draft = res.usage;
 
-        console.log(`[Pipeline 3-Stage] Stage 2 (Draft) Complete. Generated ${draftText.length} characters.`);
+        console.log(`[Pipeline 3-Stage] Stage 2 (Draft) Complete. Characters: ${draftText.length}`);
 
         if (args.onCheckpoint) {
             await args.onCheckpoint({
@@ -96,7 +91,8 @@ export async function generateDailyNews3StageWithGemini(args: {
         }
     }
 
-    // Stage 3: Conversion
+    // Stage 3: Conversion (JSON Generation)
+    // Note: We might want to checkpoint this too, but for now we proceed.
     const generation = await runGeminiJsonConversion({
         client,
         model: args.model,
@@ -105,14 +101,54 @@ export async function generateDailyNews3StageWithGemini(args: {
         selectedWords
     });
 
-    console.log(`[Pipeline 3-Stage] Stage 3 (Conversion) Complete. Final Output: ${generation.output.title}`);
+    console.log(`[Pipeline 3-Stage] Stage 3 (Conversion) Complete. Title: ${generation.output.title}`);
+    usage.conversion = generation.usage;
+
+    if (args.onCheckpoint) {
+        await args.onCheckpoint({
+            stage: 'conversion',
+            selectedWords,
+            newsSummary,
+            sourceUrls,
+            draftText,
+            usage
+        });
+    }
+
+    // Stage 4: Grammar Analysis (The Enhancer)
+    // Run Structure Analysis on ALL generated article levels
+    if (generation.output.articles && Array.isArray(generation.output.articles) && generation.output.articles.length > 0) {
+        console.log(`[Pipeline 3-Stage] Starting Stage 4 (Grammar Analysis) for ${generation.output.articles.length} levels...`);
+
+        const xrayRes = await runGeminiGrammarAnalysis({
+            client,
+            model: args.model,
+            articles: generation.output.articles as any // Cast for mismatching inferred schema if needed
+        });
+
+        // In-place update of articles with structure
+        generation.output.articles = xrayRes.articles as any;
+        usage.grammar_analysis = xrayRes.usage;
+
+        console.log(`[Pipeline 3-Stage] Stage 4 Complete.`);
+
+        if (args.onCheckpoint) {
+            await args.onCheckpoint({
+                stage: 'grammar_analysis',
+                selectedWords,
+                newsSummary,
+                sourceUrls,
+                draftText,
+                structure: [], // Legacy/Unused field in checkpoint, or can be null
+                usage
+            });
+        }
+    }
 
     return {
         output: generation.output,
         selectedWords,
-        usage: {
-            ...usage,
-            conversion: generation.usage ?? null
-        }
+        structure: [], // No longer used as separate return
+        usage
     };
 }

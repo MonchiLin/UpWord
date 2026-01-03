@@ -43,10 +43,20 @@ export type GeminiCheckpoint = z.infer<typeof geminiCheckpointSchema>;
 
 // Checkpoint 类型 (Gemini 3-Stage)
 export type GeminiCheckpoint3 = {
-    stage: 'search_selection' | 'draft' | 'conversion';
+    stage: 'search_selection' | 'draft' | 'conversion' | 'grammar_analysis';
     selectedWords?: string[];
     newsSummary?: string;
     sourceUrls?: string[];
     draftText?: string;
+    structure?: GeminiStructureData; // Renamed from xrayStructure
     usage?: Record<string, any>;
 };
+
+// Structure Data (Standoff Markup)
+export type GeminiStructureData = Array<{
+    start: number;
+    end: number;
+    role: 's' | 'v' | 'o' | 'rc' | 'pp' | 'pas' | 'con';
+    extract?: string;
+}>;
+
