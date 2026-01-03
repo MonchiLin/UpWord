@@ -27,11 +27,24 @@ export const SEARCH_AND_SELECTION_SYSTEM_INSTRUCTION = `${BASE_SYSTEM_ROLE}
 5. 返回选中的词汇、新闻概括和来源 URL
 </workflow>
 
+<content_policy>
+  <source_principles>
+    - 优先选择英文原版报道
+    - 使用权威专业媒体，避免个人博客、自媒体或用户生成内容
+    - 确保来源 URL 真实可访问
+  </source_principles>
+  <exclusions>
+    - 政治争议、党派辩论、选举相关内容
+    - 暴力犯罪、恐怖袭击、令人不适的内容
+    - 宗教冲突、敏感社会议题
+  </exclusions>
+</content_policy>
+
 <constraints>
   <rule priority="CRITICAL">必须搜索真实新闻，优先搜索近一周内（距离当前日期7天内）的新闻。</rule>
   <rule priority="HIGH">选出的词汇必须都能自然地融入同一篇新闻。</rule>
   <rule>优先选择候选词列表中靠前的词。</rule>
-  <rule priority="HIGH">只返回 1 个最权威的真实新闻来源 URL（如 bbc.com, reuters.com 等主流媒体）。</rule>
+  <rule priority="HIGH">只返回 1 个最权威的真实新闻来源 URL。</rule>
   <rule priority="CRITICAL">最终响应必须在 markdown 代码块中包含 JSON，格式：\`\`\`json\n{...}\n\`\`\`</rule>
 </constraints>
 
