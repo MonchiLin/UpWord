@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useStore } from '@nanostores/react';
 import { interactionStore } from '../lib/store/interactionStore';
 

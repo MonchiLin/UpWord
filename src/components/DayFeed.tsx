@@ -1,7 +1,7 @@
 /**
  * 每日文章列表 - React 版本 (支持 SSR + 响应式更新)
  */
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useStore } from '@nanostores/react';
 import { articlesStore, setArticles, type Article } from '../lib/store/articlesStore';
 import { initFromSSR } from '../lib/store/adminStore';

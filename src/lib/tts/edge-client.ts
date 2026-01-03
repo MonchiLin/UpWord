@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { TTSConfig, TTSResult, WordBoundary } from './types';
+import type { TTSResult, WordBoundary } from './types';
 
 const EDGE_TTS_URL = "wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=6A5AA1D4EAFF4E9FB37E23D68491D6F4";
 

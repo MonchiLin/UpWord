@@ -5,7 +5,6 @@ import { EdgeTTSClient } from '../lib/tts/edge-client';
 
 const SPEEDS = [0.75, 1, 1.25, 1.5];
 const VOICE_STORAGE_KEY = 'aperture-daily_voice_preference';
-const LEGACY_VOICE_KEY = 'luma-words_voice_preference';
 
 /**
  * 音频播放引擎 Hook
@@ -13,17 +12,21 @@ const LEGACY_VOICE_KEY = 'luma-words_voice_preference';
  */
 export function useAudioPlayer() {
     const state = useStore(audioState);
-    const audioRef = useRef<HTMLAudioElement | null>(null);
-    const clientRef = useRef<EdgeTTSClient>(new EdgeTTSClient());
-    const lastCharIndexRef = useRef<number>(-1);
-
     const { isPlaying, currentIndex, playlist, playbackRate, wordAlignments, isLoading, voice, audioUrl } = state;
     const currentText = playlist[currentIndex];
+
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+    const clientRef = useRef<EdgeTTSClient | null>(null);
+    const lastCharIndexRef = useRef<number>(-1);
+
+    if (!clientRef.current) {
+        clientRef.current = new EdgeTTSClient(voice);
+    }
 
     // 1. Initialize voice from storage (with legacy backup)
     useEffect(() => {
         try {
-            const savedVoice = localStorage.getItem(VOICE_STORAGE_KEY) || localStorage.getItem(LEGACY_VOICE_KEY);
+            const savedVoice = localStorage.getItem(VOICE_STORAGE_KEY);
             if (savedVoice) {
                 setVoice(savedVoice);
             }
@@ -43,10 +46,10 @@ export function useAudioPlayer() {
         const timer = setTimeout(() => {
             const fetchAudio = async () => {
                 audioState.setKey('isLoading', true);
-                clientRef.current.cancel();
+                clientRef.current!.cancel();
 
                 try {
-                    const result = await clientRef.current.synthesize(currentText, playbackRate);
+                    const result = await clientRef.current!.synthesize(currentText, playbackRate);
                     if (active) {
                         const url = URL.createObjectURL(result.audioBlob);
                         audioState.setKey('audioUrl', url);

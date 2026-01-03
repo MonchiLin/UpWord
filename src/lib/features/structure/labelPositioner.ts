@@ -21,8 +21,6 @@ export function positionStructureLabels(container: HTMLElement): void {
     }
 
     const containerRect = container.getBoundingClientRect();
-    const scrollTop = window.scrollY;
-    const scrollLeft = window.scrollX;
 
     const LABEL_OFFSET = 18; // Base distance above word (px)
     const NUDGE_HEIGHT = 14; // How much to nudge up on collision (px)

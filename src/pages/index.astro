@@ -2,21 +2,17 @@
 /**
  * 首页 - 重定向到今日日期
  * 
- * 使用服务端重定向，确保用户直接访问当天的内容页面。
+ * 使用 Asia/Shanghai 时区确保国内用户访问到正确的“今日”日期。
  */
 
-// 获取今天的日期（Asia/Shanghai 时区）
-function getTodayDate(): string {
-    const now = new Date();
-    // 使用 UTC+8 时区
-    const offset = 8 * 60; // 分钟
-    const localTime = new Date(now.getTime() + (offset + now.getTimezoneOffset()) * 60 * 1000);
-    return localTime.toISOString().split('T')[0];
-}
+// 获取今天的上海日期 (YYYY-MM-DD)
+const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+}).format(new Date());
 
-const today = getTodayDate();
-
-// 服务端重定向
 return Astro.redirect(`/day/${today}`);
 ---
 

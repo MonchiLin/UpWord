@@ -361,13 +361,11 @@ if (targetWords.length > 0) {
             // 简单方案：计算高度并设置
             
             const container = document.getElementById('article-content');
-            let nextHeight = 0;
             
             levels.forEach(el => {
                 const elLevel = parseInt(el.getAttribute('data-level') || '0');
                 if (elLevel === level) {
                     el.setAttribute('data-active', '');
-                    nextHeight = el.getBoundingClientRect().height;
                     
                     // 更新阅读时间
                     const minutes = el.getAttribute('data-minutes') || '1';

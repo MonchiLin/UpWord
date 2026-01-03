@@ -29,7 +29,7 @@ export default function HighlightManager({ articleId, targetWords, memoriesMap =
         };
 
         window.addEventListener('level-change' as any, handleLevelChange);
-        const saved = localStorage.getItem('luma-words_preferred_level');
+        const saved = localStorage.getItem('aperture-daily_preferred_level');
         if (saved) {
             const l = parseInt(saved) || 1;
             setCurrentLevel(l);
