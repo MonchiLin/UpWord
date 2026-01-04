@@ -104,13 +104,19 @@ if (targetWords.length > 0) {
         console.error("Failed to fetch memories:", e);
     }
 }
+
+const readLevels = row?.articles?.read_levels || 0;
 ---
 
 <Layout title={`${title} - Aperture Daily`}>
     {row ? (
         <div class="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-10 mx-auto w-full max-w-7xl px-4 py-10">
             <!-- 主内容区 -->
-            <main class={`relative min-w-0 ${sidebarWords.length === 0 ? "max-w-3xl mx-auto" : ""}`}>
+            <main 
+                class={`relative min-w-0 ${sidebarWords.length === 0 ? "max-w-3xl mx-auto" : ""}`}
+                data-article-id={id}
+                data-read-levels={readLevels}
+            >
                 <div class="space-y-8">
                     <!-- 文章容器 -->
                     <div class="bg-white rounded-3xl border border-gray-100 p-6 md:p-8">
@@ -343,6 +349,44 @@ if (targetWords.length > 0) {
 <script>
     // 极简的难度切换逻辑
     // 使用 astro:page-load 以支持 View Transitions
+    
+    let readTimer: number | undefined;
+
+    function trackReading() {
+        if (readTimer) clearTimeout(readTimer);
+        
+        const main = document.querySelector('main[data-article-id]');
+        const articleId = main?.getAttribute('data-article-id');
+        const currentMask = parseInt(main?.getAttribute('data-read-levels') || '0');
+        
+        const activeLevel = document.querySelector('.article-level[data-active]');
+        if (!activeLevel || !articleId) return;
+        
+        const level = parseInt(activeLevel.getAttribute('data-level') || '1');
+        const minutes = parseInt(activeLevel.getAttribute('data-minutes') || '1');
+        
+        // Check if fully covered (downward inclusion)
+        const targetMask = (1 << level) - 1;
+        if ((currentMask & targetMask) === targetMask) return;
+        
+        // Threshold: 50% of estimated time, minimum 10 seconds
+        const threshold = Math.max(10000, minutes * 30 * 1000); 
+        
+        readTimer = setTimeout(async () => {
+            try {
+                await fetch(`/api/articles/${articleId}/read`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ level })
+                });
+                main?.setAttribute('data-read-levels', String(currentMask | targetMask));
+                console.log('[ReadTracker] Marked as read:', level);
+            } catch (e) {
+                console.error('[ReadTracker] Failed:', e);
+            }
+        }, threshold);
+    }
+
     function initLevelSwitcher() {
         const levels = document.querySelectorAll('.article-level');
         const buttons = document.querySelectorAll('[data-level-btn]');
@@ -425,6 +469,7 @@ if (targetWords.length > 0) {
 
             // Dispatch event for React components
             window.dispatchEvent(new CustomEvent('level-change', { detail: { level } }));
+            trackReading();
         }
         
         // 绑定点击事件
@@ -434,6 +479,16 @@ if (targetWords.length > 0) {
                 setLevel(level);
             });
         });
+
+        // 绑定 Visibility Change 以暂停/清除计时
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && readTimer) clearTimeout(readTimer);
+            if (!document.hidden) trackReading(); // Resume? Or explicit restart
+        });
+
+        // Initialize tracking
+        trackReading();
+
         
         // 恢复上次选择的难度
         let initialLevel = 1;

@@ -5,6 +5,7 @@ export interface Article {
     id: string;
     model: string;
     title: string;
+    read_levels?: number;
 }
 
 export interface ArticlesState {

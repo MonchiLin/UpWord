@@ -15,6 +15,18 @@ export const articlesRoutes = new Elysia({ prefix: '/api/articles' })
 
         return { articles: article, tasks: task };
     })
+    .patch('/:id/read', async ({ params: { id }, body }) => {
+        const { level } = body as { level: number };
+        // L1 -> 1 (001), L2 -> 3 (011), L3 -> 7 (111)
+        const mask = (1 << level) - 1;
+
+        await db.run(sql`
+            UPDATE articles 
+            SET read_levels = (read_levels | ${mask})
+            WHERE id = ${id}
+        `);
+        return { status: "ok" };
+    })
     .delete('/:id', async ({ params: { id } }) => {
         await db.run(sql`DELETE FROM highlights WHERE article_id = ${id}`);
         await db.run(sql`DELETE FROM article_word_index WHERE article_id = ${id}`);

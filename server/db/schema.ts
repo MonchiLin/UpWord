@@ -108,7 +108,12 @@ export const words = sqliteTable(
 
 
 
-// 生成任务的发布产物（content_json 必须为合法 JSON）。
+
+
+// Add read_levels column dynamically via migration or assume new deploy. 
+// Ideally we run a migration. For now, we add it to schema.
+// Since Drizzle Kit push handles schema changes for SQLite (D1ish/Local), 
+// we just add the field.
 export const articles = sqliteTable(
     'articles',
     {
@@ -122,6 +127,7 @@ export const articles = sqliteTable(
         title: text('title').notNull(),
         contentJson: text('content_json').notNull(),
         status: text('status', { enum: ['draft', 'published'] }).notNull(),
+        readLevels: integer('read_levels').notNull().default(0),
         createdAt: text('created_at')
             .notNull()
             .default(sql`(CURRENT_TIMESTAMP)`),
