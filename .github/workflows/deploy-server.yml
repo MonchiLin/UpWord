@@ -26,4 +26,5 @@ jobs:
           git config --global user.name "GitHub Action"
           
           # Force push only the server directory to the root of the HF Space
-          git subtree push --prefix server https://kiki:$HF_TOKEN@huggingface.co/spaces/$HF_SPACE_NAME master
+          # Note: New HF Spaces use 'main' as default. Using 'git push' with simple auth.
+          git push --force "https://user:$HF_TOKEN@huggingface.co/spaces/$HF_SPACE_NAME" master:main
