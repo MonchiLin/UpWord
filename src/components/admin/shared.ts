@@ -15,21 +15,16 @@ export type TaskRow = {
     published_at: string | null;
 };
 
-import { API_BASE } from '../../lib/api';
+import { apiFetch } from '../../lib/api';
 
+/**
+ * 带 admin key 的 API 调用（复用 apiFetch）
+ */
 export async function fetchJson<T = unknown>(url: string, adminKey: string, init?: RequestInit): Promise<T> {
-    const fullUrl = url.startsWith('http') ? url : `${API_BASE}${url.startsWith('/') ? '' : '/'}${url}`;
-    const resp = await fetch(fullUrl, {
+    return apiFetch<T>(url, {
         ...init,
-        headers: {
-            ...(init?.headers ?? {}),
-            'x-admin-key': adminKey
-        }
+        token: adminKey
     });
-    const text = await resp.text();
-    const data = text ? JSON.parse(text) : null;
-    if (!resp.ok) throw new Error(data?.message || `HTTP ${resp.status}`);
-    return data as T;
 }
 
 import dayjs from 'dayjs';

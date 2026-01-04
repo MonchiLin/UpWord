@@ -33,7 +33,10 @@ startCronScheduler(queue);
 
 // Assemble Application
 const app = new Elysia()
-    .use(cors())
+    .use(cors({
+        origin: true,       // 允许所有来源
+        credentials: true   // 允许携带 Cookie
+    }))
     .use(swagger({
         documentation: {
             info: {

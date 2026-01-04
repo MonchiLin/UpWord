@@ -22,7 +22,7 @@ export async function apiFetch<T = any>(path: string, options: FetchOptions = {}
         headers.set('x-admin-key', token);
     }
 
-    const res = await fetch(url, { ...init, headers, credentials });
+    const res = await fetch(url, { ...init, headers, credentials: credentials ?? 'include' });
 
     // Handle empty responses (like 204 No Content)
     const text = await res.text();

@@ -3,7 +3,7 @@ import { generateDailyNews3StageWithGemini } from '../llm/geminiPipeline3';
 import type { CandidateWord, GeminiCheckpoint3 } from '../llm/types';
 import { indexArticleWords } from '../wordIndexer';
 import type { AppDatabase } from '../../db/client';
-import type { TaskRow, ProfileRow, DailyWordsRow, IdRow, ArticleRow } from '../../types/models';
+import type { TaskRow, ProfileRow, DailyWordsRow, IdRow } from '../../types/models';
 
 export type TaskEnv = {
     GEMINI_API_KEY: string;

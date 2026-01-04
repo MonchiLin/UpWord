@@ -26,13 +26,14 @@ export const authRoutes = new Elysia({ prefix: '/api/auth' })
             return { error: 'Unauthorized' };
         }
 
-        // 设置 HttpOnly Cookie
+        // 设置 HttpOnly Cookie (跨域需要 SameSite=None + Secure)
         set.headers['Set-Cookie'] = [
             `${COOKIE_NAME}=${encodeURIComponent(key)}`,
             `Path=/`,
             `Max-Age=${COOKIE_MAX_AGE}`,
             `HttpOnly`,
-            `SameSite=Lax`
+            `Secure`,
+            `SameSite=None`
         ].join('; ');
 
         return { success: true };

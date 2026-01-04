@@ -85,10 +85,9 @@ const targetWords = sidebarWords.map((w: any) => w.word.toLowerCase());
 let initialMemories = {};
 if (targetWords.length > 0) {
     try {
-        const apiBase = import.meta.env.PUBLIC_API_BASE || 'http://localhost:3000';
         const authKey = Astro.cookies.get('admin_key')?.value || import.meta.env.ADMIN_KEY;
 
-        const resp = await fetch(`${apiBase}/api/context/batch`, {
+        const data = await apiFetch<{ memories?: Record<string, unknown> }>('/api/context/batch', {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
@@ -100,10 +99,7 @@ if (targetWords.length > 0) {
             })
         });
         
-        if (resp.ok) {
-            const data = (await resp.json()) as { memories?: Record<string, any> };
-            initialMemories = data.memories || {};
-        }
+        initialMemories = data?.memories || {};
     } catch (e) {
         console.error("Failed to fetch memories:", e);
     }
