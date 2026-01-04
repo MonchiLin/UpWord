@@ -22,7 +22,7 @@ export const dailyNewsOutputSchema = z
     .object({
         title: z.string().min(1),
         topic: z.string().min(1),
-        sources: z.array(z.string().url({ message: "Invalid URL" })).min(1).max(8),
+        sources: z.array(z.url()).min(1).max(8),
         articles: z.array(dailyNewsArticleSchema).length(3),
         word_usage_check: z.object({
             target_words_count: z.number().int().nonnegative(),
