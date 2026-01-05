@@ -8,12 +8,14 @@ import { fileURLToPath } from 'node:url';
 import { storybookTest } from "@storybook/addon-vitest/vitest-plugin";
 import { playwright } from "@vitest/browser-playwright";
 import cloudflare from '@astrojs/cloudflare';
+import { loadEnv } from 'vite';
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
+const env = loadEnv(process.env.NODE_ENV || 'development', dirname, '');
 
 // https://astro.build/config
 export default defineConfig({
-  site: process.env.SITE_URL,
+  site: env.SITE_URL,
   output: 'server',
   // Disable session storage to avoid KV binding requirements.
   session: {
