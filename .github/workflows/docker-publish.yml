@@ -52,3 +52,13 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
              BUILD_TIME=${{ steps.date.outputs.date }}
+
+      - name: Trigger HF Space Factory Rebuild
+        if: success()
+        run: |
+          curl -X POST \
+            "https://huggingface.co/api/spaces/${{ secrets.HF_SPACE_ID }}/restart?factory=true" \
+            -H "Authorization: Bearer ${{ secrets.HF_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --fail --silent --show-error
+          echo "✓ HF Space factory rebuild triggered: ${{ secrets.HF_SPACE_ID }}"
