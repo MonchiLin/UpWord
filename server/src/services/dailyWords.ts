@@ -26,7 +26,7 @@ export async function fetchAndStoreDailyWords(
         throw new Error('No words found from Shanbay.');
     }
 
-    const now = new Date().toISOString();
+
 
 
     // 写入 words 表（幂等）

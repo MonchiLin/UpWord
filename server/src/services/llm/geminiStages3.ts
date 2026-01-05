@@ -43,7 +43,7 @@ export async function runGeminiSearchAndSelection(args: {
     currentDate: string;
     recentTitles?: string[];
 }) {
-    console.log('[Gemini Stage 1/3] Search + Selection - START', {
+    console.log('[Gemini Stage 1/4] Search + Selection - START', {
         candidateCount: args.candidateWords.length,
         model: args.model
     });
@@ -65,7 +65,7 @@ export async function runGeminiSearchAndSelection(args: {
             systemInstruction: { parts: [{ text: systemPrompt }] }
         });
     });
-    console.log('[Gemini Stage 1/3] API response received in', Date.now() - stageStart, 'ms');
+    console.log('[Gemini Stage 1/4] API response received in', Date.now() - stageStart, 'ms');
 
     const responseText = stripMarkdownCodeBlock(extractGeminiText(response));
     console.log('[Gemini Search+Selection] output_text (first 500 chars):', responseText.slice(0, 500));
@@ -151,7 +151,7 @@ export async function runGeminiDraftGeneration(args: {
     currentDate: string;
     topicPreference: string;
 }) {
-    console.log('[Gemini Stage 2/3] Draft Generation - START', {
+    console.log('[Gemini Stage 2/4] Draft Generation - START', {
         wordCount: args.selectedWords.length,
         sourceUrlCount: args.sourceUrls.length
     });
@@ -176,7 +176,7 @@ export async function runGeminiDraftGeneration(args: {
             systemInstruction: { parts: [{ text: DRAFT_SYSTEM_INSTRUCTION }] }
         });
     });
-    console.log('[Gemini Stage 2/3] API response received in', Date.now() - stageStart, 'ms');
+    console.log('[Gemini Stage 2/4] API response received in', Date.now() - stageStart, 'ms');
 
     const draftText = extractGeminiText(response).trim();
     if (!draftText) throw new Error('Gemini returned empty draft content');
@@ -197,7 +197,7 @@ export async function runGeminiJsonConversion(args: {
     sourceUrls: string[];
     selectedWords: string[];
 }): Promise<{ output: DailyNewsOutput; usage: unknown }> {
-    console.log('[Gemini Stage 3/3] JSON Conversion - START', { draftLength: args.draftText.length });
+    console.log('[Gemini Stage 3/4] JSON Conversion - START', { draftLength: args.draftText.length });
     const stageStart = Date.now();
 
     // 阶段三也不继承历史，创建新对话
@@ -217,7 +217,7 @@ export async function runGeminiJsonConversion(args: {
             systemInstruction: { parts: [{ text: JSON_SYSTEM_INSTRUCTION }] }
         });
     });
-    console.log('[Gemini Stage 3/3] API response received in', Date.now() - stageStart, 'ms');
+    console.log('[Gemini Stage 3/4] API response received in', Date.now() - stageStart, 'ms');
 
     const content = stripMarkdownCodeBlock(extractGeminiText(response));
     if (!content) throw new Error('Gemini returned empty content');

@@ -10,6 +10,7 @@ export const dailyNewsArticleSchema = z.object({
 
 export const wordDefinitionSchema = z.object({
     word: z.string(),
+    used_form: z.string().optional(), // [Refactor] Add used_form
     phonetic: z.string(),
     definitions: z.array(z.object({
         pos: z.string(),

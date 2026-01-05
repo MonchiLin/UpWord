@@ -15,7 +15,8 @@ export interface SentenceMapping {
 export function tokenizeSentences(
     levelContainer: HTMLElement,
     targetWords: string[],
-    wordsWithHistory: string[] = []
+    wordsWithHistory: string[] = [],
+    wordMatchConfigs?: { lemma: string; forms: string[] }[] // [Refactor] New Config
 ) {
     if (!levelContainer || levelContainer.dataset.processed === 'true') return;
 
@@ -73,7 +74,7 @@ export function tokenizeSentences(
                 span.dataset.s = sent.start.toString();
 
                 // 处理 Target Words
-                processTargetWords(span, chunkText, targetWords, wordsWithHistory);
+                processTargetWords(span, chunkText, targetWords, wordsWithHistory, wordMatchConfigs);
 
                 fragment.appendChild(span);
                 nodeCursor = relativeEnd;
@@ -98,7 +99,13 @@ export function tokenizeSentences(
 /**
  * 在句子 span 中标记生词
  */
-function processTargetWords(container: HTMLElement, text: string, targetWords: string[], wordsWithHistory: string[]) {
+function processTargetWords(
+    container: HTMLElement,
+    text: string,
+    targetWords: string[],
+    wordsWithHistory: string[],
+    wordMatchConfigs?: { lemma: string; forms: string[] }[]
+) {
     let lastP = 0;
     const wordRegex = /([a-zA-Z0-9'-]+)/g;
     let match;
@@ -112,21 +119,33 @@ function processTargetWords(container: HTMLElement, text: string, targetWords: s
             container.appendChild(document.createTextNode(text.substring(lastP, idx)));
         }
 
-        if (targetWords.includes(lowercaseWord)) {
+        // [Refactor] Prioritize Config Match -> Fallback to string array
+        let matchedLemma: string | null = null;
+
+        if (wordMatchConfigs) {
+            const config = wordMatchConfigs.find(c => c.forms.includes(lowercaseWord));
+            if (config) {
+                matchedLemma = config.lemma;
+            }
+        } else if (targetWords.includes(lowercaseWord)) {
+            matchedLemma = lowercaseWord;
+        }
+
+        if (matchedLemma) {
             const wSpan = document.createElement('span');
             wSpan.className = 'target-word';
-            wSpan.textContent = word;
-            wSpan.dataset.word = lowercaseWord;
+            wSpan.textContent = word; // Display actual text (e.g., "ran")
+            wSpan.dataset.word = matchedLemma; // Store lemma (e.g., "run")
 
-            const hasHistory = wordsWithHistory.includes(lowercaseWord);
+            const hasHistory = wordsWithHistory.includes(matchedLemma.toLowerCase());
             if (hasHistory) {
                 wSpan.dataset.hasHistory = "true";
-                console.log(`[Highlighter] Marked HISTORY for: ${lowercaseWord}`);
+                // console.log(`[Highlighter] Marked HISTORY for: ${matchedLemma}`);
             }
 
             // Interaction
             wSpan.addEventListener('mouseenter', () => {
-                window.dispatchEvent(new CustomEvent('word-hover', { detail: { word, target: wSpan } }));
+                window.dispatchEvent(new CustomEvent('word-hover', { detail: { word: matchedLemma, target: wSpan } }));
             });
             wSpan.addEventListener('mouseleave', () => {
                 window.dispatchEvent(new CustomEvent('word-hover', { detail: { word: null, target: null } }));
@@ -134,6 +153,11 @@ function processTargetWords(container: HTMLElement, text: string, targetWords: s
 
             wSpan.addEventListener('click', (e) => {
                 e.stopPropagation();
+                // Speak the lemma or the word? Usually lemma is better for learning, but word matches text.
+                // Let's speak the visible word for now, or maybe lemma?
+                // User's request implies learning -> Lemma might be better if they want to know the root.
+                // But for reading flow, reading the text is better.
+                // Let's keep reading the text (word).
                 const u = new SpeechSynthesisUtterance(word);
                 u.lang = 'en-US';
                 speechSynthesis.speak(u);

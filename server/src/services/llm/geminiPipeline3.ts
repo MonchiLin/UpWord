@@ -56,7 +56,7 @@ export async function generateDailyNews3StageWithGemini(args: {
         sourceUrls = res.sourceUrls;
         usage.search_selection = res.usage;
 
-        console.log(`[Pipeline 3-Stage] Stage 1 (Search+Selection) Complete. Selected ${selectedWords.length} words.`);
+        console.log(`[Pipeline 4-Stage] Stage 1 (Search+Selection) Complete. Selected ${selectedWords.length} words.`);
 
         if (args.onCheckpoint) {
             await args.onCheckpoint({
@@ -84,7 +84,7 @@ export async function generateDailyNews3StageWithGemini(args: {
         draftText = res.draftText;
         usage.draft = res.usage;
 
-        console.log(`[Pipeline 3-Stage] Stage 2 (Draft) Complete. Characters: ${draftText.length}`);
+        console.log(`[Pipeline 4-Stage] Stage 2 (Draft) Complete. Characters: ${draftText.length}`);
 
         if (args.onCheckpoint) {
             await args.onCheckpoint({
@@ -108,7 +108,7 @@ export async function generateDailyNews3StageWithGemini(args: {
         selectedWords
     });
 
-    console.log(`[Pipeline 3-Stage] Stage 3 (Conversion) Complete. Title: ${generation.output.title}`);
+    console.log(`[Pipeline 4-Stage] Stage 3 (Conversion) Complete. Title: ${generation.output.title}`);
     usage.conversion = generation.usage as UsageRecord['conversion'];
 
     if (args.onCheckpoint) {
@@ -125,7 +125,7 @@ export async function generateDailyNews3StageWithGemini(args: {
     // Stage 4: Grammar Analysis (The Enhancer)
     // Run Structure Analysis on ALL generated article levels
     if (generation.output.articles && Array.isArray(generation.output.articles) && generation.output.articles.length > 0) {
-        console.log(`[Pipeline 3-Stage] Starting Stage 4 (Grammar Analysis) for ${generation.output.articles.length} levels...`);
+        console.log(`[Pipeline 4-Stage] Starting Stage 4 (Grammar Analysis) for ${generation.output.articles.length} levels...`);
 
         const xrayRes = await runGeminiGrammarAnalysis({
             client,
@@ -137,7 +137,7 @@ export async function generateDailyNews3StageWithGemini(args: {
         generation.output.articles = xrayRes.articles as typeof generation.output.articles;
         usage.grammar_analysis = xrayRes.usage;
 
-        console.log(`[Pipeline 3-Stage] Stage 4 Complete.`);
+        console.log(`[Pipeline 4-Stage] Stage 4 Complete.`);
 
         if (args.onCheckpoint) {
             await args.onCheckpoint({

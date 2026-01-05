@@ -6,11 +6,12 @@ import { setLevel, setActiveWord, setMemoryData, interactionStore } from '../lib
 
 interface HighlightManagerProps {
     articleId: string;
-    targetWords: string[];
+    targetWords: string[]; // Keep for backward compatibility or simple highlighting
+    wordMatchConfigs?: { lemma: string; forms: string[] }[]; // [Refactor] New Config
     memoriesMap?: Record<string, any>;
 }
 
-export default function HighlightManager({ articleId, targetWords, memoriesMap = {} }: HighlightManagerProps) {
+export default function HighlightManager({ articleId, targetWords, wordMatchConfigs, memoriesMap = {} }: HighlightManagerProps) {
     const wordsWithHistory = Object.keys(memoriesMap);
     const { activeWord } = useStore(interactionStore);
     const [currentLevel, setCurrentLevel] = useState(1);
@@ -74,8 +75,8 @@ export default function HighlightManager({ articleId, targetWords, memoriesMap =
         if (!levelContainer || levelContainer.dataset.processed === 'true') return;
 
         console.log(`[HighlightManager] Initializing tokenization for Level ${currentLevel}`);
-        tokenizeSentences(levelContainer, targetWords, wordsWithHistory);
-    }, [targetWords, articleId, currentLevel, wordsWithHistory]);
+        tokenizeSentences(levelContainer, targetWords, wordsWithHistory, wordMatchConfigs);
+    }, [targetWords, articleId, currentLevel, wordsWithHistory, wordMatchConfigs]);
 
     // 朗读高亮同步 (调用抽离后的工具函数)
     useEffect(() => {

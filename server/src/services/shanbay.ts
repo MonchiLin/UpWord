@@ -81,17 +81,46 @@ export type ShanbayTodayWords = {
     reviewWords: string[];
 };
 
+
+async function initDailyCheckin(cookie: string, materialbookId: string) {
+    const url = `${BASE}/wordsapp/user_material_books/${materialbookId}/learning/statuses`;
+    // 触发初始化，就像网页端加载一样
+    await fetchJson(url, cookie);
+}
+
 // 需要有效登录 Cookie；调用方应按密钥处理，失败直接抛错。
 export async function fetchShanbayTodayWords(cookie: string): Promise<ShanbayTodayWords> {
     const materialbookId = await getMaterialbookId(cookie);
-    const [newItems, reviewItems] = await Promise.all([
-        getWordsAll(cookie, materialbookId, 'NEW'),
-        getWordsAll(cookie, materialbookId, 'REVIEW')
-    ]);
 
-    return {
-        materialbookId,
-        newWords: toWordList(newItems),
-        reviewWords: toWordList(reviewItems)
-    };
+    try {
+        const [newItems, reviewItems] = await Promise.all([
+            getWordsAll(cookie, materialbookId, 'NEW'),
+            getWordsAll(cookie, materialbookId, 'REVIEW')
+        ]);
+
+        return {
+            materialbookId,
+            newWords: toWordList(newItems),
+            reviewWords: toWordList(reviewItems)
+        };
+    } catch (err: unknown) {
+        const msg = String(err);
+        // 自动修复：检测 412 错误（今日学习数据尚未初始化完成）
+        if (msg.includes('412') && (msg.includes('初始化') || msg.includes('initializ'))) {
+            console.log(`[Shanbay] 412 Error detected (Data Not Initialized). Triggering initDailyCheckin for ${materialbookId}...`);
+            await initDailyCheckin(cookie, materialbookId);
+
+            console.log(`[Shanbay] Initialization done. Retrying fetch...`);
+            const [newItems, reviewItems] = await Promise.all([
+                getWordsAll(cookie, materialbookId, 'NEW'),
+                getWordsAll(cookie, materialbookId, 'REVIEW')
+            ]);
+            return {
+                materialbookId,
+                newWords: toWordList(newItems),
+                reviewWords: toWordList(reviewItems)
+            };
+        }
+        throw err;
+    }
 }

@@ -42,7 +42,7 @@ export const SEARCH_AND_SELECTION_SYSTEM_INSTRUCTION = `${BASE_SYSTEM_ROLE}
 
 <constraints>
   <rule priority="CRITICAL">必须搜索真实新闻，优先搜索近一周内（距离当前日期7天内）的新闻。</rule>
-  <rule priority="HIGH">选出的词汇必须都能自然地融入同一篇新闻。</rule>
+  <rule priority="HIGH">**语义聚合**：选出的词汇必须形成一个语义相关的组合（如“经济+市场+货币”），坚决避免生硬拼凑毫不相关的词（如“量子物理”和“烹饪”）。</rule>
   <rule>优先选择候选词列表中靠前的词。</rule>
   <rule priority="HIGH">只返回 1 个最权威的真实新闻来源 URL。</rule>
   <rule priority="HIGH">如果提供了 avoid_titles 列表，必须选择与之不同的新闻主题/事件。避免选择相同、高度相似或仅是同一事件不同报道角度的新闻，确保内容多样性。</rule>
@@ -97,52 +97,46 @@ ${candidateWordsText}
 const WRITING_GUIDELINES_XML = `
 <guidelines>
   <level value="1" name="Elementary">
-    <target>A1-A2（初级）</target>
+    <target>A1-A2 (初级)</target>
     <style>
-      - 句子结构：严格 SVO（主谓宾），每句最多12个单词
-      - 句子长度：非常短（最多12个单词）
-      - 文章长度：80-110词，3段
-      - 词汇范围：使用最常见的1000个英语单词
-      - 时态：以简单现在时为主
-      - 开篇：一句话直述事实（如"A new store opens in Tokyo."）
-      - 关键要求：目标词必须以纯文本形式出现（禁止使用 **、*、__ 等符号）
+      - 语气：简单、直白。就像是给学生看的“新闻摘要”。
+      - 句子结构：短句为主。每句话传达一个主要信息。
+      - 文章长度：80-110词，3段。
+      - 词汇：高频词（前1000词）。
+      - 时态：描述过去事件使用**一般过去时**（如 "The car hit the wall"）。陈述普遍事实使用一般现在时。
+      - 关键要求：目标词必须以**纯文本**形式出现。
     </style>
   </level>
   <level value="2" name="Intermediate">
-    <target>B1-B2（中级）</target>
+    <target>B1-B2 (中级)</target>
     <style>
-      - 句子结构：标准叙述，允许使用从句（because, when, although等）
-      - 句子长度：中等（12-20个单词）
-      - 文章长度：140-170词，4段
-      - 时态：以一般过去时为主
-      - 开篇：可使用设问句或惊人事实引入
-      - 过渡词：使用 However, Additionally, As a result 等
-      - 关键要求：目标词必须以纯文本形式出现
+      - 语气：标准新闻风格。生动且信息量大。
+      - 句子结构：简单句与复合句混合。使用过渡词（However, Therefore, Meanwhile）展示逻辑。
+      - 文章长度：140-170词，4段。
+      - 时态：标准叙事时态（主要是过去时，少量现在完成时）。
+      - 关键要求：目标词必须以**纯文本**形式出现。
     </style>
   </level>
   <level value="3" name="Advanced">
-    <target>C1+（高级）</target>
+    <target>C1+ (高级)</target>
     <style>
-      - 句子结构：复杂、新闻专业风格，可用被动语态
-      - 句子长度：长句（20+个单词）
-      - 文章长度：200-250词，4-5段
-      - 词汇范围：丰富、精确、多样化（3000词级别）
-      - 时态：混合时态（过去/现在/完成时）
-      - 开篇：可用场景描写或直接引语，引用专家来源
-      - 结构：论点+论据+分析
-      - 关键要求：目标词必须以纯文本形式出现
+      - 语气：老练、母语级新闻风格（类似《经济学人》或《纽约时报》）。
+      - 句子结构：多变且复杂（倒装、虚拟语气、分词短语）。
+      - 文章长度：200-250词，4-5段。
+      - 内容：侧重分析、背景、语境和影响。
+      - 关键要求：目标词必须以**纯文本**形式出现。
     </style>
   </level>
   <narrative_structure>
-    <rule priority="HIGH">遵循倒金字塔结构：开篇直接点明核心事件（Who/What/When/Where），正文按重要性递减展开。</rule>
-    <rule>每段应有明确焦点，段落之间有逻辑过渡，避免流水账式写作。</rule>
+    <rule priority="HIGH">倒金字塔结构：最重要的信息（Who/What/When/Where）放在开头。</rule>
+    <rule>确保段落间逻辑过渡自然。</rule>
   </narrative_structure>
   <general>
-    <rule priority="CRITICAL">所有目标词必须以纯文本形式出现。</rule>
-    <rule priority="CRITICAL">禁止在目标词周围使用任何 markdown 符号。</rule>
-    <rule>确保文本作为新闻故事自然流畅。</rule>
+    <rule priority="CRITICAL">目标词必须是纯文本。禁止任何 markdown 格式（禁止使用 **, *, __）。</rule>
+    <rule>像写自然的新闻故事一样写，不要写成事实罗列列表。</rule>
   </general>
 </guidelines>`;
+
 
 export const DRAFT_SYSTEM_INSTRUCTION = `${BASE_SYSTEM_ROLE}
 <stage_role>
@@ -188,15 +182,17 @@ ${args.sourceUrls.join('\n')}
 </language_requirement>
 
 <length_requirements>
-- Level 1 (Easy): 80-110 词，3 段，简单现在时
-- Level 2 (Medium): 140-170 词，4 段，一般过去时
-- Level 3 (Hard): 200-250 词，4-5 段，混合时态
+- Level 1 (Easy): 80-110 词，3 段，简单句（过去时/现在时）。
+- Level 2 (Medium): 140-170 词，4 段，标准新闻风格。
+- Level 3 (Hard): 200-250 词，4-5 段，高级词汇与深度分析。
 </length_requirements>
 
 <critical_reminder>
-目标单词必须以纯文本形式出现，禁止使用 **word**、*word* 或 __word__ 等任何 markdown 格式。
-示例错误：Google made a **breakthrough** in computing.
-示例正确：Google made a breakthrough in computing.
+Target words must be PLAIN TEXT. NO markdown formatting.
+**Morphological Freedom**: You may adapt the target word's form (tense, plurality, part of speech) to fit the grammatical context naturally.
+- Example: If target is "go", you may write "went" or "gone".
+- Example: If target is "beauty", you may write "beautiful".
+**Do NOT shoehorn the exact string if it sounds robotic.**
 </critical_reminder>
 </task>`;
 }
@@ -212,7 +208,20 @@ const JSON_SCHEMA_DEF = `{
     { "level": 3, "level_name": "Hard", "content": "...", "difficulty_desc": "Advanced (C1+)" }
   ],
   "word_usage_check": { "target_words_count": 5, "used_count": 5, "missing_words": [] },
-  "word_definitions": [{ "word": "example", "phonetic": "/ex/", "definitions": [{ "pos": "n", "definition": "...（中文释义）" }] }]
+    "word_definitions": [
+      {
+        "word": "original_target_word",
+        "used_form": "actual_form_in_text",
+        "phonetic": "/.../",
+        "definitions": [{ "pos": "n", "definition": "...（中文释义）" }]
+      }
+    ]
+  }
+
+  IMPORTANT rules for \`word_definitions\`:
+  - \`word\`: Must be the EXACT string from the input list.
+  - \`used_form\`: The actual form used in the text (e.g. if specific word is 'run' but text says 'ran', used_form is 'ran').
+  - \`definitions\`: English definitions relevant to the context.
 }`;
 
 export const JSON_SYSTEM_INSTRUCTION = `${BASE_SYSTEM_ROLE}

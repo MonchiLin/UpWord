@@ -198,10 +198,10 @@ export async function runGeminiGrammarAnalysis(args: XRayAnalysisInput): Promise
 
         // 1. Tokenize the text
         const tokens = tokenize(plainText);
-        console.log(`[Stage 4] Level ${article.level}: Tokenized ${tokens.length} words from ${plainText.length} chars`);
+        console.log(`[Gemini Stage 4/4] Level ${article.level}: Tokenized ${tokens.length} words from ${plainText.length} chars`);
 
         if (tokens.length === 0) {
-            console.warn(`[Stage 4] Level ${article.level}: No tokens found, skipping`);
+            console.warn(`[Gemini Stage 4/4] Level ${article.level}: No tokens found, skipping`);
             results.push(article);
             continue;
         }
@@ -217,7 +217,7 @@ export async function runGeminiGrammarAnalysis(args: XRayAnalysisInput): Promise
         };
 
         try {
-            console.log(`[Stage 4] Analyzing Level ${article.level}...`);
+            console.log(`[Gemini Stage 4/4] Analyzing Level ${article.level}...`);
 
             const response = await safeGeminiCall(`Stage4_Level${article.level}`, async () => {
                 return args.client.generateContent(args.model, request);
@@ -232,11 +232,11 @@ export async function runGeminiGrammarAnalysis(args: XRayAnalysisInput): Promise
 
             // 3. Parse LLM response
             const structureResponse = parseStructureResponse(responseText);
-            console.log(`[Stage 4] Level ${article.level}: LLM returned ${structureResponse.length} structures`);
+            console.log(`[Gemini Stage 4/4] Level ${article.level}: LLM returned ${structureResponse.length} structures`);
 
             // 4. Convert to character offsets
             const structureData = convertToStructureData(structureResponse, tokens, plainText);
-            console.log(`[Stage 4] Level ${article.level}: Converted to ${structureData.length} offset-based structures`);
+            console.log(`[Gemini Stage 4/4] Level ${article.level}: Converted to ${structureData.length} offset-based structures`);
 
             results.push({
                 ...article,
@@ -244,7 +244,7 @@ export async function runGeminiGrammarAnalysis(args: XRayAnalysisInput): Promise
             });
 
         } catch (e) {
-            console.error(`[Stage 4] Failed for Level ${article.level}:`, e);
+            console.error(`[Gemini Stage 4/4] Failed for Level ${article.level}:`, e);
             const message = e instanceof Error ? e.message : 'Unknown error';
             throw new Error(`Stage 4 (Structure Analysis) failed for Level ${article.level}: ${message}`);
         }

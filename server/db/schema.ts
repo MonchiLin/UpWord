@@ -177,6 +177,7 @@ export const articleVocabulary = sqliteTable(
             .notNull()
             .references(() => articles.id, { onDelete: 'cascade' }),
         word: text('word').notNull(),
+        usedForm: text('used_form'),
         phonetic: text('phonetic'),
         createdAt: text('created_at')
             .notNull()

@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { articles, articleVariants, articleVocabulary, articleVocabDefinitions } from '../../../db/schema';
+import { articleVariants, articleVocabulary, articleVocabDefinitions } from '../../../db/schema';
 import { generateDailyNews3StageWithGemini } from '../llm/geminiPipeline3';
 import type { CandidateWord, GeminiCheckpoint3 } from '../llm/types';
 import { indexArticleWords } from '../wordIndexer';
@@ -109,6 +109,9 @@ export class TaskQueue {
         const newTasks: Array<{ id: string; profileId: string; profileName: string }> = [];
 
         for (const profile of activeProfiles) {
+            // [Requirement Change] Allow multiple cron tasks per day.
+            // Logic removed to support multiple article generations daily.
+            /*
             if (triggerSource === 'cron') {
                 const existing = await this.db.all(sql`
                     SELECT id, status FROM tasks 
@@ -121,6 +124,7 @@ export class TaskQueue {
                     continue;
                 }
             }
+            */
 
             const taskId = crypto.randomUUID();
             const now = new Date().toISOString();
@@ -430,6 +434,7 @@ export class TaskQueue {
                     id: vocabId,
                     articleId: articleId,
                     word: wordDef.word,
+                    usedForm: wordDef.used_form, // [Refactor] Store used_form
                     phonetic: wordDef.phonetic
                 }).onConflictDoNothing();
 

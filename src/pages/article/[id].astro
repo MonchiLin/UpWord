@@ -81,7 +81,16 @@ function getReadingStats(content: string) {
 }
 
 // 目标单词列表
-const targetWords = sidebarWords.map((w: any) => w.word.toLowerCase());
+const targetWords = sidebarWords.map((w: any) => w.word.toLowerCase()); // Keep for compatibility/other uses if any
+
+// [Refactor] Build Word Match Configs for Morphological Logic
+const wordMatchConfigs = wordDefinitions.map((w: any) => ({
+    lemma: w.word.toLowerCase(),
+    forms: [
+        w.word.toLowerCase(), 
+        w.used_form ? w.used_form.toLowerCase() : w.word.toLowerCase()
+    ].filter((v, i, a) => a.indexOf(v) === i) // Unique
+}));
 
 // [Semantic Weaving] Pre-fetch memories (SSR Batch)
 let initialMemories = {};
@@ -237,6 +246,7 @@ const readLevels = row?.articles?.read_levels || 0;
                     client:load 
                     articleId={id} 
                     targetWords={targetWords}
+                    wordMatchConfigs={wordMatchConfigs}
                     memoriesMap={initialMemories}
                 />
                 

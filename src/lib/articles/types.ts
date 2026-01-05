@@ -1,6 +1,7 @@
 export interface WordDefinition {
     word: string;
-    phonetic: string;
+    used_form?: string; // [Refactor] Added used_form
+    phonetic?: string;
     definitions: { pos: string; definition: string }[];
 }
 
