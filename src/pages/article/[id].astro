@@ -94,15 +94,16 @@ const wordMatchConfigs = wordDefinitions.map((w: any) => ({
 
 // [Semantic Weaving] Pre-fetch memories (SSR Batch)
 let initialMemories = {};
-if (targetWords.length > 0) {
-    try {
-        const authKey = Astro.cookies.get('admin_key')?.value || import.meta.env.ADMIN_KEY;
+const adminKey = Astro.cookies.get('admin_key')?.value;
+const isAdmin = !!adminKey;
 
+if (targetWords.length > 0 && isAdmin) {
+    try {
         const data = await apiFetch<{ memories?: Record<string, unknown> }>('/api/context/batch', {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authKey}`
+                'Authorization': `Bearer ${adminKey}`
             },
             body: JSON.stringify({
                 words: targetWords,
@@ -127,6 +128,7 @@ const readLevels = row?.articles?.read_levels || 0;
                 class={`relative min-w-0 ${sidebarWords.length === 0 ? "max-w-3xl mx-auto" : ""}`}
                 data-article-id={id}
                 data-read-levels={readLevels}
+                data-is-admin={isAdmin ? "true" : "false"}
             >
                 <div class="space-y-8">
                     <!-- 文章容器 -->
@@ -364,10 +366,15 @@ const readLevels = row?.articles?.read_levels || 0;
     
     let readTimer: number | undefined;
 
+    import { apiFetch } from '../../lib/api';
+
     function trackReading() {
         if (readTimer) clearTimeout(readTimer);
         
         const main = document.querySelector('main[data-article-id]');
+        const isAdmin = main?.getAttribute('data-is-admin') === 'true';
+        if (!isAdmin) return;
+
         const articleId = main?.getAttribute('data-article-id');
         const currentMask = parseInt(main?.getAttribute('data-read-levels') || '0');
         
@@ -386,9 +393,8 @@ const readLevels = row?.articles?.read_levels || 0;
         
         readTimer = window.setTimeout(async () => {
             try {
-                await fetch(`/api/articles/${articleId}/read`, {
+                await apiFetch(`/api/articles/${articleId}/read`, {
                     method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ level })
                 });
                 main?.setAttribute('data-read-levels', String(currentMask | targetMask));

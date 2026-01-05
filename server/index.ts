@@ -89,7 +89,7 @@ const app = new Elysia()
             path.startsWith('/api/profiles') ||
             path.startsWith('/api/words') ||
             path.startsWith('/api/cron') ||
-            (path.startsWith('/api/articles') && request.method === 'DELETE');
+            (path.startsWith('/api/articles') && (request.method === 'DELETE' || request.method === 'PATCH'));
 
         if (!isProtected) return;
 

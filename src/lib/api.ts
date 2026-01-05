@@ -22,6 +22,11 @@ export async function apiFetch<T = any>(path: string, options: FetchOptions = {}
         headers.set('x-admin-key', token);
     }
 
+    // Automatically set Content-Type for JSON bodies if not provided
+    if (init.body && !headers.has('Content-Type')) {
+        headers.set('Content-Type', 'application/json');
+    }
+
     const res = await fetch(url, { ...init, headers, credentials: credentials ?? 'include' });
 
     // Handle empty responses (like 204 No Content)

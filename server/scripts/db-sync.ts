@@ -65,6 +65,7 @@ async function push() {
         // Get CREATE TABLE statement
         const createStmt = db.query(`SELECT sql FROM sqlite_master WHERE type='table' AND name=?`).get(name) as { sql: string } | null;
         if (createStmt?.sql) {
+            sqlDump += `DROP TABLE IF EXISTS "${name}";\n`;
             sqlDump += `${createStmt.sql};\n`;
         }
 

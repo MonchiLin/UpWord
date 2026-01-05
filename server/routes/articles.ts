@@ -74,6 +74,8 @@ export const articlesRoutes = new Elysia({ prefix: '/api/articles' })
     })
     .patch('/:id/read', async ({ params: { id }, body }) => {
         const { level } = body as { level: number };
+        if (level === undefined) return { status: "error", message: "level required" };
+
         // L1 -> 1 (001), L2 -> 3 (011), L3 -> 7 (111)
         const mask = (1 << level) - 1;
 
