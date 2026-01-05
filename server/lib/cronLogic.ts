@@ -18,7 +18,7 @@ export async function executeCronLogic(
 ) {
     try {
         // 1. Fetch Words (if not exists)
-        const existingWords = await db.all(sql`SELECT count(*) as c FROM daily_words WHERE date = ${taskDate}`) as Array<{ c: number }>;
+        const existingWords = await db.all(sql`SELECT count(*) as c FROM daily_word_references WHERE date = ${taskDate}`) as Array<{ c: number }>;
         if ((existingWords[0]?.c || 0) === 0) {
             console.log(`${logPrefix} Fetching words for ${taskDate}`);
             const cookie = env.SHANBAY_COOKIE;
