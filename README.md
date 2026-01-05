@@ -94,9 +94,6 @@ docker-compose up -d
 
 后端服务将在端口 3000 运行。前端页面 (Cloudflare Pages) 需要配置反向代理或直接请求该 IP (注意 CORS)。
 
-
-IPA 音标
-
 ## HF Space 保活 (Keep-Alive)
 
 Hugging Face 免费 Space 在 48 小时无访问后会休眠。使用 [UptimeRobot](https://uptimerobot.com) 定期 ping 可防止休眠：
@@ -105,4 +102,14 @@ Hugging Face 免费 Space 在 48 小时无访问后会休眠。使用 [UptimeRob
 2.  添加新 Monitor，类型选 **HTTP(s)**。
 3.  URL 填：`https://hf2025-aperturedailyserver.hf.space/api/health`
 4.  间隔设 5-60 分钟均可。
+
+## Todo
+
+[x] IPA 音标
+
+[x] 文章质量提升
+
+[x] 移动端支持
+
+[x] 播放器优化
 

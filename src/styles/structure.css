@@ -225,7 +225,7 @@
     color: var(--st-color-conn-text) !important;
     font-weight: 500;
     font-size: 0.9em;
-    text-decoration: underline dotted var(--st-color-conn-text);
+    /* text-decoration: underline dotted var(--st-color-conn-text); removed per request */
     box-decoration-break: clone;
     -webkit-box-decoration-break: clone;
 }
@@ -317,12 +317,5 @@
 }
 
 /* --- 5. Compatibility --- */
-/* Ensure target words (yellow/orange) are still visible when inside Structure highlights */
-.target-word:has(.structure-active) {
-    color: #ea580c !important;
-    /* Orange-600 */
-    font-weight: 500;
-    text-decoration: underline;
-    text-decoration-color: #ea580c;
-    text-decoration-thickness: 1.5px;
-}
+/* Compatibility: Removed to allow structure colors to override vocabulary highlights per user request. */
+/* .target-word:has(.structure-active) { ... } */

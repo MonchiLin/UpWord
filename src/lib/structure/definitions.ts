@@ -1,6 +1,13 @@
 /**
  * Centralized Definitions for Sentence Structure Grammar Roles.
  * Shared between Backend (Injection), Frontend (Positioning), and UI (HelpPanel).
+ * 
+ * NOTE TO AI AGENTS:
+ * This file is the single source of truth for the linguistic analysis system ("Sentence Component Analysis").
+ * It controls:
+ * 1. Visual Rendering (Color, Label Text)
+ * 2. DOM Nesting Logic (via 'priority')
+ * 3. Interactive Behavior (via 'noLabel')
  */
 
 export type StructureRole =
@@ -9,15 +16,39 @@ export type StructureRole =
     | 'pas' | 'con'                  // Voice & Connectives
     | 'inf' | 'ger' | 'ptc';         // Non-finite
 
+/**
+ * Definition of a Grammar Role.
+ * 
+ * @property id       - Unique identifier (e.g., 's', 'v').
+ * @property label    - Short abbreviation used in floating labels (e.g., 'S').
+ * @property name     - Full human-readable name, bilingual (e.g., '主语 (Subject)').
+ * @property desc     - Educational description shown in the Help/Legend panel.
+ * @property example  - Example sentence for the legend.
+ * @property target   - The specific part of the example sentence that highlights this role.
+ * @property color    - Hex code for the label background and text highlight.
+ * 
+ * @property priority - NESTING CONTROL (Critical):
+ *                      - Lower number = *Higher* Priority = *Outer* Wrapper.
+ *                      - Elements with priority 1 will wrap elements with priority 10.
+ *                      - Example: 'rc' (0) wraps 's' (1). 'pas' (1) wraps 'v' (2).
+ *                      - Conflict Resolution: If ranges are identical, the Lower Priority Number wraps the Higher Priority Number.
+ * 
+ * @property noLabel  - RENDERING CONTROL:
+ *                      - If true, the `labelPositioner` system will NOT generate a floating tag for this role.
+ *                      - The text will still be accessible in the DOM and may be colored/underlined,
+ *                        but visual clutter constitutes by floating labels will be suppressed.
+ *                      - Useful for Connectives or particles where only color is needed.
+ */
 export interface GrammarRoleDef {
     id: StructureRole;
-    label: string;      // Short display text (e.g., 'S')
-    name: string;       // Full name (e.g., '主语 (Subject)')
-    desc: string;       // Description for HelpPanel
-    example: string;    // Example sentence
-    target: string;     // Target word in example
-    color: string;      // Color for highlighting
-    priority: number;   // Nesting priority (Lower = Higher Priority, typically Outer)
+    label: string;
+    name: string;
+    desc: string;
+    example: string;
+    target: string;
+    color: string;
+    priority: number;
+    noLabel?: boolean;
 }
 
 export const GRAMMAR_ROLES: Record<StructureRole, GrammarRoleDef> = {
@@ -97,14 +128,15 @@ export const GRAMMAR_ROLES: Record<StructureRole, GrammarRoleDef> = {
         desc: '主语是动作的承受者。',
         example: 'The cake was eaten.', target: 'was eaten',
         color: '#c2410c',
-        priority: 9
+        priority: 1
     },
     'con': {
         id: 'con', label: 'CON', name: '连接词 (Connective)',
         desc: '连接句子或观点的词。',
         example: 'However, it rained.', target: 'However',
         color: '#92400e',
-        priority: 10
+        priority: 10,
+        noLabel: true
     },
 
     // --- 非谓语动词 (Non-finite) ---

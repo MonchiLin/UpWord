@@ -4,13 +4,22 @@ import { articleVariants } from '../db/schema';
 import { eq } from 'drizzle-orm';
 
 async function run() {
-    const id = 'd5f77f1d-196f-4c52-82d6-a1a15827284d';
-    console.log(`Fetching variants for article ${id}...`);
+    const inputId = process.argv[2];
+    if (!inputId) {
+        console.error('Please provide an Article ID or Variant ID');
+        return;
+    }
+    console.log(`Fetching variants for ID ${inputId}...`);
 
-    const variants = await db.select().from(articleVariants).where(eq(articleVariants.articleId, id));
+    let variants = await db.select().from(articleVariants).where(eq(articleVariants.articleId, inputId));
 
     if (variants.length === 0) {
-        console.error('No variants found for this article');
+        // Try as Variant ID
+        variants = await db.select().from(articleVariants).where(eq(articleVariants.id, inputId));
+    }
+
+    if (variants.length === 0) {
+        console.error('No variants found for this ID');
         return;
     }
 

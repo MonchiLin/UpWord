@@ -91,6 +91,10 @@ export function positionStructureLabels(container: HTMLElement): void {
 
         const rect = span.getBoundingClientRect();
         const def = GRAMMAR_ROLES[role as StructureRole];
+
+        // Skip hidden labels (e.g. Connectives)
+        if (def && def.noLabel) return;
+
         const text = def ? def.label : role.toUpperCase();
         const color = def ? def.color : '#1e293b';
 
