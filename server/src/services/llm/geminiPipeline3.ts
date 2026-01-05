@@ -25,6 +25,7 @@ export async function generateDailyNews3StageWithGemini(args: {
     currentDate: string;
     topicPreference: string;
     candidateWords: string[];
+    recentTitles?: string[];
     checkpoint?: GeminiCheckpoint3 | null;
     onCheckpoint?: (checkpoint: GeminiCheckpoint3) => Promise<void>;
 }): Promise<{ output: DailyNewsOutput; selectedWords: string[]; usage: unknown, structure: unknown[] }> {
@@ -46,7 +47,8 @@ export async function generateDailyNews3StageWithGemini(args: {
             model: args.model,
             candidateWords: args.candidateWords,
             topicPreference: args.topicPreference,
-            currentDate: args.currentDate
+            currentDate: args.currentDate,
+            recentTitles: args.recentTitles
         });
 
         selectedWords = res.selectedWords;

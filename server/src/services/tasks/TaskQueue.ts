@@ -32,6 +32,22 @@ async function getUsedWordsToday(db: AppDatabase, taskDate: string): Promise<Set
 }
 
 /**
+ * Get recent article titles to avoid topic repetition
+ */
+async function getRecentTitles(db: AppDatabase, taskDate: string, days: number = 3): Promise<string[]> {
+    const rows = await db.all(sql`
+        SELECT DISTINCT a.title
+        FROM tasks t
+        JOIN articles a ON a.generation_task_id = t.id
+        WHERE t.status = 'succeeded'
+          AND t.task_date >= date(${taskDate}, '-' || ${days} || ' days')
+          AND t.task_date < ${taskDate}
+    `) as { title: string }[];
+
+    return rows.map(r => r.title).filter(Boolean);
+}
+
+/**
  * Build candidate words for article generation.
  */
 function buildCandidateWords(
@@ -289,6 +305,7 @@ export class TaskQueue {
         if (newWords.length + reviewWords.length === 0) throw new Error('Daily words record is empty');
 
         const usedWords = await getUsedWordsToday(this.db, task.task_date);
+        const recentTitles = await getRecentTitles(this.db, task.task_date);
         const candidates = buildCandidateWords(newWords, reviewWords, usedWords);
 
         if (candidates.length === 0) throw new Error('All words have been used today');
@@ -328,6 +345,7 @@ export class TaskQueue {
             currentDate: task.task_date,
             topicPreference: profile.topic_preference || '',
             candidateWords: candidateWordStrings,
+            recentTitles,
             checkpoint,
             onCheckpoint: async (cp) => {
                 await this.db.run(sql`UPDATE tasks SET result_json = ${JSON.stringify(cp)} WHERE id = ${task.id}`);

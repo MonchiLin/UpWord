@@ -45,6 +45,7 @@ export const SEARCH_AND_SELECTION_SYSTEM_INSTRUCTION = `${BASE_SYSTEM_ROLE}
   <rule priority="HIGH">选出的词汇必须都能自然地融入同一篇新闻。</rule>
   <rule>优先选择候选词列表中靠前的词。</rule>
   <rule priority="HIGH">只返回 1 个最权威的真实新闻来源 URL。</rule>
+  <rule priority="HIGH">如果提供了 avoid_titles 列表，必须选择与之不同的新闻主题/事件。避免选择相同、高度相似或仅是同一事件不同报道角度的新闻，确保内容多样性。</rule>
   <rule priority="CRITICAL">最终响应必须在 markdown 代码块中包含 JSON，格式：\`\`\`json\n{...}\n\`\`\`</rule>
 </constraints>
 
@@ -62,12 +63,16 @@ export function buildSearchAndSelectionUserPrompt(args: {
   candidateWords: string[];
   topicPreference: string;
   currentDate: string;
+  recentTitles?: string[];
 }) {
   const candidateWordsText = args.candidateWords.map((w, i) => `${i + 1}. ${w}`).join('\n');
+  const avoidTitlesSection = args.recentTitles?.length
+    ? `\n<avoid_titles>\n以下是最近几天已生成的文章标题，请避免选择相同或高度相似的新闻主题：\n${args.recentTitles.map((t, i) => `${i + 1}. ${t}`).join('\n')}\n</avoid_titles>`
+    : '';
 
   return `<context>
   <date>${args.currentDate}</date>
-  <topic>${args.topicPreference}</topic>
+  <topic>${args.topicPreference}</topic>${avoidTitlesSection}
 </context>
 
 <candidate_words>
@@ -227,6 +232,13 @@ ${JSON_SCHEMA_DEF}
     1. 只提供文章中使用的那个义项（如 "appeal" 用作"呼吁"，则只给"呼吁"的释义）
     2. 词性(pos)必须与文章用法一致
     3. 如果文章用作动词，释义不能给名词含义
+  </rule>
+  <rule priority="HIGH">
+    phonetic 字段必须使用标准 IPA (International Phonetic Alphabet) 格式：
+    - 使用斜杠包裹：/ˈsɪɡnəl/
+    - 禁止使用点分隔符标注音节（如 /ˈsɪɡ.nəl/ 是错误的）
+    - 重音符号使用 ˈ（主重音）和 ˌ（次重音）
+    - 正确示例：/ˈsiːnəri/, /ɪnˈdʒʊərəns/, /ˌaʊtˈdɔːr/
   </rule>
   <rule>补充 word_definitions（IPA音标 + 中文释义）。</rule>
   <rule priority="CRITICAL">检查并移除 articles.content 中所有目标词周围的 markdown 符号，确保纯文本输出。</rule>

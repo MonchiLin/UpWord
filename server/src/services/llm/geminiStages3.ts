@@ -41,6 +41,7 @@ export async function runGeminiSearchAndSelection(args: {
     candidateWords: string[];
     topicPreference: string;
     currentDate: string;
+    recentTitles?: string[];
 }) {
     console.log('[Gemini Stage 1/3] Search + Selection - START', {
         candidateCount: args.candidateWords.length,
@@ -52,7 +53,8 @@ export async function runGeminiSearchAndSelection(args: {
     const userPrompt = buildSearchAndSelectionUserPrompt({
         candidateWords: args.candidateWords,
         topicPreference: args.topicPreference,
-        currentDate: args.currentDate
+        currentDate: args.currentDate,
+        recentTitles: args.recentTitles
     });
 
     args.history.push({ role: 'user', parts: [{ text: userPrompt }] });
