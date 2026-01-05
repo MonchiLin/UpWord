@@ -146,6 +146,8 @@ const readLevels = row?.articles?.read_levels || 0;
                                         </button>
                                     ))}
                                 </div>
+                                
+
                             </div>
                             
                             <h1 class="text-3xl md:text-5xl font-bold text-slate-900 tracking-tight leading-[1.1] font-display">
@@ -503,6 +505,8 @@ const readLevels = row?.articles?.read_levels || 0;
     // 支持普通页面加载和 View Transitions SPA 导航
     document.addEventListener('DOMContentLoaded', initLevelSwitcher);
     document.addEventListener('astro:page-load', initLevelSwitcher);
+    
+
 
     // [Feature] Structure Reveal
     import { initStructureInteraction } from '../../lib/features/structure/interaction';
