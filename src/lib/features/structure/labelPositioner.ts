@@ -1,18 +1,36 @@
 /**
- * Structure Label Positioner (Rewrite v2)
+ * Structure Label Positioner (v3: Zero-Reflow & Functional)
  * 
- * Philosophy:
- * 1. Simplicity: Anchors labels firmly to the START of the structure (first line).
- * 2. Robustness: Uses physics-based stacking to resolve collisions, no matter how dense.
- * 3. Clarity: Outer structures stack ABOVE inner structures.
+ * Architecture: "Measure -> Plan -> Paint"
+ * Separates DOM reads/writes to prevent Layout Thrashing.
+ * Provides a cleaner, more readable implementation of the stacking algorithm.
  */
-
 import { type StructureRole, GRAMMAR_ROLES } from '../../structure/definitions';
 
-const LABEL_BASE_OFFSET = 4; // px distance from text top
-const HORIZONTAL_PADDING = 2; // Min gap between labels width-wise
-const VERTICAL_SPACING = 2;   // Gap between stacked labels
-const DEAD_ZONE_X = 10;       // X-distance threshold to consider "same position" for sorting
+// --- Configuration ---
+const CONFIG = {
+    OFFSET_Y: 4,     // Base distance above text
+    PAD_X: 2,        // Horizontal gap between labels
+    PAD_Y: 2,        // Vertical gap between stacked labels
+    DEAD_ZONE: 10,   // Sort threshold for "same start position"
+    CONNECTOR_MIN: 6 // Min length to draw connector line
+};
+
+interface LabelItem {
+    // Input Data
+    span: HTMLElement;
+    text: string;
+    color: string;
+    anchorX: number;
+    anchorY: number;
+    // Measured Data
+    width: number;
+    height: number;
+    // Computed Data
+    x: number;
+    y: number;
+    hasConnector: boolean;
+}
 
 export function clearLabels(): void {
     document.querySelectorAll('.structure-label, .structure-connector').forEach(el => el.remove());
@@ -21,174 +39,158 @@ export function clearLabels(): void {
 export function positionStructureLabels(container: HTMLElement): void {
     clearLabels();
 
+    // 1. Selection & Filtering
+    const rawSpans = Array.from(container.querySelectorAll('[data-structure]:has(.structure-active)')) as HTMLElement[];
+    if (rawSpans.length === 0) return;
+
+    // 2. Measure Context (Batch Read)
     const containerRect = container.getBoundingClientRect();
-    const spans = Array.from(container.querySelectorAll('[data-structure]:has(.structure-active)')) as HTMLElement[];
+    const items = measureSpans(rawSpans, containerRect);
+    if (items.length === 0) return;
 
-    if (spans.length === 0) return;
+    // 3. Create & Measure Labels (Batch Write -> Batch Read)
+    const labelElements = createLabelElements(items, container);
+    measureLabels(items, labelElements);
 
-    // --- Step 1: Prepare Metric Objects ---
-    const items = spans.map((span, index) => {
+    // 4. Compute Layout (Pure Logic)
+    computeLayout(items);
+
+    // 5. Apply & Render (Batch Write)
+    applyLayout(items, labelElements, container);
+}
+
+// --- Phase 1: Measure Spans ---
+function measureSpans(spans: HTMLElement[], containerRect: DOMRect): LabelItem[] {
+    return spans.map(span => {
         const role = span.dataset.structure as StructureRole;
         const def = GRAMMAR_ROLES[role];
         if (def?.noLabel) return null;
 
-        // Anchor Logic: Always target the FIRST visible line of the span.
-        // This prevents labels from appearing in the middle of a paragraph for long structures.
+        // Anchor to first line
         const rects = span.getClientRects();
-        if (rects.length === 0) return null; // Hidden or collapsed
+        if (!rects.length) return null;
         const anchorRect = rects[0];
 
-        // We anchor to the horizontal center of the first word/segment
-        const anchorX = (anchorRect.left + anchorRect.width / 2) - containerRect.left;
-        const anchorTop = anchorRect.top - containerRect.top;
-
-        // Visual Props
-        const text = def?.label || role.toUpperCase();
-        const color = def?.color || '#333';
-        const id = `st-lbl-${index}`;
-
-        // Link spans for interaction
-        span.dataset.labelId = id;
-
+        // Anchor Point: Top-Center of the first visual line
         return {
-            id,
             span,
-            text,
-            color,
-            anchorX,
-            anchorTop,
-            // Dynamic props
+            text: def?.label || role.toUpperCase(),
+            color: def?.color || '#333',
+            anchorX: (anchorRect.left + anchorRect.width / 2) - containerRect.left,
+            anchorY: anchorRect.top - containerRect.top,
             width: 0,
             height: 0,
             x: 0,
             y: 0,
-            el: null as HTMLElement | null
+            hasConnector: false
         };
-    }).filter(Boolean) as NonNullable<typeof items[0]>[];
+    }).filter(Boolean) as LabelItem[];
+}
 
-    // --- Step 2: Measure Sizes (Batch DOM Write/Read) ---
-    items.forEach(item => {
+// --- Phase 2: Create & Measure Labels ---
+function createLabelElements(items: LabelItem[], container: HTMLElement): HTMLElement[] {
+    const elements = items.map(item => {
         const el = document.createElement('div');
         el.className = 'structure-label';
-        el.innerText = item.text;
+        el.textContent = item.text;
         el.style.setProperty('--label-color', item.color);
-        el.dataset.id = item.id;
-        // Hidden initially
-        el.style.visibility = 'hidden';
-        container.appendChild(el);
-        item.el = el;
+        el.style.visibility = 'hidden'; // Hide during measurement
+        return el;
     });
+    // Single DOM Injection for all labels
+    elements.forEach(el => container.appendChild(el));
+    return elements;
+}
 
-    // Read sizes (triggers reflow once)
-    items.forEach(item => {
-        if (!item.el) return;
-        const r = item.el.getBoundingClientRect();
-        item.width = r.width;
-        item.height = r.height;
+function measureLabels(items: LabelItem[], elements: HTMLElement[]) {
+    // Forced Reflow happens here ONCE for all elements
+    elements.forEach((el, i) => {
+        const r = el.getBoundingClientRect();
+        items[i].width = r.width;
+        items[i].height = r.height;
     });
+}
 
-    // --- Step 3: Sorting & Stacking ---
-    // Sort logic: 
-    // Primary: X position (Left to Right)
-    // Secondary: Length (Smallest to Largest) -> This ensures "Inner" tags sit lower, "Outer" tags stack higher.
+// --- Phase 3: Compute Layout (The "Skyline" Algorithm) ---
+function computeLayout(items: LabelItem[]) {
+    // Sort: Left -> Right, then Inner -> Outer (Shorter -> Longer)
     items.sort((a, b) => {
         const diffX = a.anchorX - b.anchorX;
-        if (Math.abs(diffX) > DEAD_ZONE_X) return diffX;
-
-        // If roughly same start, put shorter (inner) spans first
+        if (Math.abs(diffX) > CONFIG.DEAD_ZONE) return diffX;
         return a.span.innerText.length - b.span.innerText.length;
     });
 
-    // Placement loop
-    const placedBoxes: { x: number, y: number, w: number, h: number }[] = [];
+    const placed: { x: number, y: number, w: number, h: number }[] = [];
 
-    items.forEach(item => {
-        // Start position: Centered at anchorX, sitting right on top of the text
-        let desiredX = item.anchorX - item.width / 2;
-        let desiredY = item.anchorTop - item.height - LABEL_BASE_OFFSET;
+    for (const item of items) {
+        // Initial Ideal Position: Centered above anchor
+        item.x = Math.max(0, item.anchorX - item.width / 2);
+        item.y = item.anchorY - item.height - CONFIG.OFFSET_Y;
 
-        // Clamp Left
-        if (desiredX < 0) desiredX = 0;
-
-        // Collision Resolution (The Elevator Algorithm)
-        // Keep moving UP until we don't hit anything
-        // Limit iterations to prevent infinite loops in pathological cases
+        // Collision Resolution: Stack upwards
         let collision = true;
-        let limit = 0;
+        let attempts = 0;
 
-        while (collision && limit < 50) {
+        while (collision && attempts++ < 50) {
             collision = false;
-            for (const box of placedBoxes) {
-                const overlap = !(
-                    desiredX + item.width + HORIZONTAL_PADDING < box.x ||
-                    desiredX > box.x + box.w + HORIZONTAL_PADDING ||
-                    desiredY + item.height < box.y || // box is above me
-                    desiredY > box.y + box.h          // box is below me
-                );
-
-                if (overlap) {
-                    // Hit something! Jump above it.
-                    desiredY = box.y - item.height - VERTICAL_SPACING;
+            for (const box of placed) {
+                if (isOverlapping(item, box)) {
+                    // Overlap detected: Move item strictly above the colliding box
+                    item.y = box.y - item.height - CONFIG.PAD_Y;
                     collision = true;
-                    // Restart check from new Y implies checking all boxes again? 
-                    // Yes, technically logic dictates verifying new pos against everyone.
-                    // But in a sorted list 'elevator' approach (iterating placedBoxes), 
-                    // we usually just need to clear the highest obstacle at this X.
-                    // Optimization: track 'skyline' at this X range.
                 }
             }
-            limit++;
         }
 
-        item.x = desiredX;
-        item.y = desiredY;
-        placedBoxes.push({ x: item.x, y: item.y, w: item.width, h: item.height });
-    });
+        // Determine if connector line is needed
+        const bottom = item.y + item.height;
+        item.hasConnector = (item.anchorY - bottom) > CONFIG.CONNECTOR_MIN;
 
-    // --- Step 4: Finalize Render ---
-    items.forEach(item => {
-        if (!item.el) return;
+        placed.push({ x: item.x, y: item.y, w: item.width, h: item.height });
+    }
+}
 
-        item.el.style.left = `${item.x}px`;
-        item.el.style.top = `${item.y}px`;
-        item.el.style.visibility = 'visible';
+function isOverlapping(item: LabelItem, box: { x: number, y: number, w: number, h: number }): boolean {
+    return !(
+        item.x + item.width + CONFIG.PAD_X < box.x ||
+        item.x > box.x + box.w + CONFIG.PAD_X ||
+        item.y + item.height < box.y ||
+        item.y > box.y + box.h
+    );
+}
 
-        // Draw Connector Line if label was lifted
-        const labelBottom = item.y + item.height;
-        // Connector logic: only if gap is significant (> 2px)
-        const gap = item.anchorTop - labelBottom;
+// --- Phase 4: Apply ---
+function applyLayout(items: LabelItem[], elements: HTMLElement[], container: HTMLElement) {
+    const connectorFragment = document.createDocumentFragment();
 
-        if (gap > LABEL_BASE_OFFSET + 2) {
+    items.forEach((item, i) => {
+        const el = elements[i];
+
+        // Apply computed positions
+        el.style.left = `${item.x}px`;
+        el.style.top = `${item.y}px`;
+        el.style.visibility = 'visible';
+
+        // Add Connector if needed
+        if (item.hasConnector) {
             const line = document.createElement('div');
             line.className = 'structure-connector';
+            const h = item.anchorY - (item.y + item.height);
             line.style.cssText = `
                 position: absolute;
                 left: ${item.x + item.width / 2}px;
-                top: ${labelBottom}px;
+                top: ${item.y + item.height}px;
                 width: 1px;
-                height: ${gap}px;
+                height: ${h}px;
                 background-color: ${item.color};
                 opacity: 0.3;
                 pointer-events: none;
             `;
-            container.appendChild(line);
+            line.style.setProperty('--label-color', item.color); // For other CSS hooks
+            connectorFragment.appendChild(line);
         }
-
-        // --- Interaction ---
-        // Simple Interaction: Hover Label -> Highlight Span
-        const onEnter = () => {
-            item.span.classList.add('st-hover');
-            item.el?.classList.add('st-hover');
-            // Fade others? Maybe keep it simple for now to reduce visual noise
-        };
-        const onLeave = () => {
-            item.span.classList.remove('st-hover');
-            item.el?.classList.remove('st-hover');
-        };
-
-        item.el.addEventListener('mouseenter', onEnter);
-        item.el.addEventListener('mouseleave', onLeave);
-        item.span.addEventListener('mouseenter', onEnter);
-        item.span.addEventListener('mouseleave', onLeave);
     });
+
+    // Batch append all connectors
+    container.appendChild(connectorFragment);
 }

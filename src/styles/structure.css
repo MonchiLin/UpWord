@@ -330,17 +330,3 @@
 .structure-active .target-word[data-has-history="true"]::after {
     display: none;
 }
-
-/* --- 6. Interaction Helpers (Added for Rewrite v2) --- */
-.structure-label.st-hover {
-    transform: translateY(-2px) scale(1.1);
-    z-index: 200 !important;
-    filter: brightness(1.1);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
-
-[data-structure].st-hover {
-    background-color: rgba(0, 0, 0, 0.05);
-    /* Subtle highlight */
-    cursor: pointer;
-}
