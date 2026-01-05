@@ -7,7 +7,9 @@
 
 import * as cheerio from 'cheerio';
 
-export type StructureRole = 's' | 'v' | 'o' | 'io' | 'cmp' | 'rc' | 'pp' | 'adv' | 'app' | 'pas' | 'con' | 'inf' | 'ger' | 'ptc';
+import { type StructureRole, GRAMMAR_ROLES } from './definitions';
+
+export type { StructureRole };
 
 export type StructureData = Array<{
     start: number;
@@ -93,12 +95,15 @@ export function injectStructureSpans(htmlContent: string, structure: StructureDa
 
     // Priority for nesting (Lower index = Higher priority/Outer)
     // Generally Scope > Core > Modifier > Particle
-    const rolePriority = ['rc', 's', 'v', 'o', 'io', 'cmp', 'pp', 'adv', 'app', 'pas', 'con', 'inf', 'ger', 'ptc'];
+    // Priority for nesting (Lower index = Higher priority/Outer)
+    // Generally Scope > Core > Modifier > Particle
 
     const getRolePriority = (r: string) => {
-        const idx = rolePriority.indexOf(r);
-        return idx === -1 ? 999 : idx;
+        // Fallback for verification
+        if (!GRAMMAR_ROLES[r as StructureRole]) return 999;
+        return GRAMMAR_ROLES[r as StructureRole].priority;
     };
+
 
     for (const [originalNode, chars] of nodesToUpdate) {
         if (chars.length === 0) continue;
