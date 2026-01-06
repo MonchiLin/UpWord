@@ -13,45 +13,42 @@ let lastCronRunDate = '';
  */
 export function startCronScheduler(queue: TaskQueue) {
     setInterval(async () => {
-        const now = dayjs();
+        // Use .tz() to ensure we are always checking against Asia/Shanghai
+        const now = dayjs().tz('Asia/Shanghai');
         const hour = now.hour();
+        const minute = now.minute();
         const todayStr = now.format('YYYY-MM-DD');
 
-        const minute = now.minute();
-
-        // 1. Daily Word Fetch at 08:00
-        if (hour === 8 && minute === 0) {
-            if (lastCronRunDate !== todayStr + '_fetch') {
-                console.log(`[Cron Scheduler] Triggering Daily Word Fetch (08:00)`);
+        // 1. Daily Word Fetch at 08:00 window (08:00 - 08:59)
+        if (hour === 8) {
+            const slotKey = `${todayStr}_fetch_0800`;
+            if (lastCronRunDate !== slotKey) {
+                console.log(`[Cron Scheduler][CST] Triggering Daily Word Fetch (08:00 Window)`);
                 try {
                     await runDailyWordFetch(todayStr, '[Cron 08:00]');
-                    lastCronRunDate = todayStr + '_fetch';
+                    lastCronRunDate = slotKey;
                 } catch (e) {
                     console.error('[Cron Scheduler] 08:00 Fetch failed', e);
                 }
             }
         }
 
-        // 2. Article Generation (09:00 - 17:00), every 30 minutes (:00, :30)
+        // 2. Article Generation (09:00 - 17:00)
+        // Robust Slot-based Trigger: Find the current 10-minute slot (e.g., 10:35 -> 10:30 slot)
         if (hour >= 9 && hour <= 17) {
-            if (minute === 0 || minute === 30) {
-                // To avoid double execution within the same minute (since interval is 60s),
-                // we use a specific tag for this slot.
-                const slotKey = `${todayStr}_${hour}_${minute}`;
+            const currentSlotMinute = Math.floor(minute / 10) * 10;
+            const slotKey = `${todayStr}_gen_${hour}_${currentSlotMinute}`;
 
-                // Reuse lastCronRunDate mechanism or use a separate tracking?
-                // The variable `lastCronRunDate` is a string, let's use it to track "last executed slot".
-                if (lastCronRunDate !== slotKey) {
-                    console.log(`[Cron Scheduler] Triggering Article Generation (${hour}:${minute.toString().padStart(2, '0')})`);
-                    try {
-                        await runTaskEnqueue(todayStr, `[Cron ${hour}:${minute}]`, queue);
-                        lastCronRunDate = slotKey;
-                    } catch (e) {
-                        console.error(`[Cron Scheduler] Generation task failed`, e);
-                    }
+            if (lastCronRunDate !== slotKey) {
+                console.log(`[Cron Scheduler][CST] Triggering Article Generation Slot (${hour}:${currentSlotMinute.toString().padStart(2, '0')})`);
+                try {
+                    await runTaskEnqueue(todayStr, `[Cron ${hour}:${currentSlotMinute}]`, queue);
+                    lastCronRunDate = slotKey;
+                } catch (e) {
+                    console.error(`[Cron Scheduler] Generation task failed`, e);
                 }
             }
         }
     }, CRON_INTERVAL_MS);
-    console.log("[Cron Scheduler] Started. Target window: 09:00 - 10:00 CST");
+    console.log("[Cron Scheduler] Started. Target window: 09:00 - 17:00 CST (Robust Frequency: 10min)");
 }
