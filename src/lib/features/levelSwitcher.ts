@@ -11,6 +11,8 @@
  *   - /article/{id}/L3 → L3
  */
 
+import { setLevel as storeSetLevel } from '../store/interactionStore';
+
 const STORAGE_KEY = 'aperture-daily_preferred_level';
 
 /** 设置单个元素的 active 状态 */
@@ -113,6 +115,8 @@ export function initLevelSwitcher() {
         }
 
         window.dispatchEvent(new CustomEvent('level-change', { detail: { level } }));
+        // Update Store (New Communication)
+        storeSetLevel(level);
     };
 
     // 绑定点击

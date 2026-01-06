@@ -9,6 +9,8 @@ export interface SentenceMapping {
     text: string;
 }
 
+import { setActiveWord } from '../store/interactionStore';
+
 /**
  * 对指定的容器元素进行句子分段并标记 DOM
  */
@@ -145,10 +147,10 @@ function processTargetWords(
 
             // Interaction
             wSpan.addEventListener('mouseenter', () => {
-                window.dispatchEvent(new CustomEvent('word-hover', { detail: { word: matchedLemma, target: wSpan } }));
+                setActiveWord(matchedLemma);
             });
             wSpan.addEventListener('mouseleave', () => {
-                window.dispatchEvent(new CustomEvent('word-hover', { detail: { word: null, target: null } }));
+                setActiveWord(null);
             });
 
             wSpan.addEventListener('click', (e) => {

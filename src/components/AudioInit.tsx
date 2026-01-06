@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { useStore } from '@nanostores/react';
 import { audioState, setPlaylist } from '../lib/store/audioStore';
+import { interactionStore } from '../lib/store/interactionStore';
 import { preloadArticleAudio, clearCache, setPreloaderVoice } from '../lib/tts/audioPreloader';
 
 interface AudioInitProps {
@@ -13,31 +15,14 @@ interface AudioInitProps {
  * Listens for level changes and re-preloads when difficulty changes.
  */
 export default function AudioInit({ allContent }: AudioInitProps) {
-    const [currentLevel, setCurrentLevel] = useState(() => {
-        if (typeof window !== 'undefined') {
-            try {
-                const saved = localStorage.getItem('aperture-daily_preferred_level');
-                return parseInt(saved || '1') || 1;
-            } catch {
-                return 1;
-            }
-        }
-        return 1;
-    });
+    // Use centralized store for level
+    const { currentLevel } = useStore(interactionStore);
 
-    // Listen for level change events
+    // Initial sync removed as useStore handles it.
+    // Effect to clear cache on level change is still needed, but can react to 'currentLevel'
     useEffect(() => {
-        const handleLevelChange = (e: CustomEvent) => {
-            const level = e.detail?.level;
-            if (level && level !== currentLevel) {
-                console.log('[AudioInit] Level changed to:', level);
-                clearCache();
-                setCurrentLevel(level);
-            }
-        };
-
-        window.addEventListener('level-change' as any, handleLevelChange);
-        return () => window.removeEventListener('level-change' as any, handleLevelChange);
+        console.log('[AudioInit] Level synced from store:', currentLevel);
+        clearCache();
     }, [currentLevel]);
 
     // When level/content changes, update playlist and trigger preload

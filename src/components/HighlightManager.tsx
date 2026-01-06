@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useStore } from '@nanostores/react';
 import { audioState } from '../lib/store/audioStore';
 import { tokenizeSentences, findActiveSid } from '../lib/utils/highlighterLogic';
-import { setLevel, setActiveWord, setMemoryData, interactionStore } from '../lib/store/interactionStore';
+import { setMemoryData, interactionStore } from '../lib/store/interactionStore';
 
 interface HighlightManagerProps {
     articleId: string;
@@ -12,42 +12,15 @@ interface HighlightManagerProps {
 }
 
 export default function HighlightManager({ articleId, targetWords, wordMatchConfigs, memoriesMap = {} }: HighlightManagerProps) {
+
     const wordsWithHistory = Object.keys(memoriesMap);
-    const { activeWord } = useStore(interactionStore);
-    const [currentLevel, setCurrentLevel] = useState(1);
+    const { activeWord, currentLevel } = useStore(interactionStore);
     const playbackActiveSidRef = useRef<number | null>(null);
     const { charIndex, currentIndex, isPlaying } = useStore(audioState);
 
-    // 监听难度切换
-    useEffect(() => {
-        const handleLevelChange = (e: CustomEvent) => {
-            const level = e.detail?.level;
-            if (level) {
-                console.log('[HighlightManager] Level changed to:', level);
-                setCurrentLevel(level);
-                setLevel(level); // Sync to store
-            }
-        };
+    // Level change listener removed (reactive via store)
 
-        window.addEventListener('level-change' as any, handleLevelChange);
-        const saved = localStorage.getItem('aperture-daily_preferred_level');
-        if (saved) {
-            const l = parseInt(saved) || 1;
-            setCurrentLevel(l);
-            setLevel(l);
-        }
-
-        return () => window.removeEventListener('level-change' as any, handleLevelChange);
-    }, []);
-
-    // 监听来自 highlighterLogic 的 hover 事件
-    useEffect(() => {
-        const handleWordHover = (e: CustomEvent) => {
-            setActiveWord(e.detail?.word || null);
-        };
-        window.addEventListener('word-hover' as any, handleWordHover);
-        return () => window.removeEventListener('word-hover' as any, handleWordHover);
-    }, []);
+    // Word hover listener removed (logic moved to highlighterLogic calling store directly)
 
     // [New] Store Sync: Lookup memory for active word
     useEffect(() => {
