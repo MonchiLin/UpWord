@@ -31,10 +31,12 @@ export async function fetchAndStoreDailyWords(
 
     // 写入 words 表（幂等）
     const allWords = [...new Set([...newWords, ...reviewWords])];
-    const WORD_INSERT_CHUNK_SIZE = 20;
+    // Cloudflare D1 / Proxy limitations: reduce chunk size significantly to avoid "too many SQL variables"
+    const WORD_INSERT_CHUNK_SIZE = 10;
 
     for (let i = 0; i < allWords.length; i += WORD_INSERT_CHUNK_SIZE) {
         const chunk = allWords.slice(i, i + WORD_INSERT_CHUNK_SIZE);
+        console.log(`[DailyWords] Inserting words chunk: ${i} - ${i + chunk.length} / ${allWords.length}`);
         await db
             .insert(words)
             .values(chunk.map((w) => ({ word: w, origin: 'shanbay' as const })))
@@ -50,8 +52,9 @@ export async function fetchAndStoreDailyWords(
         ...reviewWords.map(w => ({ id: crypto.randomUUID(), date: args.taskDate, word: w, type: 'review' as const }))
     ];
 
-    const REF_CHUNK = 50;
+    const REF_CHUNK = 10;
     for (let i = 0; i < references.length; i += REF_CHUNK) {
+        console.log(`[DailyWords] Inserting references chunk: ${i} - ${Math.min(i + REF_CHUNK, references.length)} / ${references.length}`);
         await db.insert(dailyWordReferences).values(references.slice(i, i + REF_CHUNK)).onConflictDoNothing();
     }
 
