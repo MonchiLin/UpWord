@@ -27,8 +27,10 @@ export default defineConfig({
       entrypoint: 'astro/assets/services/noop'
     }
   },
-
   vite: {
+    build: {
+      minify: false,
+    },
     plugins: [/** @type {any} */(tailwindcss())],
     resolve: {
       alias: {
