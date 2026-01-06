@@ -41,7 +41,12 @@ export function useSettings() {
 
         // 调用登录 API 设置 HttpOnly Cookie
         if (nextKey) {
-            await login(nextKey);
+            const success = await login(nextKey);
+            // 登录成功后刷新页面，让 SSR 重新渲染管理员组件
+            if (success) {
+                window.location.reload();
+                return;
+            }
         }
 
         setSavedAt(Date.now());

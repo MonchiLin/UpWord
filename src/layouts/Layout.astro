@@ -86,6 +86,9 @@ const resolvedMainClass = mainClass ?? "mx-auto max-w-8xl px-4";
 		<script>
 			import NProgress from 'nprogress';
 			
+			// 标记客户端已 hydration，用于 CSS 切换 SSR/客户端组件
+			document.documentElement.classList.add('hydrated');
+			
 			NProgress.configure({ showSpinner: false, speed: 200 });
 			
 			// 导航开始
@@ -96,6 +99,8 @@ const resolvedMainClass = mainClass ?? "mx-auto max-w-8xl px-4";
 			// 导航完成
 			document.addEventListener('astro:after-swap', () => {
 				NProgress.done();
+				// 确保导航后仍保持 hydrated 状态
+				document.documentElement.classList.add('hydrated');
 			});
 		</script>
 	</body>

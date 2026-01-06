@@ -7,7 +7,8 @@
  * 
  * 🏝️ 组件拆分架构：
  *   - DayHeader.astro - 日期头部 (纯 SSR)
- *   - ArticleList.astro - 文章列表 (纯 SSR)
+ *   - ArticleList.astro - 文章列表 (SSR 首屏 + noscript 兜底)
+ *   - ArticleListClient - 文章列表 (客户端动态更新)
  *   - DayStateSync - 状态同步 (轻量孤岛)
  *   - WordsDrawer - 词汇抽屉 (孤岛)
  *   - AdminDrawer - 管理抽屉 (条件孤岛)
@@ -16,6 +17,7 @@ import Layout from "@/layouts/Layout.astro";
 import MacOSCalendarAstro from "@/components/MacOSCalendar.astro";
 import DayHeader from "@/components/day/DayHeader.astro";
 import ArticleList from "@/components/day/ArticleList.astro";
+import ArticleListClient from "@/components/day/ArticleListClient";
 import DayStateSync from "@/components/day/DayStateSync";
 import WordsDrawer from "@/components/WordsDrawer";
 import AdminDrawer from "@/components/AdminDrawer";
@@ -132,8 +134,25 @@ if (dayData.articles?.length > 0) {
                     </Fragment>
                 </DayHeader>
 
-                <!-- 文章列表 (纯 SSR) -->
-                <ArticleList articles={dayData.articles} />
+                <!-- 文章列表：SSR 首屏 + 客户端接管 -->
+                <!-- SSR 版本：首屏渲染，客户端 hydration 后隐藏 -->
+                <div class="article-list-ssr">
+                    <ArticleList articles={dayData.articles} />
+                </div>
+                <!-- 客户端版本：hydration 后显示，支持动态更新 -->
+                <div class="article-list-client">
+                    <ArticleListClient client:idle date={date} />
+                </div>
+
+                <style>
+                    /* 默认显示 SSR 版本 */
+                    .article-list-ssr { display: block; }
+                    .article-list-client { display: none; }
+                    
+                    /* 客户端 hydration 后切换显示 */
+                    :global(html.hydrated) .article-list-ssr { display: none; }
+                    :global(html.hydrated) .article-list-client { display: block; }
+                </style>
             </div>
         </div>
     </div>
