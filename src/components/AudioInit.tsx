@@ -47,18 +47,36 @@ export default function AudioInit({ allContent }: AudioInitProps) {
         const targetData = allContent.find(c => c.level === currentLevel) || allContent[0];
         const rawText = targetData.content;
 
-        console.log(`[AudioInit] Generating playlist for Level ${currentLevel}, length: ${rawText.length}`);
+        console.log(`[AudioInit] Generating playlist for Level ${currentLevel}`);
 
-        // 将文章内容按段落分割 (Server-side 逻辑的镜像)
+        // 1. Split into paragraphs
         const paragraphs = rawText
             .split('\n')
             .map(p => p.trim())
             .filter(Boolean);
 
-        console.log('[AudioInit] Generated segments:', paragraphs.length);
+        // 2. Split paragraphs into sentences and flatten using Intl.Segmenter (Consistent with highlighterLogic)
+        const segmenter = new Intl.Segmenter('en', { granularity: 'sentence' });
+
+        const segments: { text: string, isNewParagraph: boolean }[] = [];
+
+        paragraphs.forEach(para => {
+            const rawSentences = Array.from(segmenter.segment(para));
+
+            if (rawSentences.length === 0) return;
+
+            rawSentences.forEach((s, idx) => {
+                segments.push({
+                    text: s.segment,
+                    isNewParagraph: idx === 0 // First sentence of a paragraph
+                });
+            });
+        });
+
+        console.log('[AudioInit] Generated segments:', segments.length);
 
         // 初始化 playlist
-        setPlaylist(paragraphs);
+        setPlaylist(segments);
     }, [allContent, currentLevel]);
 
     return null;

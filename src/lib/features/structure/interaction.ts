@@ -139,6 +139,17 @@ export function initStructureInteraction() {
             }
         }, 100); // Debounce 100ms
     });
+
+    // --- Sync Hover from External Source (e.g., Audio Player) ---
+    // --- Sync Hover from External Source (e.g., Audio Player) ---
+    window.addEventListener('sync-sentence-hover', ((e: Event) => {
+        const detail = (e as CustomEvent).detail || {};
+        const { sid, active } = detail;
+        const level = document.querySelector(SELECTOR_LEVEL + '[data-active]'); // Only apply to active level
+        if (typeof sid === 'number' && level instanceof HTMLElement) {
+            toggleSentenceClass(level, sid.toString(), CLASS_HOVER, !!active);
+        }
+    }) as EventListener);
 }
 
 /**

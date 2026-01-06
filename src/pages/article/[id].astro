@@ -15,7 +15,7 @@ import Layout from "@/layouts/Layout.astro";
 import WordSidebarAstro from "@/components/WordSidebar.astro";
 import HighlightManager from "@/components/HighlightManager";
 import VisualTether from "@/components/VisualTether";
-import AudioPlayer from "@/components/AudioPlayer";
+import FloatingAudioPlayer from "@/components/FloatingAudioPlayer";
 import AudioInit from "@/components/AudioInit";
 import MemorySpirit from "@/components/MemorySpirit";
 
@@ -211,6 +211,13 @@ const initialMemories = await fetchMemories(targetWords, id, adminKey);
                     wordMatchConfigs={wordMatchConfigs}
                     memoriesMap={initialMemories}
                 />
+
+                {/* 悬浮播放器 */}
+                <FloatingAudioPlayer 
+                    client:only="react"
+                    title={title}
+                    source={sources?.[0] ? new URL(sources[0]).hostname.replace(/^www\./, '') : 'Daily Article'}
+                />
             </main>
             
             <!-- 侧边栏 -->
@@ -221,7 +228,7 @@ const initialMemories = await fetchMemories(targetWords, id, adminKey);
                             client:idle 
                             allContent={allArticleContents} 
                         />
-                        <AudioPlayer client:only="react" />
+                        {/* AudioPlayer Removed */}
                         <WordSidebarAstro words={sidebarWords} />
                     </div>
                 </aside>

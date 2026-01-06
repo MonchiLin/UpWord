@@ -13,7 +13,8 @@ const VOICE_STORAGE_KEY = 'aperture-daily_voice_preference';
 export function useAudioPlayer() {
     const state = useStore(audioState);
     const { isPlaying, currentIndex, playlist, playbackRate, wordAlignments, isLoading, voice, audioUrl } = state;
-    const currentText = playlist[currentIndex];
+    const currentItem = playlist[currentIndex];
+    const currentText = currentItem?.text || '';
 
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const clientRef = useRef<EdgeTTSClient | null>(null);
