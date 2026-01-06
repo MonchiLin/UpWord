@@ -173,7 +173,7 @@ const initialMemories = await fetchMemories(targetWords, id, adminKey);
                                     >
                                         {astBlocks.map((blockNodes: any[], pIndex: number) => (
                                             <p 
-                                                class={`mb-6 text-justify ${pIndex === 0 ? 'drop-cap-p' : 'indent-8'}`}
+                                                class={`mb-6 ${pIndex === 0 ? 'drop-cap-p' : 'indent-8'}`}
                                             >
                                                 <StructuredText nodes={blockNodes} />
                                             </p>
