@@ -34,9 +34,9 @@ export function startCronScheduler(queue: TaskQueue) {
         }
 
         // 2. Article Generation (09:00 - 17:00)
-        // Robust Slot-based Trigger: Find the current 10-minute slot (e.g., 10:35 -> 10:30 slot)
+        // Robust Slot-based Trigger: Find the current 30-minute slot (e.g., 10:45 -> 10:30 slot)
         if (hour >= 9 && hour <= 17) {
-            const currentSlotMinute = Math.floor(minute / 10) * 10;
+            const currentSlotMinute = Math.floor(minute / 30) * 30;
             const slotKey = `${todayStr}_gen_${hour}_${currentSlotMinute}`;
 
             if (lastCronRunDate !== slotKey) {
@@ -50,5 +50,5 @@ export function startCronScheduler(queue: TaskQueue) {
             }
         }
     }, CRON_INTERVAL_MS);
-    console.log("[Cron Scheduler] Started. Target window: 09:00 - 17:00 CST (Robust Frequency: 10min)");
+    console.log("[Cron Scheduler] Started. Target window: 09:00 - 17:00 CST (Robust Frequency: 30min)");
 }
