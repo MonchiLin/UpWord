@@ -213,11 +213,7 @@ const initialMemories = await fetchMemories(targetWords, id, adminKey);
                 />
 
                 {/* 悬浮播放器 */}
-                <FloatingAudioPlayer 
-                    client:only="react"
-                    title={title}
-                    source={sources?.[0] ? new URL(sources[0]).hostname.replace(/^www\./, '') : 'Daily Article'}
-                />
+                <FloatingAudioPlayer client:only="react" />
             </main>
             
             <!-- 侧边栏 -->

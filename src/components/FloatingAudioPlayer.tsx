@@ -4,10 +4,6 @@ import { motion } from 'framer-motion';
 import { VinylRecord } from './VinylRecord';
 import { useAudioPlayer } from '../hooks/useAudioPlayer';
 
-interface FloatingAudioPlayerProps {
-    title?: string;
-}
-
 /**
  * FloatingAudioPlayer Component
  * 
@@ -18,9 +14,7 @@ interface FloatingAudioPlayerProps {
  * - Sentence-level granularity for playback and highlighting
  * - "Stream Flow" layout with vertical sentence blocks and visual separators
  */
-const FloatingAudioPlayer: React.FC<FloatingAudioPlayerProps> = ({
-    title = "Audio Article"
-}) => {
+const FloatingAudioPlayer: React.FC = () => {
     // UI State: Expanded vs Collapsed (Pill)
     const [expanded, setExpanded] = useState(false);
 
@@ -195,9 +189,9 @@ const FloatingAudioPlayer: React.FC<FloatingAudioPlayerProps> = ({
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center h-full w-full overflow-hidden">
                             <div className="flex flex-col justify-center w-full">
                                 <div className="font-bold text-sm text-stone-900 whitespace-nowrap">
-                                    {title}
+                                    {isPlaying ? 'Now Playing' : 'Listen to Article'}
                                 </div>
-                                <div className="text-[10px] text-stone-500 mt-0.5">Tap to expand</div>
+                                <div className="text-[10px] text-stone-500 mt-0.5">{isPlaying ? `${currentIndex + 1} / ${playlist.length}` : 'Tap to expand'}</div>
                             </div>
                         </motion.div>
                     ) : (
