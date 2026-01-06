@@ -80,12 +80,6 @@ export function useAudioPlayer() {
         audio.currentTime = offset;
         console.log('[useAudioPlayer] User seeked to sentence', currentIndex, 'at', offset.toFixed(2), 's');
 
-        // Dispatch event immediately for instant UI feedback
-        // This is needed because onTimeUpdate will skip dispatching since lastSentenceIndexRef is already updated
-        window.dispatchEvent(new CustomEvent('audio-sentence-change', {
-            detail: { sentenceIndex: currentIndex, isPlaying: true }
-        }));
-
         userSeekRef.current = false;
     }, [currentIndex, isReady]);
 
@@ -101,11 +95,7 @@ export function useAudioPlayer() {
         if (sentenceIdx !== lastSentenceIndexRef.current && !userSeekRef.current) {
             lastSentenceIndexRef.current = sentenceIdx;
             audioState.setKey('currentIndex', sentenceIdx);
-
-            // Dispatch event to sync article highlighting
-            window.dispatchEvent(new CustomEvent('audio-sentence-change', {
-                detail: { sentenceIndex: sentenceIdx, isPlaying: true }
-            }));
+            // Sync is now handled by interaction.ts subscribing to audioStore
         }
     }, []);
 
@@ -114,11 +104,7 @@ export function useAudioPlayer() {
         audioState.setKey('isPlaying', false);
         audioState.setKey('currentIndex', 0);
         lastSentenceIndexRef.current = -1;
-
-        // Clear article highlight
-        window.dispatchEvent(new CustomEvent('audio-sentence-change', {
-            detail: { sentenceIndex: -1, isPlaying: false }
-        }));
+        // Sync is handled by store subscription
     }, []);
 
     // 8. Action wrappers

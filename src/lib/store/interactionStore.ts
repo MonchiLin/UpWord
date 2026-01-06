@@ -13,15 +13,21 @@ export type InteractionState = {
     activeWord: string | null;  // currently hovered word (lowercase)
     currentLevel: number;       // current Difficulty Level (1, 2, 3)
     memoryData: MemoryData;     // semantic memory context
+    hoveredSentenceIndex: number | null; // synced hover state from audio playlist
 }
 
 export const interactionStore = map<InteractionState>({
     activeWord: null,
     currentLevel: 1,
-    memoryData: null
+    memoryData: null,
+    hoveredSentenceIndex: null
 });
 
 // Helper actions
+export const setHoveredSentence = (index: number | null) => {
+    interactionStore.setKey('hoveredSentenceIndex', index);
+};
+
 export const setActiveWord = (word: string | null) => {
     const normalized = word ? word.toLowerCase() : null;
 

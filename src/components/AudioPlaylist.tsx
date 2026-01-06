@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import type { AudioSegment } from '../lib/articles/types';
+import { setHoveredSentence } from '../lib/store/interactionStore';
 
 interface AudioPlaylistProps {
     playlist: AudioSegment[];
@@ -76,14 +77,10 @@ export const AudioPlaylist: React.FC<AudioPlaylistProps> = ({
                                         ref={isActive ? activeLineRef : null}
                                         onClick={() => onJump(seg.originalIndex)}
                                         onMouseEnter={() => {
-                                            window.dispatchEvent(new CustomEvent('sync-sentence-hover', {
-                                                detail: { sid: seg.originalIndex, active: true }
-                                            }));
+                                            setHoveredSentence(seg.originalIndex);
                                         }}
                                         onMouseLeave={() => {
-                                            window.dispatchEvent(new CustomEvent('sync-sentence-hover', {
-                                                detail: { sid: seg.originalIndex, active: false }
-                                            }));
+                                            setHoveredSentence(null);
                                         }}
                                         className={`
                                             cursor-pointer transition-all duration-200 py-0.5 rounded mb-0.5 px-1

@@ -23,6 +23,8 @@
 
 import { positionStructureLabels, clearLabels } from './labelPositioner';
 import { settingsStore } from '../../store/settingsStore';
+import { audioState } from '../../store/audioStore';
+import { interactionStore } from '../../store/interactionStore';
 
 export function initStructureInteraction() {
     if (typeof document === 'undefined') return;
@@ -140,49 +142,69 @@ export function initStructureInteraction() {
         }, 100); // Debounce 100ms
     });
 
-    // --- Sync Hover from External Source (e.g., Audio Player) ---
-    // --- Sync Hover from External Source (e.g., Audio Player) ---
-    window.addEventListener('sync-sentence-hover', ((e: Event) => {
-        const detail = (e as CustomEvent).detail || {};
-        const { sid, active } = detail;
+    // --- Sync Hover from Interaction Store ---
+    // Replaces 'sync-sentence-hover' event listener
+    interactionStore.subscribe((state) => {
+        const sid = state.hoveredSentenceIndex;
         const level = document.querySelector(SELECTOR_LEVEL + '[data-active]'); // Only apply to active level
-        if (typeof sid === 'number' && level instanceof HTMLElement) {
-            toggleSentenceClass(level, sid.toString(), CLASS_HOVER, !!active);
+
+        // Remove existing hover highlights from this level first (optional but safer)
+        if (level instanceof HTMLElement) {
+            const existing = level.querySelectorAll(`.${CLASS_HOVER}`);
+            existing.forEach(el => el.classList.remove(CLASS_HOVER));
+
+            if (typeof sid === 'number' && sid >= 0) {
+                toggleSentenceClass(level, sid.toString(), CLASS_HOVER, true);
+            }
         }
-    }) as EventListener);
+    });
 
-    // --- Sync Audio Playback Highlight ---
-    // Listen for audio sentence changes and highlight the currently playing sentence
+    // --- Sync Audio Playback Highlight from Audio Store ---
+    // Replaces 'audio-sentence-change' event listener
     let lastPlayingSid: number = -1;
+    const HIGHLIGHT_CLASSES = 'bg-purple-100 text-purple-900 shadow-sm ring-1 ring-purple-200 rounded transition-colors duration-200';
 
-    window.addEventListener('audio-sentence-change', ((e: Event) => {
-        const detail = (e as CustomEvent).detail || {};
-        const { sentenceIndex, isPlaying } = detail;
+    audioState.subscribe((state) => {
+        const { currentIndex, isPlaying } = state;
         const level = document.querySelector(SELECTOR_LEVEL + '[data-active]');
 
         if (!(level instanceof HTMLElement)) return;
 
-        const HIGHLIGHT_CLASSES = 'bg-purple-100 text-purple-900 shadow-sm ring-1 ring-purple-200 rounded transition-colors duration-200';
-
-        // Clear previous highlight
-        if (lastPlayingSid !== -1) {
+        // Clear previous highlight if index changed
+        if (lastPlayingSid !== -1 && lastPlayingSid !== currentIndex) {
             toggleSentenceClass(level, lastPlayingSid.toString(), HIGHLIGHT_CLASSES, false);
         }
 
-        // Apply new highlight if playing
-        if (isPlaying && typeof sentenceIndex === 'number' && sentenceIndex >= 0) {
-            toggleSentenceClass(level, sentenceIndex.toString(), HIGHLIGHT_CLASSES, true);
-            lastPlayingSid = sentenceIndex;
+        // Also clear if paused? No, usually we keep highlight when paused for reference.
+        // But if we stopped (currentIndex 0, !isPlaying), maybe we should clear if it was reset?
+        // Actually, let's strictly follow isPlaying for "Active" look, or just position.
+        // The original logic cleared highlight if !isPlaying.
+
+        if (!isPlaying) {
+            if (lastPlayingSid !== -1) {
+                toggleSentenceClass(level, lastPlayingSid.toString(), HIGHLIGHT_CLASSES, false);
+                lastPlayingSid = -1;
+            }
+            return;
+        }
+
+        // Apply new highlight
+        if (isPlaying && currentIndex >= 0) {
+            // Ensure previous is cleared (double check)
+            if (lastPlayingSid !== -1 && lastPlayingSid !== currentIndex) {
+                toggleSentenceClass(level, lastPlayingSid.toString(), HIGHLIGHT_CLASSES, false);
+            }
+
+            toggleSentenceClass(level, currentIndex.toString(), HIGHLIGHT_CLASSES, true);
+            lastPlayingSid = currentIndex;
 
             // Auto-scroll to keep playing sentence in view
-            const firstToken = level.querySelector(`.s-token[data-sid="${sentenceIndex}"]`);
+            const firstToken = level.querySelector(`.s-token[data-sid="${currentIndex}"]`);
             if (firstToken) {
                 firstToken.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
-        } else {
-            lastPlayingSid = -1;
         }
-    }) as EventListener);
+    });
 }
 
 /**
