@@ -162,14 +162,16 @@ export function initStructureInteraction() {
 
         if (!(level instanceof HTMLElement)) return;
 
+        const HIGHLIGHT_CLASSES = 'bg-purple-100 text-purple-900 shadow-sm ring-1 ring-purple-200 rounded transition-colors duration-200';
+
         // Clear previous highlight
         if (lastPlayingSid !== -1) {
-            toggleSentenceClass(level, lastPlayingSid.toString(), 'audio-active-sentence', false);
+            toggleSentenceClass(level, lastPlayingSid.toString(), HIGHLIGHT_CLASSES, false);
         }
 
         // Apply new highlight if playing
         if (isPlaying && typeof sentenceIndex === 'number' && sentenceIndex >= 0) {
-            toggleSentenceClass(level, sentenceIndex.toString(), 'audio-active-sentence', true);
+            toggleSentenceClass(level, sentenceIndex.toString(), HIGHLIGHT_CLASSES, true);
             lastPlayingSid = sentenceIndex;
 
             // Auto-scroll to keep playing sentence in view
@@ -228,8 +230,9 @@ function activateSentence(container: HTMLElement, sid: string, className: string
  */
 function toggleSentenceClass(container: HTMLElement, sid: string, className: string, add: boolean) {
     const tokens = container.querySelectorAll(`.s-token[data-sid="${sid}"]`);
+    const classes = className.split(' ').filter(Boolean);
     tokens.forEach(el => {
-        if (add) el.classList.add(className);
-        else el.classList.remove(className);
+        if (add) el.classList.add(...classes);
+        else el.classList.remove(...classes);
     });
 }
