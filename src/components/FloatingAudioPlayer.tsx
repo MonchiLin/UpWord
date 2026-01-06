@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 
 import { VinylRecord } from './VinylRecord';
 import { useAudioPlayer } from '../hooks/useAudioPlayer';
-import type { AudioSegment } from '../lib/articles/types';
+import { AudioPlaylist } from './AudioPlaylist';
 
 /**
  * FloatingAudioPlayer Component
@@ -50,17 +50,7 @@ const FloatingAudioPlayer: React.FC = () => {
         }
     };
 
-    // Effect: Auto-scroll the text container to keep the active sentence in view
-    const activeLineRef = useRef<HTMLDivElement>(null);
-    useEffect(() => {
-        if (expanded && activeLineRef.current) {
-            // Add a small delay to wait for the expansion animation (spring) to settle
-            const timer = setTimeout(() => {
-                activeLineRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 300);
-            return () => clearTimeout(timer);
-        }
-    }, [currentIndex, expanded]);
+
 
     // Render nothing if playlist is empty (no audio content)
     if (!playlist || playlist.length === 0) return null;
@@ -198,99 +188,15 @@ const FloatingAudioPlayer: React.FC = () => {
                     ) : (
                         /* Expanded View */
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="h-full flex flex-col relative">
-
                             {/* Playlist / Lyrics */}
-                            <div className="flex-1 overflow-y-auto pr-1 pt-4 custom-scrollbar mask-gradient" role="list">
-                                <div className="space-y-6 px-1">
-                                    {/* grouping logic for rendering */}
-                                    {(() => {
-                                        const blocks: AudioSegment[][] = [];
-                                        let currentBlock: AudioSegment[] = [];
-
-                                        playlist.forEach((item, i) => {
-                                            if (item.isNewParagraph && currentBlock.length > 0) {
-                                                blocks.push(currentBlock);
-                                                currentBlock = [];
-                                            }
-                                            currentBlock.push({ ...item, originalIndex: i } as any);
-                                        });
-                                        if (currentBlock.length > 0) blocks.push(currentBlock);
-
-                                        return blocks.map((block, bIdx) => (
-                                            <div key={bIdx} className="relative" role="listitem">
-                                                {/* Visual Separator for new paragraphs (except the very first one) */}
-                                                {bIdx > 0 && (
-                                                    <div className="flex items-center justify-center my-2 opacity-30" aria-hidden="true">
-                                                        <div className="h-px bg-stone-300 w-16 rounded-full" />
-                                                    </div>
-                                                )}
-
-                                                {/* Vertical Sentences */}
-                                                <div className="text-xs leading-relaxed text-stone-600">
-                                                    {block.map((seg: any) => {
-                                                        const isActive = seg.originalIndex === currentIndex;
-                                                        return (
-                                                            <div
-                                                                key={seg.originalIndex}
-                                                                ref={isActive ? activeLineRef : null}
-                                                                onClick={() => jumpToSentence(seg.originalIndex)}
-                                                                onMouseEnter={() => {
-                                                                    // Sync external hover state (e.g. main article text)
-                                                                    window.dispatchEvent(new CustomEvent('sync-sentence-hover', {
-                                                                        detail: { sid: seg.originalIndex, active: true }
-                                                                    }));
-                                                                }}
-                                                                onMouseLeave={() => {
-                                                                    window.dispatchEvent(new CustomEvent('sync-sentence-hover', {
-                                                                        detail: { sid: seg.originalIndex, active: false }
-                                                                    }));
-                                                                }}
-                                                                className={`
-                                                            cursor-pointer transition-all duration-200 py-0.5 rounded mb-0.5 px-1
-                                                            ${isActive
-                                                                        ? 'bg-purple-100 text-purple-900 font-medium shadow-sm ring-1 ring-purple-200'
-                                                                        : 'hover:bg-stone-50 hover:text-stone-800'
-                                                                    }
-                                                        `}
-                                                                role="button"
-                                                                aria-current={isActive ? "true" : undefined}
-                                                                aria-label={`Sentence ${seg.originalIndex + 1}`}
-                                                            >
-                                                                {seg.text}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        ));
-                                    })()}
-                                </div>
-                            </div>
-
-                            {/* Thin Scrollbar Styling */}
-                            <style>{`
-                        .custom-scrollbar::-webkit-scrollbar {
-                            width: 4px;
-                        }
-                        .custom-scrollbar::-webkit-scrollbar-track {
-                            background: transparent;
-                        }
-                        .custom-scrollbar::-webkit-scrollbar-thumb {
-                            background-color: #e7e5e4; /* stone-200 */
-                            border-radius: 20px;
-                        }
-                        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                            background-color: #d6d3d1; /* stone-300 */
-                        }
-                        @keyframes marquee {
-                            0% { transform: translateX(0); }
-                            100% { transform: translateX(-100%); }
-                        }
-                        .group-hover\\/text\\:animate-marquee:hover {
-                            animation: marquee 5s linear infinite;
-                        }
-                      `}</style>
-                        </motion.div>)}
+                            <AudioPlaylist
+                                playlist={playlist}
+                                currentIndex={currentIndex}
+                                isExpanded={expanded}
+                                onJump={jumpToSentence}
+                            />
+                        </motion.div>
+                    )}
                 </div>
 
                 {/* Bottom Progress Bar (Read-Only) */}
