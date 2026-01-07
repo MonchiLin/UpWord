@@ -141,7 +141,7 @@ if (dayData.articles?.length > 0) {
                 </div>
                 <!-- 客户端版本：hydration 后显示，支持动态更新 -->
                 <div class="article-list-client">
-                    <ArticleListClient client:idle date={date} />
+                    <ArticleListClient client:idle date={date} initialArticles={dayData.articles} />
                 </div>
 
                 <style>

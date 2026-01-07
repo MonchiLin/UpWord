@@ -49,25 +49,27 @@ function ArticleItem({ id, title, index, isRead = false }: ArticleItemProps) {
     );
 }
 
+import type { Article } from '../../types';
+
 interface ArticleListClientProps {
     /** 当前日期，用于过滤 store 中的数据 */
     date: string;
+    /** SSR 传递的初始数据，解决 Hydration Mismatch */
+    initialArticles?: Article[];
 }
 
-export default function ArticleListClient({ date }: ArticleListClientProps) {
+export default function ArticleListClient({ date, initialArticles = [] }: ArticleListClientProps) {
     const state = useStore(articlesStore);
 
-    // 只渲染当前日期的文章
-    const articles = state.date === date ? state.articles : [];
-    const loading = state.loading;
+    // 优先使用 store 中的数据（如果日期匹配且有数据）
+    // 否则 fallback 到 initialArticles (SSR 提供)
+    // 注意：SSR 时 store 可能有数据，客户端初次渲染时 store 为空但 props 有数据
+    const hasStoreData = state.date === date && state.articles.length > 0;
+    const articles = hasStoreData ? state.articles : initialArticles;
 
     return (
         <div className="flex-1">
-            {loading && articles.length === 0 ? (
-                <div className="py-12 flex flex-col items-center justify-center text-stone-400 gap-2">
-                    <span className="font-serif italic text-base text-stone-500">Loading...</span>
-                </div>
-            ) : articles.length > 0 ? (
+            {articles.length > 0 ? (
                 <div className="flex flex-col">
                     {articles.map((article, idx) => (
                         <ArticleItem
