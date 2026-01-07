@@ -1,8 +1,7 @@
 import { Elysia, t } from 'elysia';
 import { EdgeTTS } from 'edge-tts-universal';
 import { db } from '../src/db/client';
-import { articleVariants } from '../db/schema';
-import { eq, and } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import type { Context } from 'elysia';
 
 // Helper to remove markdown symbols for cleaner TTS
@@ -21,6 +20,13 @@ interface TTSQuery {
     rate?: string;
 }
 
+interface ArticleVariantRow {
+    id: string;
+    article_id: string;
+    level: number;
+    content: string | null;
+}
+
 export const ttsRoutes = new Elysia({ prefix: '/api/tts' })
     .get('/', async ({ query, set }: Context<{ query: TTSQuery }>) => {
         const { text, voice, articleId, level } = query;
@@ -28,34 +34,28 @@ export const ttsRoutes = new Elysia({ prefix: '/api/tts' })
 
         let textToSpeak = text;
 
-        // Mode 1: Fetch from Article DB
+        // Mode 1: Fetch from Article DB (using raw SQL for sqlite-proxy compatibility)
         if (articleId && level) {
-            console.log(`[TTS Proxy] Querying articleId=${articleId}, level=${level}`);
             try {
-                const results = await db.select()
-                    .from(articleVariants)
-                    .where(and(
-                        eq(articleVariants.articleId, articleId),
-                        eq(articleVariants.level, parseInt(level))
-                    ))
-                    .limit(1);
+                // Use raw SQL instead of Drizzle query builder
+                // Drizzle's select().from() doesn't properly map snake_case to camelCase on sqlite-proxy
+                const results = await db.all(sql`
+                    SELECT id, article_id, level, content 
+                    FROM article_variants 
+                    WHERE article_id = ${articleId} AND level = ${parseInt(level)}
+                    LIMIT 1
+                `) as ArticleVariantRow[];
 
-                console.log(`[TTS Proxy] DB returned ${results.length} row(s)`);
                 if (results.length > 0 && results[0]) {
                     const row = results[0];
-                    console.log(`[TTS Proxy] Row keys: ${Object.keys(row).join(', ')}`);
-                    console.log(`[TTS Proxy] content type: ${typeof row.content}, length: ${row.content?.length || 'N/A'}`);
-
                     if (row.content && typeof row.content === 'string') {
                         textToSpeak = cleanMarkdown(row.content);
-                        console.log(`[TTS Proxy] Text prepared, length: ${textToSpeak.length}`);
                     } else {
-                        console.error("[TTS Proxy] DB returned row with missing/invalid content:", JSON.stringify(row).slice(0, 200));
-                        set.status = 400;
-                        return `Content missing in DB row. Keys: ${Object.keys(row).join(', ')}`;
+                        console.error("[TTS Proxy] Article variant has no content");
+                        set.status = 404;
+                        return "Article variant has no content";
                     }
                 } else {
-                    console.log(`[TTS Proxy] No variant found for articleId=${articleId}, level=${level}`);
                     set.status = 404;
                     return "Article variant not found";
                 }
@@ -67,7 +67,6 @@ export const ttsRoutes = new Elysia({ prefix: '/api/tts' })
         }
 
         if (!textToSpeak) {
-            console.log(`[TTS Proxy] No text provided. articleId=${articleId}, level=${level}, text=${text?.slice(0, 50)}`);
             set.status = 400;
             return "Content is required (provide 'text' OR 'articleId'+'level')";
         }
