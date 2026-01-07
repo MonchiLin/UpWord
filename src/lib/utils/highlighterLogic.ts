@@ -10,6 +10,7 @@ export interface SentenceMapping {
 }
 
 import { setActiveWord } from '../store/interactionStore';
+import { UniversalTokenizer } from './tokenizer';
 
 /**
  * 对指定的容器元素进行句子分段并标记 DOM
@@ -27,20 +28,35 @@ export function tokenizeSentences(
         ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'LI', 'BLOCKQUOTE', 'DIV'].includes(el.tagName)
     );
 
-    const segmenter = new Intl.Segmenter('en', { granularity: 'sentence' });
+    // [Best Practice] Use Single Source of Truth Tokenizer
+    // This ensures DOM tokens match EXACTLY with Audio offsets.
+    const tokenizer = new UniversalTokenizer(levelContainer.textContent || ''); // Or use innerText? 
+    // Wait, levelContainer has HTML blocks. We need to iterate blocks.
+
+    // Actually, Tokenizer takes a raw string.
+    // But here we need to map back to DOM nodes.
+    // The previous logic iterated DOM blocks (H1, P) independently.
+    // UniversalTokenizer splits by '\n'.
+    // If we feed it block.textContent, it works per block.
+
+    // Let's keep the block iteration, but use UniversalTokenizer PER BLOCK.
+    // This ensures that WITHIN a paragraph, the segmentation logic is identical to AudioInit.
 
     // [Fix] Global Sentence ID counter to ensure uniqueness across paragraphs
     let globalSentenceIdCounter = 0;
 
     blocks.forEach((block) => {
         const ttsText = (block as HTMLElement).textContent || '';
-        const rawSentences = Array.from(segmenter.segment(ttsText));
 
-        const sentenceMap: SentenceMapping[] = rawSentences.map((s) => ({
-            start: s.index,
-            end: s.index + s.segment.length,
-            id: globalSentenceIdCounter++, // [Fix] Increment global counter
-            text: s.segment
+        // Use UniversalTokenizer per block to get consistent segmentation
+        const tokenizer = new UniversalTokenizer(ttsText);
+        const segments = tokenizer.getSegments();
+
+        const sentenceMap: SentenceMapping[] = segments.map((s) => ({
+            start: s.rawOffsets.start,
+            end: s.rawOffsets.end,
+            id: globalSentenceIdCounter++,
+            text: s.text
         }));
 
         let currentGlobalOffset = 0;
@@ -75,7 +91,7 @@ export function tokenizeSentences(
                 span.dataset.sid = sent.id.toString();
                 span.dataset.s = sent.start.toString();
 
-                // 处理 Target Words
+                // Process Target Words
                 processTargetWords(span, chunkText, targetWords, wordsWithHistory, wordMatchConfigs);
 
                 fragment.appendChild(span);

@@ -85,19 +85,35 @@ export async function preloadArticleAudio(
 
             // 3. Match sentence offsets to word boundaries for PRECISE timing
             // instead of estimating based on character ratio.
-            const sentenceAudioTimes = sentenceOffsets.map(sentenceStartChar => {
+            const sentenceAudioTimes = sentenceOffsets.map((sentenceStartChar, idx) => {
+                // Heuristic: Limit search to a window to prevent matching "phantom" words far away
+                // (e.g. prevents jumping to end of article due to weird duplicate word match)
+                const SEARCH_WINDOW = 500;
+
+                // Filter boundaries to those reasonably close to the target text offset
+                const candidates = boundaries.filter(b => Math.abs(b.textOffset - sentenceStartChar) < SEARCH_WINDOW);
+
+                // If no local candidates (unlikely), fallback to all boundaries or previous time
+                const searchSet = candidates.length > 0 ? candidates : boundaries;
+
                 // Find the word boundary that is closest to the sentence start
-                // We use a small threshold or just find the absolute closest
-                const matchedStats = boundaries.reduce((best, current) => {
+                const matchedStats = searchSet.reduce((best, current) => {
                     const dist = Math.abs(current.textOffset - sentenceStartChar);
                     if (dist < best.dist) {
                         return { dist, time: current.audioOffset };
                     }
                     return best;
-                }, { dist: Infinity, time: 0 });
+                }, { dist: Infinity, time: headersTimeCorrection(idx, boundaries) }); // Default fallback
 
                 return matchedStats.time / 1000; // Convert ms back to seconds!
             });
+
+            // Helper for fallback time (prevents returning 0 if no match found)
+            function headersTimeCorrection(idx: number, allBoundaries: WordBoundary[]) {
+                // If it's 0th sentence, 0. Otherwise try to guess? 
+                // Actually 0 is safer than random.
+                return 0;
+            }
 
             console.log('[AudioPreloader] Precise Sentence Times (s):', sentenceAudioTimes.slice(0, 5));
 

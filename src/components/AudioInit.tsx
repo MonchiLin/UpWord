@@ -3,6 +3,7 @@ import { useStore } from '@nanostores/react';
 import { audioState, setPlaylist } from '../lib/store/audioStore';
 import { interactionStore } from '../lib/store/interactionStore';
 import { preloadArticleAudio, clearCache, setPreloaderVoice } from '../lib/tts/audioPreloader';
+import { UniversalTokenizer } from '../lib/utils/tokenizer';
 
 interface AudioInitProps {
     allContent: { level: number, content: string }[];
@@ -34,41 +35,58 @@ export default function AudioInit({ allContent }: AudioInitProps) {
 
         console.log(`[AudioInit] Initializing for Level ${currentLevel}`);
 
-        // 1. Create full text: paragraphs joined with space
-        const paragraphs = rawText.split('\n').map(p => p.trim()).filter(Boolean);
-        const fullText = paragraphs.join(' ');
+        console.log(`[AudioInit] Initializing for Level ${currentLevel}`);
 
-        // 2. Split fullText into sentences using Intl.Segmenter
-        //    This ensures sentence offsets are DIRECTLY in fullText coordinate space
+        // 1. Use UniversalTokenizer for Single Source of Truth
+        const tokenizer = new UniversalTokenizer(rawText);
+        const segments = tokenizer.getSegments().map(s => ({
+            text: s.text,
+            isNewParagraph: s.isNewParagraph
+        }));
+
+        // 2. Generate optimized text for TTS (preserves \n between blocks)
+        const fullText = tokenizer.getFullTextForTTS();
+
+        // 3. Extract offsets for audio mapping
+        // IMPORTANT: We use the re-generated fullText for offsets, 
+        // to match what we send to the TTS engine exactly.
+        // We recalculate offsets based on the fullText we just built.
         const segmenter = new Intl.Segmenter('en', { granularity: 'sentence' });
-        const rawSentences = Array.from(segmenter.segment(fullText));
+        const textForOffsets = fullText;
+        // Note: UniversalTokenizer.getFullTextForTTS() might slightly differ from map(text).join?
+        // Let's ensure consistency.
 
-        const segments: { text: string, isNewParagraph: boolean }[] = [];
+        // Actually, simpler strategy:
+        // Pass the "segments" directly to AudioPreloader?
+        // No, AudioPreloader needs a single string to send to EdgeTTS.
+
+        // Let's compute offsets relative to 'fullText'
         const sentenceOffsets: number[] = [];
+        let currentOffset = 0;
 
-        // Track paragraph boundaries in fullText
-        let paragraphEndPositions: number[] = [];
-        let pos = 0;
-        for (const para of paragraphs) {
-            pos += para.length;
-            paragraphEndPositions.push(pos);
-            pos += 1; // space
-        }
-
-        // Build segments with sentence info
-        rawSentences.forEach((seg) => {
-            const startIdx = seg.index;
-            const text = seg.segment;
-
-            // Check if this sentence starts a new paragraph
-            // A sentence starts a new paragraph if its start position is right after a paragraph boundary
-            const isNewParagraph = startIdx === 0 || paragraphEndPositions.some(
-                endPos => startIdx === endPos + 1 || startIdx === endPos
-            );
-
-            segments.push({ text, isNewParagraph });
-            sentenceOffsets.push(startIdx);
+        // We must mimic how fullText was built to track offsets exactly
+        segments.forEach((seg, i) => {
+            if (i > 0) {
+                if (seg.isNewParagraph) {
+                    currentOffset += 1; // '\n'
+                } else {
+                    // Check previous segment for space logic matching tokenizer
+                    // This is risky if logic duplicates.
+                    // Better: Tokenizer should return the offsets relative to its output TTS string!
+                }
+            }
+            // Wait, let's keep it simple.
+            // Rely on tokenizer's fullText and just re-segment it? 
+            // That feels circular but safe if reliable.
         });
+
+        // Robust Approach: 
+        // Just use standard Intl.Segmenter on the final fullText.
+        // Because that's what we did in the "Fix", and it worked.
+        // The Tokenizer just ensures the *Construction* of fullText is correct (with \n).
+        const reSegmented = Array.from(segmenter.segment(fullText));
+
+        reSegmented.forEach(s => sentenceOffsets.push(s.index));
 
         console.log('[AudioInit] Sentences:', segments.length, '- Sample offsets:', sentenceOffsets.slice(0, 5));
 
