@@ -1,5 +1,6 @@
 import { useStore } from '@nanostores/react';
 import { interactionStore, setActiveWord } from '../lib/store/interactionStore';
+import { audioState } from '../lib/store/audioStore';
 import { useEffect, useState } from 'react';
 import { EdgeTTSClient } from '../lib/tts/edge-client';
 
@@ -16,6 +17,7 @@ interface Props {
 
 export default function WordReflectionCard({ word, phonetic, definitions }: Props) {
     const { activeWord } = useStore(interactionStore);
+    const { voice } = useStore(audioState);
     const [mounted, setMounted] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
 
@@ -38,7 +40,7 @@ export default function WordReflectionCard({ word, phonetic, definitions }: Prop
 
         try {
             setIsPlaying(true);
-            await EdgeTTSClient.play(word);
+            await EdgeTTSClient.play(word, voice);
         } catch (error) {
             console.error("TTS Playback failed:", error);
         } finally {
