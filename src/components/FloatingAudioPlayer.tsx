@@ -68,6 +68,7 @@ const FloatingAudioPlayer: React.FC = () => {
                 <motion.div
                     // NO layout prop
                     className="bg-stone-50/50 flex flex-col items-center justify-center shrink-0 h-full border-r border-stone-200/60 relative group overflow-hidden"
+                    initial={{ width: 72 }} // Explicit initial state
                     animate={{ width: isExpanded ? 200 : 72 }}
                     transition={SPRING_CONFIG}
                 >
@@ -76,6 +77,7 @@ const FloatingAudioPlayer: React.FC = () => {
                     <motion.div
                         // NO layout prop
                         className="relative flex items-center justify-center z-20 cursor-pointer transition-transform aspect-square shrink-0 group"
+                        initial={{ width: 40, height: 40 }} // Explicit initial state
                         animate={{
                             width: isExpanded ? 160 : 40,
                             height: isExpanded ? 160 : 40
@@ -134,7 +136,7 @@ const FloatingAudioPlayer: React.FC = () => {
                             <div className="h-14 border-b border-stone-100 flex items-center px-6 justify-between bg-white/50 shrink-0">
                                 <div className="flex items-center gap-2">
                                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                                    <span className="text-xs font-medium text-stone-500 tracking-widest uppercase">AI Audio Engine</span>
+                                    <span className="text-xs font-medium text-stone-500 tracking-widest uppercase">Articel Player</span>
                                 </div>
                                 {/* Top Right Controls */}
                                 <div className="flex items-center gap-1">
@@ -151,7 +153,7 @@ const FloatingAudioPlayer: React.FC = () => {
                                     </button>
                                 </div>
                             </div>
-                            <div className="flex-1 overflow-auto custom-scrollbar p-6">
+                            <div className="flex-1 overflow-auto custom-scrollbar px-6">
                                 <AudioPlaylist playlist={playlist} currentIndex={currentIndex} isExpanded={isExpanded} onJump={jumpToSentence} />
                             </div>
                             <div className="absolute bottom-0 left-0 right-0 h-1 bg-stone-100">
