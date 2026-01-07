@@ -23,6 +23,8 @@ export const ttsRoutes = new Elysia({ prefix: '/api/tts' })
         // Mode 1: Fetch from Article DB
         if (articleId && level) {
             try {
+                console.log(`[TTS Proxy] Querying articleId=${articleId}, level=${level}`);
+
                 const results = await db.select()
                     .from(articleVariants)
                     .where(and(
@@ -31,7 +33,12 @@ export const ttsRoutes = new Elysia({ prefix: '/api/tts' })
                     ))
                     .limit(1);
 
-                console.log("[TTS Proxy] DB results:", results);
+                console.log("[TTS Proxy] DB results count:", results.length);
+                if (results.length > 0) {
+                    console.log("[TTS Proxy] First row keys:", Object.keys(results[0]));
+                    console.log("[TTS Proxy] First row content type:", typeof results[0].content);
+                    console.log("[TTS Proxy] First row content length:", results[0].content?.length || 'N/A');
+                }
 
                 if (results.length > 0 && results[0]) {
                     const row = results[0];
