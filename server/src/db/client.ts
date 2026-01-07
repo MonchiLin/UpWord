@@ -5,7 +5,6 @@ import type { SqliteRemoteDatabase } from 'drizzle-orm/sqlite-proxy';
 import type { BunSQLiteDatabase } from 'drizzle-orm/bun-sqlite';
 import * as schema from '../../db/schema';
 import * as path from 'path';
-import { mapKeys, camelCase } from 'lodash-es';
 
 // Re-export the database type for use across the app
 export type AppDatabase = SqliteRemoteDatabase<typeof schema> | BunSQLiteDatabase<typeof schema>;
@@ -68,20 +67,11 @@ function createDatabase(): AppDatabase {
             }
 
             const firstResult = data.result?.[0];
-            const rawRows = (firstResult?.results || []) as Record<string, unknown>[];
+            const rows = (firstResult?.results || []) as Record<string, unknown>[];
 
-            // Debug: Log raw D1 response
-            if (rawRows.length > 0) {
-                console.log("[D1 Proxy] Raw row sample:", JSON.stringify(rawRows[0]).slice(0, 300));
-            }
-
-            // D1 returns snake_case, Drizzle schema uses camelCase
-            const rows = rawRows.map(row => mapKeys(row, (_, key) => camelCase(key)));
-
-            // Debug: Log transformed row
-            if (rows.length > 0) {
-                console.log("[D1 Proxy] Transformed row sample:", JSON.stringify(rows[0]).slice(0, 300));
-            }
+            // Note: Drizzle handles column name mapping (snake_case -> camelCase) 
+            // internally when using db.select().from(table)
+            // We should return raw snake_case column names from D1
 
             return { rows };
         } catch (e) {
