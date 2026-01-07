@@ -26,7 +26,7 @@ const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
             <span class="text-sm font-bold tracking-widest uppercase text-stone-500 mb-1">
                 {state.currentYear}
             </span>
-            <h2 class="text-4xl font-black tracking-tight font-serif text-slate-900/90 leading-none">
+            <h2 class="text-4xl font-black tracking-tight font-display text-slate-900/90 leading-none">
                 {state.monthName}
             </h2>
         </div>
@@ -83,11 +83,11 @@ const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
                         day.isCurrentMonth && "opacity-100",
                         day.isSelected && "bg-slate-900 text-[#F3F2EE]",
                         !day.isSelected && "hover:bg-stone-200",
-                        day.isToday && !day.isSelected && "ring-2 ring-slate-400"
+                        day.isToday && !day.isSelected && "ring-2 ring-slate-400 ring-inset"
                     ]}
                 >
                     <span class:list={[
-                        "text-base font-serif font-medium",
+                        "text-lg font-display font-medium lining-nums leading-none pb-0.5",
                         day.isSelected && "font-bold"
                     ]}>
                         {day.dayNumber}
@@ -95,7 +95,7 @@ const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
                     
                     {/* 已发布标记 */}
                     {day.isPublished && !day.isSelected && (
-                        <div class="absolute bottom-1.5 w-1 h-1 rounded-full bg-red-800" />
+                        <div class="absolute bottom-1 w-1 h-1 rounded-full bg-red-800" />
                     )}
                 </a>
             );
