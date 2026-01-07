@@ -70,8 +70,18 @@ function createDatabase(): AppDatabase {
             const firstResult = data.result?.[0];
             const rawRows = (firstResult?.results || []) as Record<string, unknown>[];
 
+            // Debug: Log raw D1 response
+            if (rawRows.length > 0) {
+                console.log("[D1 Proxy] Raw row sample:", JSON.stringify(rawRows[0]).slice(0, 300));
+            }
+
             // D1 returns snake_case, Drizzle schema uses camelCase
             const rows = rawRows.map(row => mapKeys(row, (_, key) => camelCase(key)));
+
+            // Debug: Log transformed row
+            if (rows.length > 0) {
+                console.log("[D1 Proxy] Transformed row sample:", JSON.stringify(rows[0]).slice(0, 300));
+            }
 
             return { rows };
         } catch (e) {
