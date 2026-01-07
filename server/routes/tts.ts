@@ -14,7 +14,7 @@ function cleanMarkdown(text: string): string {
 }
 
 export const ttsRoutes = new Elysia({ prefix: '/api/tts' })
-    .get('/', async ({ query, error, set }: any) => {
+    .get('/', async ({ query, set }: any) => {
         const { text, voice, articleId, level } = query;
         const speed = query.rate || '1.0';
 
@@ -31,25 +31,29 @@ export const ttsRoutes = new Elysia({ prefix: '/api/tts' })
                     ))
                     .limit(1);
 
-                if (results.length > 0) {
-                    // Use UniversalTokenizer logic implicitly by cleaning the text?
-                    // Or just speak the raw content. The previous implementation passed 'fullText'
-                    // which was cleaned by the Tokenizer.
-                    // For now, we do basic cleaning. Best would be if UniversalTokenizer was shared,
-                    // but it's in `src/`.
-                    // We'll trust edge-tts-universal to handle most text, but let's strip markdown.
-                    textToSpeak = cleanMarkdown(results[0].content);
+                console.log("[TTS Proxy] DB results:", results);
+
+                if (results.length > 0 && results[0]) {
+                    const row = results[0];
+                    if (row.content && typeof row.content === 'string') {
+                        textToSpeak = cleanMarkdown(row.content);
+                    } else {
+                        console.error("[TTS Proxy] DB returned row with missing content:", row);
+                    }
                 } else {
-                    return error(404, "Article variant not found");
+                    set.status = 404;
+                    return "Article variant not found";
                 }
             } catch (e) {
                 console.error("[TTS Proxy] DB Error:", e);
-                return error(500, "Database error fetching article");
+                set.status = 500;
+                return "Database error fetching article";
             }
         }
 
         if (!textToSpeak) {
-            return error(400, "Content is required (provide 'text' OR 'articleId'+'level')");
+            set.status = 400;
+            return "Content is required (provide 'text' OR 'articleId'+'level')";
         }
 
         try {
@@ -74,7 +78,8 @@ export const ttsRoutes = new Elysia({ prefix: '/api/tts' })
             ]);
 
             if (!result.audio) {
-                return error(500, "Failed to generate audio (No data)");
+                set.status = 500;
+                return "Failed to generate audio (No data)";
             }
 
             const buffer = await result.audio.arrayBuffer();
@@ -86,7 +91,8 @@ export const ttsRoutes = new Elysia({ prefix: '/api/tts' })
             };
         } catch (e: any) {
             console.error("[TTS Proxy] Error:", e);
-            return error(500, e.message || "Internal TTS Error");
+            set.status = 500;
+            return e.message || "Internal TTS Error";
         }
     }, {
         query: t.Object({
