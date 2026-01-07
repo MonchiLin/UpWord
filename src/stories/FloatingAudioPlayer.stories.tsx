@@ -19,6 +19,7 @@ const meta: Meta<typeof FloatingAudioPlayer> = {
             </div>
         ),
     ],
+    argTypes: {}
 };
 
 export default meta;
@@ -35,9 +36,7 @@ const MOCK_PLAYLIST: AudioSegment[] = [
 const MOCK_FULL_TEXT = MOCK_PLAYLIST.map(s => s.text).join(' ');
 
 export const Default: Story = {
-    args: {
-        title: "Demo Article Title",
-    },
+    args: {},
     render: (args) => {
         // Initialize store state for this story
         useEffect(() => {
@@ -46,8 +45,7 @@ export const Default: Story = {
             audioState.setKey('currentIndex', 0);
             audioState.setKey('isPlaying', false);
             audioState.setKey('playbackRate', 1.0);
-            audioState.setKey('isReady', true); // Simulate ready state
-            // Reset on unmount
+            audioState.setKey('isReady', true);
             return () => {
                 audioState.setKey('playlist', []);
             };
@@ -58,14 +56,12 @@ export const Default: Story = {
 };
 
 export const PlayingState: Story = {
-    args: {
-        title: "Active Playing Demo",
-    },
+    args: {},
     render: (args) => {
         useEffect(() => {
             audioState.setKey('playlist', MOCK_PLAYLIST);
             audioState.setKey('fullText', MOCK_FULL_TEXT);
-            audioState.setKey('currentIndex', 1); // Start at 2nd paragraph
+            audioState.setKey('currentIndex', 1);
             audioState.setKey('isPlaying', true);
             audioState.setKey('playbackRate', 1.25);
             audioState.setKey('isReady', true);
@@ -78,4 +74,3 @@ export const PlayingState: Story = {
         return <FloatingAudioPlayer {...args} />;
     }
 };
-

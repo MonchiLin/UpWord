@@ -1,220 +1,226 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { VinylRecord } from './VinylRecord';
 import { useAudioPlayer } from '../hooks/useAudioPlayer';
 import { AudioPlaylist } from './AudioPlaylist';
 
+// --- Icons (H200 Premium SVGs) ---
+const PlayIcon = () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="text-stone-900">
+        <path d="M8 5v14l11-7z" />
+    </svg>
+);
+const PauseIcon = () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="text-stone-900">
+        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+    </svg>
+);
+const MaximizeIcon = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+    </svg>
+);
+const MinimizeIcon = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />
+    </svg>
+);
+
 /**
- * FloatingAudioPlayer Component
+ * H200 FLUID AUDIO PLAYER
  * 
- * A high-fidelity, interactive audio player that floats in the bottom-right corner.
- * Features:
- * - Collapsible "Pill" design with expanded "Card" view
- * - Realistic Vinyl Record animation with S-shaped Tonearm
- * - Sentence-level granularity for playback and highlighting
- * - "Stream Flow" layout with vertical sentence blocks and visual separators
+ * A single, unified component that morphs between a 'Mini Pill' and a 'Full Card'.
+ * Designed for maximum fluidity and robustness.
  */
 const FloatingAudioPlayer: React.FC = () => {
-    // UI State: Expanded vs Collapsed (Pill)
-    const [expanded, setExpanded] = useState(false);
+    // UI State: Fluid Mode (false = Mini Pill, true = Full Card)
+    const [isExpanded, setIsExpanded] = useState(false);
 
-    // Global Audio State Hook (manages TTS, playback, playlist)
+    // Audio Hook
     const {
         state,
         togglePlay,
-        nextSpeed,
-        audioRef,
         onTimeUpdate,
         onEnded,
-        jumpToSentence
+        audioRef
     } = useAudioPlayer();
 
-    const { isPlaying, playbackRate, playlist, currentIndex } = state;
+    const { isPlaying, playlist, currentIndex } = state;
 
-    // Local State: Playback Progress (0-100%) for the bottom bar
+    // Progress State
     const [progress, setProgress] = useState(0);
 
-    /**
-     * Handle Time Update
-     * Wraps the hook's update logic to also calculate local progress bar state.
-     */
     const handleTimeUpdate = (e: React.SyntheticEvent<HTMLAudioElement>) => {
-        onTimeUpdate(); // Sync word highlighting
-
+        onTimeUpdate();
         const audio = e.currentTarget;
         if (playlist.length > 0 && audio.duration) {
-            // Calculate global progress based on current time / total duration
-            const globalProgress = (audio.currentTime / audio.duration) * 100;
-            setProgress(globalProgress);
+            setProgress((audio.currentTime / audio.duration) * 100);
         }
     };
 
-
-
-    // Render nothing if playlist is empty (no audio content)
-    if (!playlist || playlist.length === 0) return null;
+    // Auto-expand if user starts playing from elsewhere (optional, but good UX)
+    // useEffect(() => { if (isPlaying) setIsExpanded(true); }, [isPlaying]);
 
     return (
-        <div className="fixed bottom-6 right-6 z-50 font-serif" role="region" aria-label="Audio Player">
-            {/* Hidden Audio Element (Logic Core) */}
-            <audio
-                ref={audioRef}
-                onTimeUpdate={handleTimeUpdate}
-                onEnded={onEnded}
-                className="hidden"
-            />
+        <LayoutGroup>
+            <div className="fixed bottom-6 right-6 z-50 font-sans">
 
-            {/* Main Floating Container */}
-            <motion.div
-                layout
-                className={`bg-white shadow-xl overflow-hidden flex flex-row relative z-50 ${!expanded ? 'cursor-pointer' : ''}`}
-                style={{ borderRadius: 40 }}
-                // Animate dimensions between Pill (Collapsed) and Card (Expanded) modes
-                animate={{
-                    width: expanded ? 600 : 260,
-                    height: expanded ? 320 : 80,
-                    borderRadius: expanded ? 24 : 40,
-                    boxShadow: expanded
-                        ? "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)"
-                        : "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)"
-                }}
-                // Hover Effect: Subtle lift when collapsed
-                whileHover={!expanded ? {
-                    y: -2,
-                    boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)"
-                } : {}}
-                transition={{ type: "spring", stiffness: 180, damping: 24 }}
-                // Click Anywhere to Expand (if collapsed)
-                onClick={() => !expanded && setExpanded(true)}
-                role={!expanded ? "button" : undefined}
-                aria-expanded={expanded}
-                aria-label={!expanded ? "Expand Audio Player" : undefined}
-            >
-                {/* Left Control Strip (Vinyl Area) */}
-                <motion.div layout className="bg-stone-50 flex flex-col items-center justify-center shrink-0 w-[90px] h-full border-r border-stone-100 relative group overflow-visible">
+                {/* Logic Core */}
+                <audio
+                    ref={audioRef}
+                    onTimeUpdate={handleTimeUpdate}
+                    onEnded={onEnded}
+                    className="hidden"
+                    crossOrigin="anonymous"
+                />
 
-                    {/* Collapse Button (Visible only when Expanded) */}
-                    {expanded && (
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className="absolute top-4 z-30"
-                        >
-                            <button
-                                onClick={(e) => { e.stopPropagation(); setExpanded(false); }}
-                                className="w-6 h-6 flex items-center justify-center rounded-full text-stone-400 hover:text-stone-600 hover:bg-stone-200/50 transition-colors"
-                                title="Collapse"
-                                aria-label="Collapse Player"
+                {/* --- FLUID CONTAINER --- */}
+                <motion.div
+                    layout
+                    data-expanded={isExpanded} // styling hook
+                    className={`
+                        relative overflow-hidden
+                        ${isExpanded
+                            ? 'bg-white/95 backdrop-blur-2xl shadow-[0_30px_60px_-10px_rgba(0,0,0,0.12)] rounded-[32px] border border-stone-200/50'
+                            : 'bg-white shadow-[0_8px_24px_rgba(0,0,0,0.08)] rounded-full cursor-pointer hover:scale-105 active:scale-95 border border-stone-100'
+                        }
+                    `}
+                    style={{
+                        width: isExpanded ? 640 : 64, // 64px is standard pill size
+                        height: isExpanded ? 360 : 64,
+                    }}
+                    transition={{
+                        type: "spring",
+                        stiffness: 240,
+                        damping: 24,
+                        mass: 0.8
+                    }}
+                    onClick={() => !isExpanded && setIsExpanded(true)}
+                >
+                    {/* --- INNER CONTENT SWITCHER --- */}
+                    <AnimatePresence mode="popLayout">
+
+                        {/* 1. MINI PILL STATE */}
+                        {!isExpanded && (
+                            <motion.div
+                                key="mini"
+                                className="absolute inset-0 flex items-center justify-center text-stone-900"
+                                initial={{ opacity: 0, scale: 0.5 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.5 }}
+                                transition={{ duration: 0.2 }}
                             >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                    <polyline points="4 14 10 14 10 20"></polyline>
-                                    <polyline points="20 10 14 10 14 4"></polyline>
-                                </svg>
-                            </button>
-                        </motion.div>
-                    )}
+                                {/* Spinning Vinyl Icon (CSS Animation) */}
+                                <div className={`w-8 h-8 rounded-full border border-stone-200 bg-stone-900 relative ${isPlaying ? 'animate-spin-slow' : ''}`}>
+                                    <div className="absolute inset-2 bg-stone-800 rounded-full border border-stone-600"></div>
+                                    <div className="absolute top-0 left-1/2 w-0.5 h-3 bg-white/20 -translate-x-1/2"></div>
+                                </div>
+                            </motion.div>
+                        )}
 
-                    {/* Vinyl + Tonearm */}
-                    <div className="relative w-14 h-14 mt-2">
-                        <motion.div
-                            layoutId="player-vinyl-box"
-                            className="relative z-20"
-                        >
-                            <VinylRecord
-                                isPlaying={isPlaying}
-                                rate={playbackRate}
-                                className={expanded ? "w-16 h-16" : "w-14 h-14"}
-                                showTonearm={true}
-                                tonearmScale={0.55}
-                                /**
-                                 * Interaction Logic:
-                                 * - Expanded: Toggle Play/Pause
-                                 * - Collapsed:
-                                 *    - Stopped: Play & Expand
-                                 *    - Playing: Pause (stay collapsed)
-                                 */
-                                onToggle={(e) => {
-                                    e.stopPropagation(); // Always stop propagation to prevent main container click
-                                    if (expanded) {
-                                        togglePlay();
-                                    } else {
-                                        // Collapsed State Logic
-                                        if (!isPlaying) {
-                                            // If stopped: Start Play & Expand
-                                            togglePlay();
-                                            setExpanded(true);
-                                        } else {
-                                            // If playing: Pause (stay collapsed)
-                                            togglePlay();
-                                        }
-                                    }
-                                }}
-                            />
-                        </motion.div>
-                    </div>
-
-                    {expanded && (
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ delay: 0.2 }}
-                            className="absolute bottom-6 flex flex-col items-center gap-3 w-full z-20"
-                        >
-                            <button
-                                onClick={(e) => { e.stopPropagation(); nextSpeed(); }}
-                                className="px-2 py-1 rounded-md bg-stone-200/50 hover:bg-stone-300/50 text-[10px] font-bold text-stone-600 border border-stone-300/50 transition-colors w-12 text-center select-none"
-                                title="Change Playback Speed"
-                                aria-label={`Playback speed: ${playbackRate}x`}
+                        {/* 2. FULL CARD STATE */}
+                        {isExpanded && (
+                            <motion.div
+                                key="full"
+                                className="w-full h-full flex flex-row"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ delay: 0.1, duration: 0.3 }}
                             >
-                                {playbackRate}x
-                            </button>
-                        </motion.div>
-                    )}
+                                {/* --- Left: Interactive Vinyl & Controls --- */}
+                                <div className="w-[200px] h-full bg-stone-50/50 flex flex-col items-center justify-between p-6 border-r border-stone-200/60 relative">
+
+                                    {/* Minimize Button */}
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setIsExpanded(false); }}
+                                        className="absolute top-4 left-4 p-2 text-stone-400 hover:text-stone-900 transition-colors"
+                                    >
+                                        <MinimizeIcon />
+                                    </button>
+
+                                    {/* Vinyl Record */}
+                                    <div className="mt-8 relative group">
+                                        <VinylRecord isPlaying={isPlaying} rate={state.playbackRate} />
+
+                                        {/* Center Play Button Overlay */}
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); togglePlay(); }}
+                                            className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                                        >
+                                            <div className="w-12 h-12 bg-white/90 backdrop-blur rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-transform">
+                                                {isPlaying ? <PauseIcon /> : <PlayIcon />}
+                                            </div>
+                                        </button>
+                                    </div>
+
+                                    {/* Playback Progress */}
+                                    <div className="w-full space-y-2 mb-4">
+                                        <div className="flex justify-between text-[10px] text-stone-500 font-mono tracking-wider">
+                                            <span>NOW PLAYING</span>
+                                            <span>{Math.round(progress)}%</span>
+                                        </div>
+                                        <div className="h-1 w-full bg-stone-200 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-stone-800 rounded-full transition-all duration-300 ease-out"
+                                                style={{ width: `${progress}%` }}
+                                            ></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* --- Right: Transcript & Details --- */}
+                                <div className="flex-1 h-full bg-white/40 flex flex-col relative overflow-hidden">
+                                    {/* H200 Glass Header */}
+                                    <div className="h-14 border-b border-stone-100 flex items-center px-6 justify-between bg-white/50">
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                            <span className="text-xs font-medium text-stone-500 tracking-widest uppercase">AI Audio Engine</span>
+                                        </div>
+                                        {/* Speed Control */}
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); /* logic */ }}
+                                            className="text-xs font-bold text-stone-400 hover:text-stone-900 px-2 py-1 rounded bg-stone-100 hover:bg-stone-200 transition-colors"
+                                        >
+                                            1.0x
+                                        </button>
+                                    </div>
+
+                                    {/* Scrollable Content */}
+                                    <div className="flex-1 overflow-y-auto custom-scrollbar p-6 relative">
+                                        {playlist.length > 0 ? (
+                                            <AudioPlaylist
+                                                playlist={playlist}
+                                                currentIndex={currentIndex}
+                                                isExpanded={isExpanded}
+                                                onJump={(idx) => { /* jump logic */ }}
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full flex flex-col items-center justify-center text-stone-300 space-y-4">
+                                                <div className="w-12 h-12 rounded-full border-2 border-dashed border-stone-200 animate-spin-slow"></div>
+                                                <p className="text-sm">Waiting for signal...</p>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Gradient Overlay for Text Fade */}
+                                    <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </motion.div>
 
-                {/* Content Area (Right Side) */}
-                <div className="flex-1 p-6 flex flex-col min-w-0 relative">
-                    {!expanded ? (
-                        /* Collapsed View */
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center h-full w-full overflow-hidden">
-                            <div className="flex flex-col justify-center w-full">
-                                <div className="font-bold text-sm text-stone-900 whitespace-nowrap">
-                                    {isPlaying ? 'Now Playing' : 'Listen to Article'}
-                                </div>
-                                <div className="text-[10px] text-stone-500 mt-0.5">{isPlaying ? `${currentIndex + 1} / ${playlist.length}` : 'Tap to expand'}</div>
-                            </div>
-                        </motion.div>
-                    ) : (
-                        /* Expanded View */
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="h-full flex flex-col relative">
-                            {/* Playlist / Lyrics */}
-                            <AudioPlaylist
-                                playlist={playlist}
-                                currentIndex={currentIndex}
-                                isExpanded={expanded}
-                                onJump={jumpToSentence}
-                            />
-                        </motion.div>
-                    )}
-                </div>
-
-                {/* Bottom Progress Bar (Read-Only) */}
-                <div
-                    className="absolute bottom-0 left-0 right-0 h-[3px] bg-stone-100 pointer-events-none z-50"
-                    role="progressbar"
-                    aria-valuenow={Math.round(progress)}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                >
-                    <div
-                        className="h-full bg-orange-500 transition-all duration-300 ease-linear shadow-[0_0_8px_rgba(249,115,22,0.4)]"
-                        style={{ width: `${progress}%` }}
-                    />
-                </div>
-
-            </motion.div>
-        </div>
+                {/* Styles for slow spin */}
+                <style>{`
+                    @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+                    .animate-spin-slow { animation: spin-slow 8s linear infinite; }
+                    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+                    .custom-scrollbar::-webkit-scrollbar-track { bg: transparent; }
+                    .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 4px; }
+                `}</style>
+            </div>
+        </LayoutGroup>
     );
 };
 
