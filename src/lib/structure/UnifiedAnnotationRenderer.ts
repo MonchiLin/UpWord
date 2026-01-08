@@ -41,27 +41,37 @@ export type RenderNode =
 // ============ Core Logic ============
 
 /**
- * 构建统一 AST
+ * 构建统一 AST（按段落分组）
  * 
- * 层级结构：
- * - 最外层按句子边界分割
- * - 内层嵌套语法结构标注
+ * 直接识别段落边界，返回段落数组
+ * 段落分隔符：连续两个换行符 (\n\n) 或句子间有换行
  */
 export function buildUnifiedAST(
     content: string,
     sentences: SentenceData[],
     structures: StructureData[]
-): RenderNode[] {
-    const result: RenderNode[] = [];
+): RenderNode[][] {
+    const paragraphs: RenderNode[][] = [];
+    let currentParagraph: RenderNode[] = [];
     let cursor = 0;
 
-    // 按句子边界处理
+    // 检测是否为段落分隔
+    const isParagraphBreak = (text: string) => text.includes('\n');
+
     for (const sentence of sentences) {
-        // 添加句子前的文本（如果有）
+        // 检查句子前的间隙是否包含段落分隔
         if (sentence.start > cursor) {
             const gap = content.substring(cursor, sentence.start);
-            if (gap.trim()) {
-                result.push({ type: 'text', content: gap });
+
+            if (isParagraphBreak(gap)) {
+                // 遇到段落分隔，保存当前段落，开始新段落
+                if (currentParagraph.length > 0) {
+                    paragraphs.push(currentParagraph);
+                    currentParagraph = [];
+                }
+            } else if (gap.trim()) {
+                // 非段落分隔的有意义文本
+                currentParagraph.push({ type: 'text', content: gap });
             }
         }
 
@@ -78,7 +88,7 @@ export function buildUnifiedAST(
             sentence.start
         );
 
-        result.push({
+        currentParagraph.push({
             type: 'sentence',
             sid: sentence.id,
             children: innerNodes
@@ -87,15 +97,19 @@ export function buildUnifiedAST(
         cursor = sentence.end;
     }
 
-    // 添加最后一个句子后的文本
+    // 处理最后一段
     if (cursor < content.length) {
         const remaining = content.substring(cursor);
         if (remaining.trim()) {
-            result.push({ type: 'text', content: remaining });
+            currentParagraph.push({ type: 'text', content: remaining });
         }
     }
 
-    return result;
+    if (currentParagraph.length > 0) {
+        paragraphs.push(currentParagraph);
+    }
+
+    return paragraphs;
 }
 
 /**
@@ -169,37 +183,4 @@ function buildStructureNodes(
     }
 
     return nodes;
-}
-
-/**
- * 将 AST 按段落分割
- * 基于换行符将节点分组
- */
-export function splitASTIntoParagraphs(nodes: RenderNode[]): RenderNode[][] {
-    const paragraphs: RenderNode[][] = [];
-    let current: RenderNode[] = [];
-
-    for (const node of nodes) {
-        if (node.type === 'text' && node.content.includes('\n')) {
-            // 分割包含换行的文本节点
-            const parts = node.content.split('\n');
-            for (let i = 0; i < parts.length; i++) {
-                if (parts[i]!.trim()) {
-                    current.push({ type: 'text', content: parts[i]! });
-                }
-                if (i < parts.length - 1 && current.length > 0) {
-                    paragraphs.push(current);
-                    current = [];
-                }
-            }
-        } else {
-            current.push(node);
-        }
-    }
-
-    if (current.length > 0) {
-        paragraphs.push(current);
-    }
-
-    return paragraphs;
 }

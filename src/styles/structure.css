@@ -85,8 +85,10 @@
 
 /* Audio Playing Highlight - More prominent than hover */
 .s-token.audio-playing {
-    background-color: rgba(192, 132, 252, 0.25); /* purple-400/25 */
-    box-shadow: inset 0 -2px 0 0 rgba(168, 85, 247, 0.5); /* purple-500/50 underline */
+    background-color: rgba(192, 132, 252, 0.25);
+    /* purple-400/25 */
+    box-shadow: inset 0 -2px 0 0 rgba(168, 85, 247, 0.5);
+    /* purple-500/50 underline */
 }
 
 .s-token.structure-active {
@@ -140,13 +142,13 @@
 /* --- 4. Role-Specific Highlighting (Layout Safe) --- */
 
 /* Subject -> Underline Shadow */
-[data-structure="s"]:has(.structure-active),
-[data-structure="subject"]:has(.structure-active) {
+.structure-active [data-structure="s"],
+.structure-active [data-structure="subject"] {
     box-shadow: 0 -2px 0 0 var(--st-color-subject-shadow);
     box-decoration-break: clone;
     -webkit-box-decoration-break: clone;
-    -webkit-box-decoration-break: clone;
 }
+
 
 /* --- Interactive Opacity Swap (Variant B: Semantic Focus) --- */
 /* Ensure transitions apply to clip-path */
@@ -200,8 +202,8 @@
 }
 
 /* Verb -> Red Background & Text */
-[data-structure="v"]:has(.structure-active),
-[data-structure="verb"]:has(.structure-active) {
+.structure-active [data-structure="v"],
+.structure-active [data-structure="verb"] {
     background-color: var(--st-color-verb-bg);
     color: var(--st-color-verb-text) !important;
     font-weight: 500;
@@ -210,24 +212,24 @@
 }
 
 /* Object -> Underline Shadow */
-[data-structure="o"]:has(.structure-active),
-[data-structure="object"]:has(.structure-active) {
+.structure-active [data-structure="o"],
+.structure-active [data-structure="object"] {
     box-shadow: 0 2px 0 0 var(--st-color-object-shadow);
     box-decoration-break: clone;
     -webkit-box-decoration-break: clone;
 }
 
 /* Indirect Object -> Green Underline Shadow */
-[data-structure="io"]:has(.structure-active),
-[data-structure="indirect-object"]:has(.structure-active) {
+.structure-active [data-structure="io"],
+.structure-active [data-structure="indirect-object"] {
     box-shadow: 0 2px 0 0 var(--st-color-io-shadow);
     box-decoration-break: clone;
     -webkit-box-decoration-break: clone;
 }
 
 /* Connective -> Dotted Underline */
-[data-structure="con"]:has(.structure-active),
-[data-structure="connective"]:has(.structure-active) {
+.structure-active [data-structure="con"],
+.structure-active [data-structure="connective"] {
     color: var(--st-color-conn-text) !important;
     font-weight: 500;
     font-size: 0.9em;
@@ -237,8 +239,8 @@
 }
 
 /* Relative Clause -> Dashed Box */
-[data-structure="rc"]:has(.structure-active),
-[data-structure="rel-clause"]:has(.structure-active) {
+.structure-active [data-structure="rc"],
+.structure-active [data-structure="rel-clause"] {
     background-color: var(--st-color-rc-bg);
     outline: 1px dashed var(--st-color-rc-border);
     border-radius: 2px;
@@ -247,8 +249,8 @@
 }
 
 /* Passive -> Wavy Underline */
-[data-structure="pas"]:has(.structure-active),
-[data-structure="passive"]:has(.structure-active) {
+.structure-active [data-structure="pas"],
+.structure-active [data-structure="passive"] {
     font-style: italic;
     text-decoration: underline wavy var(--st-color-passive-deco);
     box-decoration-break: clone;
@@ -256,8 +258,8 @@
 }
 
 /* Prepositional Phrase -> Light Text */
-[data-structure="pp"]:has(.structure-active),
-[data-structure="prep-phrase"]:has(.structure-active) {
+.structure-active [data-structure="pp"],
+.structure-active [data-structure="prep-phrase"] {
     color: var(--st-color-pp-text);
     border-bottom: 1px dotted var(--st-color-pp-border);
     box-decoration-break: clone;
@@ -265,8 +267,8 @@
 }
 
 /* Complement -> Purple Background */
-[data-structure="cmp"]:has(.structure-active),
-[data-structure="complement"]:has(.structure-active) {
+.structure-active [data-structure="cmp"],
+.structure-active [data-structure="complement"] {
     background-color: var(--st-color-cmp-bg);
     color: var(--st-color-cmp-text) !important;
     font-weight: 500;
@@ -275,8 +277,8 @@
 }
 
 /* Adverbial -> Blue Underline */
-[data-structure="adv"]:has(.structure-active),
-[data-structure="adverbial"]:has(.structure-active) {
+.structure-active [data-structure="adv"],
+.structure-active [data-structure="adverbial"] {
     color: var(--st-color-adv-text);
     border-bottom: 2px solid var(--st-color-adv-border);
     box-decoration-break: clone;
@@ -284,8 +286,8 @@
 }
 
 /* Appositive -> Cyan Box */
-[data-structure="app"]:has(.structure-active),
-[data-structure="appositive"]:has(.structure-active) {
+.structure-active [data-structure="app"],
+.structure-active [data-structure="appositive"] {
     background-color: var(--st-color-app-bg);
     border: 1px dashed var(--st-color-app-border);
     border-radius: 2px;
@@ -294,8 +296,8 @@
 }
 
 /* Infinitive -> Pink Dotted Underline */
-[data-structure="inf"]:has(.structure-active),
-[data-structure="infinitive"]:has(.structure-active) {
+.structure-active [data-structure="inf"],
+.structure-active [data-structure="infinitive"] {
     color: var(--st-color-inf-text) !important;
     text-decoration: underline dotted var(--st-color-inf-deco);
     box-decoration-break: clone;
@@ -303,8 +305,8 @@
 }
 
 /* Gerund -> Pink Background */
-[data-structure="ger"]:has(.structure-active),
-[data-structure="gerund"]:has(.structure-active) {
+.structure-active [data-structure="ger"],
+.structure-active [data-structure="gerund"] {
     background-color: var(--st-color-ger-bg);
     color: var(--st-color-ger-text) !important;
     font-weight: 500;
@@ -313,8 +315,8 @@
 }
 
 /* Participle -> Rose Underline */
-[data-structure="ptc"]:has(.structure-active),
-[data-structure="participle"]:has(.structure-active) {
+.structure-active [data-structure="ptc"],
+.structure-active [data-structure="participle"] {
     color: var(--st-color-ptc-text) !important;
     text-decoration: underline wavy var(--st-color-ptc-deco);
     font-style: italic;

@@ -32,7 +32,7 @@ import {
     getReadingStats,
     getAllArticleContents 
 } from "@/lib/articles/loader";
-import { buildUnifiedAST, splitASTIntoParagraphs } from "@/lib/structure/UnifiedAnnotationRenderer";
+import { buildUnifiedAST } from "@/lib/structure/UnifiedAnnotationRenderer";
 import UnifiedText from "@/components/structure/UnifiedText.astro";
 
 // 解析 slug 参数
@@ -155,19 +155,12 @@ const isAdmin = !!adminKey;
                             {sortedArticles.map((article: any) => {
                                 const stats = getReadingStats(article.content);
                                 
-                                // [Unified] Build AST from sentences + structure
-                                let paragraphs: any[][] = [];
-                                try {
-                                    const ast = buildUnifiedAST(
-                                        article.content || '',
-                                        article.sentences || [],
-                                        article.structure || []
-                                    );
-                                    paragraphs = splitASTIntoParagraphs(ast);
-                                } catch (e) {
-                                    console.error("[Unified] AST build failed:", e);
-                                    paragraphs = [[{ type: 'text', content: article.content || '' }]]; 
-                                }
+                                // [Unified] Build AST with paragraphs directly
+                                const paragraphs = buildUnifiedAST(
+                                    article.content || '',
+                                    article.sentences || [],
+                                    article.structure || []
+                                );
 
                                 return (
                                     <div

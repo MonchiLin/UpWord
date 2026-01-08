@@ -39,8 +39,8 @@ export function clearLabels(): void {
 export function positionStructureLabels(container: HTMLElement): void {
     clearLabels();
 
-    // 1. Selection & Filtering
-    const rawSpans = Array.from(container.querySelectorAll('[data-structure]:has(.structure-active)')) as HTMLElement[];
+    // 1. Selection & Filtering - Find structure elements inside active sentences
+    const rawSpans = Array.from(container.querySelectorAll('.structure-active [data-structure]')) as HTMLElement[];
     if (rawSpans.length === 0) return;
 
     // 2. Measure Context (Batch Read)
