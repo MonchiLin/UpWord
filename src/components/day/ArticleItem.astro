@@ -13,7 +13,7 @@ interface Props {
 
 const { title, index, isRead = false, date } = Astro.props;
 
-import { toArticleSlug } from "@/lib/shared/slug";
+import { toArticleSlug } from "../../../server/lib/slug";
 const slug = toArticleSlug(title);
 const href = `/${date}/${slug}`;
 ---
