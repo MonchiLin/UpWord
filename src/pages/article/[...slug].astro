@@ -23,7 +23,7 @@ import HighlightManager from "@/components/HighlightManager";
 import VisualTether from "@/components/VisualTether";
 import FloatingAudioPlayer from "@/components/FloatingAudioPlayer";
 import AudioInit from "@/components/AudioInit";
-import MemorySpirit from "@/components/MemorySpirit";
+import HistoricalEchoes from "@/components/HistoricalEchoes";
 import { BackButton } from "@/components/ui/BackButton";
 
 import { 
@@ -80,6 +80,7 @@ const {
     title: 'Article',
     readLevels: 0,
     memories: {},
+    memories: {},
 };
 
 // 设置缓存
@@ -110,6 +111,9 @@ const isAdmin = !!adminKey;
                 transition:animate="slide"
             >
                 <div class="space-y-8">
+                    <!-- Memories Data Injection (Robust) -->
+                    <script id="memories-data" type="application/json" set:html={JSON.stringify(memories)} />
+
                     <!-- 文章容器 (去卡片化) -->
                     <div class="md:px-2">
                         <!-- 文章头部 -->
@@ -215,14 +219,8 @@ const isAdmin = !!adminKey;
                     <VisualTether client:only="react" />
                 </div>
                 
-                <!-- Memory Spirit -->
-                <MemorySpirit client:load />
-
-                <!-- 高亮管理器 -->
-                <HighlightManager 
-                    client:load 
-                    memoriesMap={memories}
-                />
+                <!-- Historical Echoes (Replaces MemorySpirit & HighlightManager) -->
+                <HistoricalEchoes client:idle />
             </main>
             
             <!-- 侧边栏 -->
@@ -326,13 +324,24 @@ const isAdmin = !!adminKey;
 </style>
 
 <script>
-    // 导入拆分后的模块
     import { initLevelSwitcher } from '../../lib/features/levelSwitcher';
     import { initReadTracker, trackReading } from '../../lib/features/readTracker';
     import { initStructureInteraction } from '../../lib/features/structure/interaction';
-    import { setActiveWord } from '../../lib/store/interactionStore';
+    import { initMemories } from '../../lib/store/interactionStore';
+    import { initHoverController } from '../../lib/features/historical/hoverController';
 
     function initArticlePage() {
+        // [New] 注入 Memories 数据到 Store (Single Source of Truth)
+        try {
+            const dataEl = document.getElementById('memories-data');
+            if (dataEl && dataEl.textContent) {
+                const memories = JSON.parse(dataEl.textContent);
+                initMemories(memories);
+            }
+        } catch (e) {
+            console.error("Failed to init memories", e);
+        }
+
         // 初始化难度切换
         initLevelSwitcher();
         
@@ -343,37 +352,23 @@ const isAdmin = !!adminKey;
         window.addEventListener('level-change', () => {
             trackReading();
         });
+        
+        // [New] 初始化历史回响交互控制器 (Event Delegation)
+        initHoverController();
     }
 
     /**
-     * 初始化目标单词交互
-     * 为 SSR 渲染的 .target-word 元素添加鼠标事件
+     * 初始化目标单词交互 - 仅保留朗读功能
+     * Hover 功能已移至 initHoverController (Event Delegation)
      */
     function initTargetWordInteraction() {
-        const words = document.querySelectorAll('.target-word');
-        
-        words.forEach((el) => {
-            const word = el.getAttribute('data-word');
-            if (!word) return;
-            
-            el.addEventListener('mouseenter', () => {
-                setActiveWord(word);
-                // Dispatch event for MemorySpirit popover positioning
-                window.dispatchEvent(new CustomEvent('word-hover', { 
-                    detail: { word, target: el } 
-                }));
-            });
-            
-            el.addEventListener('mouseleave', () => {
-                setActiveWord(null);
-                // Clear popover
-                window.dispatchEvent(new CustomEvent('word-hover', { 
-                    detail: { word: null, target: null } 
-                }));
-            });
-            
-            // 点击朗读
+        // 这里的 forEach 现在只负责 click 事件，不再负责 mouseenter/leave
+        // 性能开销大大降低，因为 click 监听是 lazy 的
+        document.querySelectorAll('.target-word').forEach((el) => {
             el.addEventListener('click', (e) => {
+                const word = el.getAttribute('data-word');
+                if (!word) return;
+                
                 e.stopPropagation();
                 const u = new SpeechSynthesisUtterance(word);
                 u.lang = 'en-US';
@@ -390,7 +385,7 @@ const isAdmin = !!adminKey;
     document.addEventListener('DOMContentLoaded', initStructureInteraction);
     document.addEventListener('astro:page-load', initStructureInteraction);
 
-    // Target Word Interaction
+    // Target Word Interaction (Click to Speak only)
     document.addEventListener('DOMContentLoaded', initTargetWordInteraction);
     document.addEventListener('astro:page-load', initTargetWordInteraction);
 </script>

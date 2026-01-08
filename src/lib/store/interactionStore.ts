@@ -16,6 +16,70 @@ export type InteractionState = {
     hoveredSentenceIndex: number | null; // synced hover state from audio playlist
 }
 
+// [New] For O(1) hover performance
+export type InteractionEvent = {
+    word: string;
+    rect: { top: number; left: number; width: number; height: number };
+    id: string; // unique event id to force updates
+} | null;
+
+export const activeInteraction = map<{ current: InteractionEvent }>({ current: null });
+
+// [Data-Driven] The Registry
+// Holds the memory data for the current article.
+// Not exported as an atom to avoid react re-renders on init, 
+// but used internally to derive state.
+let memoriesRegistry: Record<string, any> = {};
+
+export const initMemories = (memories: Record<string, any>) => {
+    memoriesRegistry = memories || {};
+};
+
+export const setInteraction = (word: string, rect: { top: number; left: number; width: number; height: number }) => {
+    const normalized = word.toLowerCase();
+
+    // 1. Update the Event (for UI positioning)
+    activeInteraction.setKey('current', {
+        word: normalized,
+        rect,
+        id: crypto.randomUUID()
+    });
+
+    // 2. Derive Application State (for VisualTether, WordSidebar, etc.)
+    // This allows components to just "react" to store changes without knowing about the event details.
+
+    // Only update if changed to avoid thrashing
+    const currentStore = interactionStore.get();
+    if (currentStore.activeWord !== normalized) {
+        interactionStore.setKey('activeWord', normalized);
+
+        // Look up valid memory data
+        const mems = memoriesRegistry[normalized];
+        if (mems && Array.isArray(mems) && mems.length > 0) {
+            interactionStore.setKey('memoryData', mems.map(m => ({
+                snippet: m.snippet,
+                articleTitle: m.articleTitle,
+                articleId: m.articleId,
+                date: m.date,
+                timeAgo: m.timeAgo || m.date
+            })));
+        } else {
+            interactionStore.setKey('memoryData', null);
+        }
+    }
+};
+
+export const clearInteraction = () => {
+    activeInteraction.setKey('current', null);
+    // Optional: Clear activeWord too? 
+    // Usually yes for hover.
+    interactionStore.setKey('activeWord', null);
+    // interactionStore.setKey('memoryData', null); // Optional, maybe keep for fade out?
+};
+
+// ... keep existing memoryData for compat during migration
+// eventually we might merge memoryData lookup into the component or a derived atom
+
 export const interactionStore = map<InteractionState>({
     activeWord: null,
     currentLevel: 1,
@@ -30,20 +94,29 @@ export const setHoveredSentence = (index: number | null) => {
 
 export const setActiveWord = (word: string | null) => {
     const normalized = word ? word.toLowerCase() : null;
+    interactionStore.setKey('activeWord', normalized);
 
-    // Only clear memoryData if we are moving to a NEW different word
-    // This allows the "Spirit" to keep its content during the mouse-to-card transition
-    if (normalized && normalized !== interactionStore.get().activeWord) {
+    if (normalized) {
+        // [Data-Driven] Also look up memory data for sidebar interactions
+        const mems = memoriesRegistry[normalized];
+        if (mems && Array.isArray(mems) && mems.length > 0) {
+            interactionStore.setKey('memoryData', mems.map(m => ({
+                snippet: m.snippet,
+                articleTitle: m.articleTitle,
+                articleId: m.articleId,
+                date: m.date,
+                timeAgo: m.timeAgo || m.date
+            })));
+        } else {
+            interactionStore.setKey('memoryData', null);
+        }
+    } else {
         interactionStore.setKey('memoryData', null);
     }
-
-    interactionStore.setKey('activeWord', normalized);
 };
 
 export const setLevel = (level: number) => {
     interactionStore.setKey('currentLevel', level);
 };
 
-export const setMemoryData = (data: MemoryData) => {
-    interactionStore.setKey('memoryData', data);
-};
+
