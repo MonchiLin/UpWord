@@ -24,14 +24,4 @@ export async function fetchJson<T = unknown>(url: string, init?: RequestInit): P
     return apiFetch<T>(url, init);
 }
 
-import dayjs from 'dayjs';
-
-export function formatTime(iso: string | null | undefined): string {
-    if (!iso) return '-';
-    try {
-        return dayjs(iso).format('HH:mm');
-    } catch {
-        return iso;
-    }
-}
 

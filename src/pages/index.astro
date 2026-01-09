@@ -5,11 +5,7 @@
  * 使用 Asia/Shanghai 时区确保国内用户访问到正确的“今日”日期。
  */
 
-return Astro.redirect(`/day/${new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Shanghai',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-}).format(new Date())}`);
----
+import { getBusinessDate } from '@server/lib/time';
 
+return Astro.redirect(`/day/${getBusinessDate()}`);
+---

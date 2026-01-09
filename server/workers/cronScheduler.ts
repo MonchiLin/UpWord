@@ -14,7 +14,7 @@ let lastCronRunDate = '';
 export function startCronScheduler(queue: TaskQueue) {
     setInterval(async () => {
         // Use .tz() to ensure we are always checking against Asia/Shanghai
-        const now = dayjs().tz('Asia/Shanghai');
+        const now = dayjs().tz();
         const hour = now.hour();
         const minute = now.minute();
         const todayStr = now.format('YYYY-MM-DD');

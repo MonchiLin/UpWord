@@ -1,4 +1,5 @@
 import type { ArticleParsedContent, SidebarWord, WordDefinition } from "./types";
+import { dayjs } from "@server/lib/time";
 
 export function parseArticleContent(jsonString: string): ArticleParsedContent {
     try {
@@ -37,26 +38,16 @@ export function mapToSidebarWords(defs: WordDefinition[]): SidebarWord[] {
     }));
 }
 
-const weekdayNames = [
-    "Sunday",
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-];
 
 export function formatDateLabel(value?: string | null): string {
     if (!value) return "";
-    const iso = value.includes("T") ? value : `${value}T00:00:00`;
-    const date = new Date(iso);
-    if (Number.isNaN(date.getTime())) return value;
-    const weekday = weekdayNames[date.getDay()] ?? "";
-    const yyyy = String(date.getFullYear());
-    const mm = String(date.getMonth() + 1).padStart(2, "0");
-    const dd = String(date.getDate()).padStart(2, "0");
-    return weekday ? `${weekday}, ${yyyy}/${mm}/${dd}` : `${yyyy}/${mm}/${dd}`;
+    const date = dayjs.tz(value);
+    if (!date.isValid()) return value;
+
+    const weekday = date.locale('en').format('dddd');
+    const formattedDate = date.format('YYYY/MM/DD');
+
+    return `${weekday}, ${formattedDate}`;
 }
 
 export function getInitialArticleData(parsed: ArticleParsedContent) {

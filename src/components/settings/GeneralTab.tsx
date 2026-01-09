@@ -6,6 +6,7 @@ import { Cpu, Sparkles, Brain } from 'lucide-react';
 import Toggle from '../ui/Toggle';
 import SegmentedControl from '../ui/SegmentedControl';
 import { settingsStore, updateSetting } from '../../lib/store/settingsStore';
+import { dayjs } from '@server/lib/time';
 
 interface Props {
     adminKey: string;
@@ -125,7 +126,7 @@ export default function GeneralTab({
 
             {savedAt && (
                 <div className="text-xs text-stone-400 font-serif italic">
-                    Last saved: {new Date(savedAt).toLocaleTimeString()}
+                    Last saved: {dayjs(savedAt).tz().format('HH:mm:ss')}
                 </div>
             )}
 

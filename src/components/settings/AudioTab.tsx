@@ -3,6 +3,7 @@
  */
 import { clsx } from 'clsx';
 import { EdgeTTSClient } from '../../lib/features/audio/edge-client';
+import { dayjs } from '@server/lib/time';
 
 export interface VoiceOption {
     id: string;
@@ -93,7 +94,7 @@ export default function AudioTab({ voices, voice, setVoiceSettings, savedAt, sav
 
             {savedAt && (
                 <div className="text-xs text-stone-400 font-serif italic">
-                    Last saved: {new Date(savedAt).toLocaleTimeString()}
+                    Last saved: {dayjs(savedAt).tz().format('HH:mm:ss')}
                 </div>
             )}
 

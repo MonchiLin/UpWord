@@ -3,7 +3,7 @@ import { Info, Loader2, Copy, Check } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import Modal from './ui/Modal';
 import clsx from 'clsx';
-import dayjs from 'dayjs';
+import { dayjs } from '@server/lib/time';
 
 interface ArticleInfoButtonProps {
     articleId: string;
@@ -76,7 +76,7 @@ export default function ArticleInfoButton({ articleId }: ArticleInfoButtonProps)
                                 <Row isLast>
                                     <Label>Created</Label>
                                     <div className="font-mono text-xs text-stone-500">
-                                        {articles.created_at ? dayjs(articles.created_at).format('yyyy-MM-DD HH:mm:ss') : '-'}
+                                        {articles.created_at ? dayjs(articles.created_at).tz().format('YYYY-MM-DD HH:mm:ss') : '-'}
                                     </div>
                                 </Row>
                             </div>
@@ -117,7 +117,7 @@ export default function ArticleInfoButton({ articleId }: ArticleInfoButtonProps)
                                     <Row isLast>
                                         <Label>Created</Label>
                                         <div className="font-mono text-xs text-stone-500">
-                                            {tasks.created_at ? dayjs(tasks.created_at).format('yyyy-MM-DD HH:mm:ss') : '-'}
+                                            {tasks.created_at ? dayjs(tasks.created_at).tz().format('YYYY-MM-DD HH:mm:ss') : '-'}
                                         </div>
                                     </Row>
                                 </div>

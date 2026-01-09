@@ -1,11 +1,11 @@
 import { Elysia } from 'elysia';
-import { dayjs } from '../src/lib/time';
+import { getTodayStr } from '../src/lib/time';
 import { TaskQueue } from '../src/services/tasks/queue';
 import { executeCronLogic } from '../lib/cronLogic';
 
 export const cronRoutes = (queue: TaskQueue) => new Elysia()
     .post('/api/cron/trigger', async () => {
-        const taskDate = dayjs().format('YYYY-MM-DD');
+        const taskDate = getTodayStr();
         const res = await executeCronLogic(taskDate, '[API Cron Trigger]', queue);
         return res;
     });

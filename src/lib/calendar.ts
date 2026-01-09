@@ -1,4 +1,4 @@
-import dayjs from 'dayjs';
+import { dayjs } from '@server/lib/time';
 
 /**
  * 日历业务逻辑 - 将原始数据转换为视图模型
@@ -48,7 +48,7 @@ function generateCalendarDateStrings(monthStart: dayjs.Dayjs): string[] {
  * 获取完整的日历状态视图模型
  */
 export function getCalendarState(selectedDate: string, publishedDays: string[]): CalendarState {
-    const selected = dayjs(selectedDate);
+    const selected = dayjs.tz(selectedDate);
     const monthStart = selected.startOf('month');
 
     const currentYear = monthStart.year();
@@ -57,7 +57,7 @@ export function getCalendarState(selectedDate: string, publishedDays: string[]):
 
     const prevMonthStr = monthStart.subtract(1, 'month').format('YYYY-MM-DD');
     const nextMonthStr = monthStart.add(1, 'month').format('YYYY-MM-DD');
-    const todayStr = dayjs().format('YYYY-MM-DD');
+    const todayStr = dayjs().tz().format('YYYY-MM-DD');
 
     const dateStrings = generateCalendarDateStrings(monthStart);
 

@@ -1,5 +1,6 @@
 import { RotateCw, Trash2 } from 'lucide-react';
-import { type TaskRow, formatTime, fetchJson } from './shared';
+import { type TaskRow, fetchJson } from './shared';
+import { formatTime } from '@server/lib/time';
 import { clsx } from 'clsx';
 import { useState } from 'react';
 import { Popconfirm } from 'antd';

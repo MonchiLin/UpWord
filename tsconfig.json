@@ -2,7 +2,8 @@
   "extends": "astro/tsconfigs/strict",
   "include": [
     ".astro/types.d.ts",
-    "**/*"
+    "**/*",
+    "server/**/*"
   ],
   "exclude": [
     "dist",
@@ -17,6 +18,9 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@server/*": [
+        "./server/src/*"
       ],
       "~/*": [
         "./public/*"
