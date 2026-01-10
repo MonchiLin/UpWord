@@ -11,6 +11,7 @@
     "db:pull": "bun run scripts/db-sync.ts pull",
     "db:push": "bun run scripts/db-sync.ts push",
     "db:export": "bun run scripts/db-sync.ts export",
+    "migrate": "bun run scripts/migrate.ts",
     "d1:migrate:remote": "npx wrangler d1 migrations apply DB --remote",
     "check": "bun x tsc --noEmit"
   },
@@ -21,7 +22,6 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "@cloudflare/workers-types": "^4.20251229.0",
     "@elysiajs/cors": "^1.4.1",
     "@elysiajs/swagger": "^1.3.1",
     "dayjs": "^1.11.19",
