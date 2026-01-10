@@ -1,7 +1,7 @@
 import { Kysely, sql } from 'kysely';
 
 export async function up(db: Kysely<any>): Promise<void> {
-    // Generation Profiles
+    // 1. Generation Profiles
     await db.schema
         .createTable('generation_profiles')
         .addColumn('id', 'text', (col) => col.primaryKey().notNull())
@@ -18,7 +18,7 @@ export async function up(db: Kysely<any>): Promise<void> {
     await db.schema.createIndex('uq_generation_profiles_name').on('generation_profiles').column('name').unique().execute();
     await db.schema.createIndex('idx_generation_profiles_topic_preference').on('generation_profiles').column('topic_preference').execute();
 
-    // Tasks
+    // 2. Tasks
     await db.schema
         .createTable('tasks')
         .addColumn('id', 'text', (col) => col.primaryKey().notNull())
@@ -26,18 +26,20 @@ export async function up(db: Kysely<any>): Promise<void> {
         .addColumn('type', 'text', (col) => col.notNull())
         .addColumn('trigger_source', 'text', (col) => col.defaultTo('manual').notNull())
         .addColumn('status', 'text', (col) => col.notNull())
+        // .addColumn('llm', 'text') // Missing in DB
         .addColumn('profile_id', 'text', (col) => col.notNull().references('generation_profiles.id'))
         .addColumn('result_json', 'text')
         .addColumn('error_message', 'text')
         .addColumn('error_context_json', 'text')
+        .addColumn('version', 'integer', (col) => col.defaultTo(0).notNull())
         .addColumn('created_at', 'text', (col) => col.defaultTo(sql`CURRENT_TIMESTAMP`).notNull())
         .addColumn('started_at', 'text')
         .addColumn('finished_at', 'text')
         .addColumn('published_at', 'text')
-        .addColumn('version', 'integer', (col) => col.defaultTo(0).notNull())
         .addCheckConstraint('chk_tasks_type_enum', sql`type IN ('article_generation')`)
         .addCheckConstraint('chk_tasks_trigger_source_enum', sql`trigger_source IN ('manual', 'cron')`)
         .addCheckConstraint('chk_tasks_status_enum', sql`status IN ('queued', 'running', 'succeeded', 'failed', 'canceled')`)
+        // .addCheckConstraint('chk_tasks_llm_enum', sql`llm IS NULL OR llm IN ('gemini', 'openai', 'claude')`)
         .addCheckConstraint('chk_tasks_result_json_valid', sql`result_json IS NULL OR json_valid(result_json)`)
         .addCheckConstraint('chk_tasks_error_context_json_valid', sql`error_context_json IS NULL OR json_valid(error_context_json)`)
         .addCheckConstraint('chk_tasks_published_only_for_article_generation', sql`type = 'article_generation' OR published_at IS NULL`)
@@ -49,19 +51,23 @@ export async function up(db: Kysely<any>): Promise<void> {
     await db.schema.createIndex('idx_tasks_profile_id').on('tasks').column('profile_id').execute();
     await db.schema.createIndex('idx_tasks_published_at').on('tasks').column('published_at').execute();
 
-    // Daily Words
+    // 3. Daily Words / References
+    // daily_words table missing in DB
+
     await db.schema
-        .createTable('daily_words')
-        .addColumn('date', 'text', (col) => col.primaryKey().notNull())
-        .addColumn('new_words_json', 'text', (col) => col.notNull())
-        .addColumn('review_words_json', 'text', (col) => col.notNull())
+        .createTable('daily_word_references')
+        .addColumn('id', 'text', (col) => col.primaryKey().notNull())
+        .addColumn('date', 'text', (col) => col.notNull())
+        .addColumn('word', 'text', (col) => col.notNull())
+        .addColumn('type', 'text', (col) => col.notNull())
         .addColumn('created_at', 'text', (col) => col.defaultTo(sql`CURRENT_TIMESTAMP`).notNull())
-        .addColumn('updated_at', 'text', (col) => col.defaultTo(sql`CURRENT_TIMESTAMP`).notNull())
-        .addCheckConstraint('chk_daily_words_new_words_json_valid', sql`json_valid(new_words_json)`)
-        .addCheckConstraint('chk_daily_words_review_words_json_valid', sql`json_valid(review_words_json)`)
+        .addCheckConstraint('chk_daily_word_references_type', sql`type IN ('new', 'review')`)
         .execute();
 
-    // Words
+    await db.schema.createIndex('idx_daily_word_references_date').on('daily_word_references').column('date').execute();
+    await db.schema.createIndex('idx_daily_word_references_word').on('daily_word_references').column('word').execute();
+
+    // 4. Words & Learning
     await db.schema
         .createTable('words')
         .addColumn('word', 'text', (col) => col.primaryKey().notNull())
@@ -77,34 +83,9 @@ export async function up(db: Kysely<any>): Promise<void> {
     await db.schema.createIndex('idx_words_mastery_status').on('words').column('mastery_status').execute();
     await db.schema.createIndex('idx_words_origin').on('words').column('origin').execute();
 
-    // Word Learning Records
-    await db.schema
-        .createTable('word_learning_records')
-        .addColumn('word', 'text', (col) => col.primaryKey().notNull().references('words.word'))
-        .addColumn('created_at', 'text', (col) => col.defaultTo(sql`CURRENT_TIMESTAMP`).notNull())
-        .addColumn('last_shanbay_sync_date', 'text')
-        .addColumn('due_at', 'text', (col) => col.defaultTo(sql`CURRENT_TIMESTAMP`).notNull())
-        .addColumn('stability', 'real', (col) => col.defaultTo(0).notNull())
-        .addColumn('difficulty', 'real', (col) => col.defaultTo(0).notNull())
-        .addColumn('elapsed_days', 'integer', (col) => col.defaultTo(0).notNull())
-        .addColumn('scheduled_days', 'integer', (col) => col.defaultTo(0).notNull())
-        .addColumn('learning_steps', 'integer', (col) => col.defaultTo(0).notNull())
-        .addColumn('reps', 'integer', (col) => col.defaultTo(0).notNull())
-        .addColumn('lapses', 'integer', (col) => col.defaultTo(0).notNull())
-        .addColumn('state', 'text', (col) => col.defaultTo('new').notNull())
-        .addColumn('last_review_at', 'text')
-        .addColumn('updated_at', 'text', (col) => col.defaultTo(sql`CURRENT_TIMESTAMP`).notNull())
-        .addCheckConstraint('chk_word_learning_records_state_enum', sql`state IN ('new', 'learning', 'review', 'relearning')`)
-        .addCheckConstraint('chk_word_learning_records_elapsed_days_gte0', sql`elapsed_days >= 0`)
-        .addCheckConstraint('chk_word_learning_records_scheduled_days_gte0', sql`scheduled_days >= 0`)
-        .addCheckConstraint('chk_word_learning_records_learning_steps_gte0', sql`learning_steps >= 0`)
-        .addCheckConstraint('chk_word_learning_records_reps_gte0', sql`reps >= 0`)
-        .addCheckConstraint('chk_word_learning_records_lapses_gte0', sql`lapses >= 0`)
-        .execute();
+    // word_learning_records missing in DB
 
-    await db.schema.createIndex('idx_word_learning_records_due_at').on('word_learning_records').column('due_at').execute();
-
-    // Articles
+    // 5. Articles (Normalized)
     await db.schema
         .createTable('articles')
         .addColumn('id', 'text', (col) => col.primaryKey().notNull())
@@ -112,74 +93,80 @@ export async function up(db: Kysely<any>): Promise<void> {
         .addColumn('model', 'text', (col) => col.notNull())
         .addColumn('variant', 'integer', (col) => col.notNull())
         .addColumn('title', 'text', (col) => col.notNull())
-        .addColumn('content_json', 'text', (col) => col.notNull())
+        .addColumn('slug', 'text')
+        .addColumn('source_url', 'text')
         .addColumn('status', 'text', (col) => col.notNull())
+        .addColumn('read_levels', 'integer', (col) => col.defaultTo(0))
         .addColumn('created_at', 'text', (col) => col.defaultTo(sql`CURRENT_TIMESTAMP`).notNull())
         .addColumn('published_at', 'text')
-        // Additional columns implicitly in schema.sql but explicitly used in types?
-        // Looking at schema.sql line 84-85: source_url, slug, read_levels are NOT in the CREATE TABLE output I saw earlier?
-        // Wait, let me re-check schema.sql content I read in Step 25.
-        // Lines 84-85 of schema.sql were REMOVED in the file view?
-        // Re-reading Step 25 Output...
-        // Ah, Step 25 output lines 106-121:
-        // 106: CREATE TABLE articles (
-        // 107: 	id text PRIMARY KEY NOT NULL,
-        // 108: 	generation_task_id text NOT NULL,
-        // 109: 
-        // 110: 	model text NOT NULL,
-        // 111: 	variant integer NOT NULL,
-        // 112: 	title text NOT NULL,
-        // 113: 	content_json text NOT NULL,
-        // 114: 	status text NOT NULL,
-        // 115: 	created_at text DEFAULT (CURRENT_TIMESTAMP) NOT NULL,
-        // 116: 	published_at text,
-        // ...
-        // BUT src/db/types.ts has:
-        // 84:     source_url: string | null;
-        // 85:     slug: string | null;
-        // 88:     read_levels: Generated<number>; // Default 0
-        //
-        // This implies schema.sql vs types.ts mismatch, OR I missed something.
-        // Wait, looking at lines 77-92 of types.ts vs lines 106-121 schema.sql.
-        // schema.sql DOES NOT have source_url, slug.
-        // USER said "1.0.1 修改了数据库字段", implying checking migration process.
-        // I should strictly follow schema.sql as the SOURCE OF TRUTH for the initial migration.
-        // If types.ts has extra fields, they might be planned or leftovers.
-        // I will follow schema.sql exactly from Step 25.
-
         .addCheckConstraint('chk_articles_status_enum', sql`status IN ('draft', 'published')`)
         .addCheckConstraint('chk_articles_variant_gte1', sql`variant >= 1`)
-        .addCheckConstraint('chk_articles_content_json_valid', sql`json_valid(content_json)`)
         .execute();
 
-    // Notes: types.ts seems to define ArticleVariantsTable etc which are NOT in schema.sql?
-    // Re-reading Step 25 schema.sql...
-    // I see `daily_words`, `words`, `word_learning_records`, `articles`, `highlights`, `tasks`, `generation_profiles`.
-    // I DO NOT see `article_variants`, `article_vocabulary`, `article_vocab_definitions`, `article_word_index` in schema.sql!!!
-    // This is a major discrepancy. `types.ts` has them. `schema.sql` does not.
-    // The user previously said "Explore server/db for schema definitions" (Step 15).
-    // It seems `server/db/schema.sql` might be OUTDATED or INCOMPLETE compared to `types.ts`?
-    // OR `types.ts` defines things that are stored in JSON columns?
-    // e.g. `article_variants` table in types.ts lines 94-107.
-    // In schema.sql, `articles` has `content_json`. Maybe variants are inside?
-    // BUT types.ts has `ArticleVariantsTable` interface.
-    // Wait, if I look at `server/src/db/types.ts` line 9-14:
-    // article_variants: ArticleVariantsTable;
-    // article_vocabulary: ArticleVocabularyTable;
-    // ...
-    // This suggests they SHOULD be tables.
-    // But `schema.sql` clearly lacks them.
-    // Let me convert exactly what is in `schema.sql` for now as "Initial Schema".
-    // A future migration can add the missing tables if they are actually needed.
-    // Or `schema.sql` is just wrong.
-    // However, since the user is moving FROM `schema.sql` based workflow, I must honor `schema.sql`.
-
     await db.schema.createIndex('uq_articles_unique').on('articles').columns(['generation_task_id', 'model', 'variant']).unique().execute();
+    await db.schema.createIndex('uq_articles_slug').on('articles').column('slug').unique().execute();
     await db.schema.createIndex('idx_articles_generation_task_id').on('articles').column('generation_task_id').execute();
     await db.schema.createIndex('idx_articles_status').on('articles').column('status').execute();
     await db.schema.createIndex('idx_articles_published').on('articles').column('published_at').execute();
 
-    // Highlights
+    // 6. Article Variants
+    await db.schema
+        .createTable('article_variants')
+        .addColumn('id', 'text', (col) => col.primaryKey().notNull())
+        .addColumn('article_id', 'text', (col) => col.notNull().references('articles.id'))
+        .addColumn('level', 'integer', (col) => col.notNull())
+        .addColumn('level_label', 'text', (col) => col.notNull())
+        .addColumn('title', 'text', (col) => col.notNull())
+        .addColumn('content', 'text', (col) => col.notNull())
+        .addColumn('syntax_json', 'text')
+        .addColumn('sentences_json', 'text')
+        .addColumn('created_at', 'text', (col) => col.defaultTo(sql`CURRENT_TIMESTAMP`).notNull())
+        .addCheckConstraint('chk_article_variants_syntax_json_valid', sql`syntax_json IS NULL OR json_valid(syntax_json)`)
+        .addCheckConstraint('chk_article_variants_sentences_json_valid', sql`sentences_json IS NULL OR json_valid(sentences_json)`)
+        .execute();
+
+    await db.schema.createIndex('idx_article_variants_article_id').on('article_variants').column('article_id').execute();
+    await db.schema.createIndex('idx_article_variants_level').on('article_variants').columns(['article_id', 'level']).unique().execute();
+
+    // 7. Article Vocabulary & Definitions
+    await db.schema
+        .createTable('article_vocabulary')
+        .addColumn('id', 'text', (col) => col.primaryKey().notNull())
+        .addColumn('article_id', 'text', (col) => col.notNull().references('articles.id'))
+        .addColumn('word', 'text', (col) => col.notNull())
+        .addColumn('used_form', 'text')
+        .addColumn('phonetic', 'text')
+        .addColumn('created_at', 'text', (col) => col.defaultTo(sql`CURRENT_TIMESTAMP`).notNull())
+        .execute();
+
+    await db.schema.createIndex('idx_article_vocabulary_article_word').on('article_vocabulary').columns(['article_id', 'word']).unique().execute();
+
+    await db.schema
+        .createTable('article_vocab_definitions')
+        .addColumn('id', 'text', (col) => col.primaryKey().notNull())
+        .addColumn('vocab_id', 'text', (col) => col.notNull().references('article_vocabulary.id'))
+        .addColumn('part_of_speech', 'text', (col) => col.notNull())
+        .addColumn('definition', 'text', (col) => col.notNull())
+        .addColumn('created_at', 'text', (col) => col.defaultTo(sql`CURRENT_TIMESTAMP`).notNull())
+        .execute();
+
+    await db.schema.createIndex('idx_article_vocab_definitions_vocab_id').on('article_vocab_definitions').column('vocab_id').execute();
+
+    // 8. Article Word Index
+    await db.schema
+        .createTable('article_word_index')
+        .addColumn('id', 'text', (col) => col.primaryKey().notNull())
+        .addColumn('word', 'text', (col) => col.notNull())
+        .addColumn('article_id', 'text', (col) => col.notNull().references('articles.id'))
+        .addColumn('context_snippet', 'text', (col) => col.notNull())
+        .addColumn('role', 'text', (col) => col.notNull())
+        .addColumn('created_at', 'text', (col) => col.defaultTo(sql`CURRENT_TIMESTAMP`).notNull())
+        .execute();
+
+    await db.schema.createIndex('idx_article_word_index_word').on('article_word_index').column('word').execute();
+    await db.schema.createIndex('idx_article_word_index_article_id').on('article_word_index').column('article_id').execute();
+
+    // 9. Highlights
     await db.schema
         .createTable('highlights')
         .addColumn('id', 'text', (col) => col.primaryKey().notNull())
@@ -205,10 +192,15 @@ export async function up(db: Kysely<any>): Promise<void> {
 
 export async function down(db: Kysely<any>): Promise<void> {
     await db.schema.dropTable('highlights').execute();
+    await db.schema.dropTable('article_word_index').execute();
+    await db.schema.dropTable('article_vocab_definitions').execute();
+    await db.schema.dropTable('article_vocabulary').execute();
+    await db.schema.dropTable('article_variants').execute();
     await db.schema.dropTable('articles').execute();
-    await db.schema.dropTable('word_learning_records').execute();
+    // await db.schema.dropTable('word_learning_records').execute();
     await db.schema.dropTable('words').execute();
-    await db.schema.dropTable('daily_words').execute();
+    await db.schema.dropTable('daily_word_references').execute();
+    // await db.schema.dropTable('daily_words').execute();
     await db.schema.dropTable('tasks').execute();
     await db.schema.dropTable('generation_profiles').execute();
 }

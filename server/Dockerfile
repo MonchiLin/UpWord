@@ -26,4 +26,4 @@ ENV BUILD_TIME=$BUILD_TIME
 EXPOSE 7860
 
 # Start the server
-CMD ["bun", "run", "index.ts"]
+CMD ["/bin/sh", "-c", "bun run migrate up && bun run index.ts"]
