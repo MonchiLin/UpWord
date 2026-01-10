@@ -30,6 +30,8 @@ if (!DB_NAME) {
     process.exit(1);
 }
 
+
+
 const LOCAL_DB_PATH = "./local.db";
 const BACKUP_FILE = "./backup.sql";
 

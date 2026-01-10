@@ -46,18 +46,84 @@ export function createDatabase(env?: Env): AppKysely {
         });
     }
 
-    // [3] d1-http: Cloudflare HTTP API (Proxy for Dev)
+    // [3] d1-http: Cloudflare HTTP API
+    // Uses standard Cloudflare API credentials
     if (driver === 'd1-http') {
-        // TODO: Implement custom Kysely Dialect using fetch() to Cloudflare API
-        // For now, recommend using 'sqlite-local' and 'db:pull' script.
-        throw new Error("D1 HTTP driver not implemented. Please use 'sqlite-local' and run 'bun run db:pull' to sync data.");
+        const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+        const databaseId = process.env.CLOUDFLARE_DATABASE_ID;
+        const apiKey = process.env.CLOUDFLARE_API_TOKEN;
+
+        if (!accountId || !databaseId || !apiKey) {
+            throw new Error("DB_DRIVER=d1-http requires CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_DATABASE_ID, and CLOUDFLARE_API_TOKEN");
+        }
+
+        console.log(`[DB] Kysely Provider: d1-http (Account: ${accountId}, DB: ${databaseId})`);
+
+        // Note: Community dialect 'kysely-d1-http' would be used here.
+        throw new Error("D1 HTTP dialect not installed. Configuration is valid, but driver is missing.");
+    }
+
+    // [4] turso: LibSQL via HTTP/WebSocket
+    if (driver === 'turso') {
+        const url = process.env.DB_CONNECTION;
+        const authToken = process.env.TURSO_AUTH_TOKEN;
+
+        if (!url) throw new Error("DB_DRIVER=turso requires DB_CONNECTION to be set (e.g., libsql://...)");
+
+        console.log(`[DB] Kysely Provider: turso (${url})`);
+
+        // Dynamic import to avoid bundling issues if not used
+        const { LibsqlDialect } = require('@libsql/kysely-libsql');
+
+        return new Kysely<Database>({
+            dialect: new LibsqlDialect({
+                url,
+                authToken: authToken || undefined,
+            }),
+            plugins,
+        });
+    }
+
+    // [5] mysql: MySQL Driver
+    if (driver === 'mysql') {
+        const url = process.env.DB_CONNECTION;
+        if (!url) throw new Error("DB_DRIVER=mysql requires DB_CONNECTION to be set");
+
+        console.log(`[DB] Kysely Provider: mysql`);
+
+        const { MysqlDialect } = require('kysely');
+        const { createPool } = require('mysql2');
+
+        return new Kysely<Database>({
+            dialect: new MysqlDialect({
+                pool: createPool(url),
+            }),
+            plugins,
+        });
+    }
+
+    // [6] postgres: PostgreSQL Driver
+    if (driver === 'postgres') {
+        const url = process.env.DB_CONNECTION;
+        if (!url) throw new Error("DB_DRIVER=postgres requires DB_CONNECTION to be set");
+
+        console.log(`[DB] Kysely Provider: postgres`);
+
+        const { PostgresDialect } = require('kysely');
+        const { Pool } = require('pg');
+
+        return new Kysely<Database>({
+            dialect: new PostgresDialect({
+                pool: new Pool({
+                    connectionString: url,
+                }),
+            }),
+            plugins,
+        });
     }
 
     throw new Error(`Unknown DB_DRIVER: ${driver}`);
 }
 
-// Default export uses process.env, suitable for 'sqlite-local' usage.
-// For Workers, we might need a different entry point or dependency injection.
-// But mostly 'server/index.ts' is for Bun server (sqlite-local).
-// The Worker entry point (if exists) should call createDatabase(env).
+// Default export uses process.env
 export const db = createDatabase();

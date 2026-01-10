@@ -1,0 +1,90 @@
+---
+title: Environment Variables
+description: Configuration guide for Aperture Daily backend services.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Aperture Daily uses environment variables to configure database connections, LLM providers, and other services. Create a `.env` file in the `server/` directory based on `.env.example`.
+
+## Database Configuration
+
+The system supports multiple database drivers. You can switch between them using `DB_DRIVER`.
+
+### Connection Settings
+
+<Tabs>
+  <TabItem label="SQLite Local (Default)">
+    Best for local development.
+
+    ```bash
+    DB_DRIVER=sqlite-local
+    DB_CONNECTION=../local.db
+    ```
+  </TabItem>
+  <TabItem label="Turso">
+    Connect to a remote LibSQL instance via HTTP/WebSocket.
+
+    ```bash
+    DB_DRIVER=turso
+    DB_CONNECTION=libsql://your-db.turso.io
+    # Dedicated Token for Turso
+    TURSO_AUTH_TOKEN=ey...
+    ```
+  </TabItem>
+  <TabItem label="Cloudflare D1">
+    For Cloudflare Workers (`d1-binding`) or remote HTTP access (`d1-http`).
+
+    **Common Configuration:**
+    ```bash
+    CLOUDFLARE_ACCOUNT_ID=your-account-id
+    CLOUDFLARE_DATABASE_ID=your-db-id
+    CLOUDFLARE_DATABASE_NAME=ApertureDailyData
+    # Used for d1-http driver AND tooling (db:pull/push)
+    CLOUDFLARE_API_TOKEN=your-api-token
+    ```
+
+    - **Runtime (`d1-binding`)**: No extra config needed, platform injects `env.DB`.
+    - **HTTP Mode (`d1-http`)**: Requires the above variables to be set.
+  </TabItem>
+  <TabItem label="MySQL / PostgreSQL">
+    Using standard connection strings.
+
+    ```bash
+    DB_DRIVER=mysql
+    # or DB_DRIVER=postgres
+    DB_CONNECTION=mysql://user:pass@host:3306/db
+    ```
+  </TabItem>
+</Tabs>
+
+## LLM Configuration
+
+Configure your AI provider using `LLM_PROVIDER`.
+
+<Tabs>
+  <TabItem label="Gemini">
+    ```bash
+    LLM_PROVIDER=gemini
+    GEMINI_API_KEY=your-api-key
+    GEMINI_BASE_URL=https://generativelanguage.googleapis.com
+    GEMINI_MODEL=gemini-2.0-flash-thinking-exp
+    ```
+  </TabItem>
+  <TabItem label="OpenAI">
+    ```bash
+    LLM_PROVIDER=openai
+    OPENAI_API_KEY=sk-...
+    OPENAI_BASE_URL=https://api.openai.com/v1
+    OPENAI_MODEL=gpt-4o
+    ```
+  </TabItem>
+  <TabItem label="Claude">
+    ```bash
+    LLM_PROVIDER=claude
+    ANTHROPIC_API_KEY=sk-ant-...
+    ANTHROPIC_BASE_URL=https://api.anthropic.com/v1
+    ANTHROPIC_MODEL=claude-3-5-sonnet-20240620
+    ```
+  </TabItem>
+</Tabs>

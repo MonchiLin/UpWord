@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "astro dev",
     "dev:server": "cd server && bun run dev",
+    "docs:dev": "cd docs && bun run dev",
     "build": "astro build",
     "serve": "bun run ./dist/server/entry.mjs",
     "preview": "astro preview",
