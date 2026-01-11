@@ -2,6 +2,7 @@ import { Kysely, ParseJSONResultsPlugin } from 'kysely';
 import { BunSqliteDialect } from 'kysely-bun-sqlite';
 import { Database as BunDatabase } from 'bun:sqlite';
 import { D1Dialect } from 'kysely-d1';
+import { D1HttpDialect } from './d1-http-dialect';
 import type { Database } from './types';
 import * as path from 'path';
 
@@ -59,8 +60,14 @@ export function createDatabase(env?: Env): AppKysely {
 
         console.log(`[DB] Kysely Provider: d1-http (Account: ${accountId}, DB: ${databaseId})`);
 
-        // Note: Community dialect 'kysely-d1-http' would be used here.
-        throw new Error("D1 HTTP dialect not installed. Configuration is valid, but driver is missing.");
+        return new Kysely<Database>({
+            dialect: new D1HttpDialect({
+                accountId,
+                databaseId,
+                apiToken: apiKey,
+            }),
+            plugins,
+        });
     }
 
     // [4] turso: LibSQL via HTTP/WebSocket
