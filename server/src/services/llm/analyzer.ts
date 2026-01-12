@@ -13,6 +13,7 @@
 
 import { extractJson } from './utils';
 import type { LLMProvider } from './types';
+import { ANALYSIS_SYSTEM_INSTRUCTION } from './prompts';
 
 // ============ 类型定义 ============
 
@@ -360,7 +361,7 @@ async function analyzeArticle(args: {
         try {
             const response = await client.generate({
                 prompt: prompt,
-                system: 'You are a grammar analyzer specialized in English linguistic structure. Your task is to identify key structural roles like Subject, Verb, Object, and various clauses/phrases in the given text. Output strictly valid JSON.',
+                system: ANALYSIS_SYSTEM_INSTRUCTION,
                 // config logic handled by provider
             });
 

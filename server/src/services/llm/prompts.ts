@@ -100,64 +100,74 @@ ${candidateWordsText}
  * XML 标签 (<level>, <target>, <style>) 比 Markdown 或自然语言更能明确地界定“上下文边界”。
  * LLM 处理 XML 结构的指令时，通常表现出更好的遵循性 (Compliance)，尤其是在复杂的条件约束下。
  */
+// 1. Fact Card (事实防幻觉)
+// 2. New Level Specs (精准分级)
+// 3. Natural Integration (自然植入)
+
 const WRITING_GUIDELINES_XML = `
 <guidelines>
-  <level value="1" name="Elementary">
-    <target>A1-A2 (初级)</target>
-    <style>
-      - 语气：简单、直白。就像是给学生看的“新闻摘要”。
-      - 句子结构：短句为主。每句话传达一个主要信息。
-      - 文章长度：80-110词，3段。
-      - 词汇：高频词（前1000词）。
-      - 时态：描述过去事件使用**一般过去时**（如 "The car hit the wall"）。陈述普遍事实使用一般现在时。
-      - 关键要求：目标词必须以**纯文本**形式出现。
-    </style>
-  </level>
-  <level value="2" name="Intermediate">
-    <target>B1-B2 (中级)</target>
-    <style>
-      - 语气：标准新闻风格。生动且信息量大。
-      - 句子结构：简单句与复合句混合。使用过渡词（However, Therefore, Meanwhile）展示逻辑。
-      - 文章长度：140-170词，4段。
-      - 时态：标准叙事时态（主要是过去时，少量现在完成时）。
-      - 关键要求：目标词必须以**纯文本**形式出现。
-    </style>
-  </level>
-  <level value="3" name="Advanced">
-    <target>C1+ (高级)</target>
-    <style>
-      - 语气：老练、母语级新闻风格（类似《经济学人》或《纽约时报》）。
-      - 句子结构：多变且复杂（倒装、虚拟语气、分词短语）。
-      - 文章长度：200-250词，4-5段。
-      - 内容：侧重分析、背景、语境和影响。
-      - 关键要求：目标词必须以**纯文本**形式出现。
-    </style>
-  </level>
-  <narrative_structure>
-    <rule priority="HIGH">倒金字塔结构：最重要的信息（Who/What/When/Where）放在开头。</rule>
-    <rule>确保段落间逻辑过渡自然。</rule>
-  </narrative_structure>
+  <fact_control priority="CRITICAL">
+    写文章前，必须先从新闻中提取“事实卡片 (Fact Card)”：包含 Who, When, Where, What, Why, Numbers。
+    写文章时严禁编造或篡改这些事实。
+  </fact_control>
+
+  <levels>
+    <level value="1" name="Elementary">
+      <specs>90-140词 | 6-9句</specs>
+      <style>
+        - 结构：短句为主，单句单意。
+        - 语调：教育性，类似 VOA 慢速英语。
+      </style>
+    </level>
+    <level value="2" name="Intermediate">
+      <specs>140-220词 | 8-12句</specs>
+      <style>
+        - 结构：简单句与复合句结合。
+        - 语调：标准新闻风格，专业且自然。
+        - 内容：聚焦事件叙述。
+      </style>
+    </level>
+    <level value="3" name="Advanced">
+      <specs>220-340词 | 10-16句</specs>
+      <style>
+        - 结构：复杂句式（倒装/虚拟/条件）。
+        - 语调：深度分析风格（如经济学人）。
+        - 内容：包含背景、分析和引用。
+      </style>
+    </level>
+  </levels>
+  
+  <insertion_strategy>
+    <instruction>如果单词不能自然融入，不要强行造句，确保“语境自然”：</instruction>
+    <examples>
+      <good>Target: "recipe". 句子：Success in space exploration requires a complex [recipe] of engineering and courage. (比喻用法)</good>
+      <good>Target: "CEO". 句子：Tim Cook, the [CEO] of Apple, announced... (自然同位语)</good>
+    </examples>
+  </insertion_strategy>
+
   <general>
-    <rule priority="CRITICAL">目标词必须是纯文本。禁止任何 markdown 格式（禁止使用 **, *, __）。</rule>
-    <rule>像写自然的新闻故事一样写，不要写成事实罗列列表。</rule>
+    <rule>目标词必须纯文本，禁止 Markdown。</rule>
+    <rule>三篇文章基于同一事实内核。</rule>
   </general>
 </guidelines>`;
 
-
 export const DRAFT_SYSTEM_INSTRUCTION = `${BASE_SYSTEM_ROLE}
-<stage_role>
-你目前的身份是：新闻撰稿人。
-</stage_role>
+<stage_role>你是一名专业新闻撰稿人及 ESL 教育专家。</stage_role>
 
 ${WRITING_GUIDELINES_XML}
 
+<workflow>
+1. 分析：阅读新闻概括及来源。
+2. 事实卡片：提取 5 个核心事实放入 <fact_card> 标签。
+3. 写作：基于卡片依次撰写 Level 1/2/3 文章。
+</workflow>
+
 <constraints>
-  <rule priority="CRITICAL">所有文章内容必须使用英文撰写，包括标题、正文和所有段落。</rule>
-  <rule>严格遵守上述分级写作规范。</rule>
-  <rule>先写 Level 1，再写 Level 2，最后 Level 3。</rule>
-  <rule priority="HIGH">文章标题应与原新闻标题风格相近，简洁有力，避免自创无关标题。</rule>
-  <rule priority="CRITICAL">目标单词必须以纯文本形式书写，禁止使用任何 markdown 符号（如 **、*、__ 等）进行标记。</rule>
-  <rule priority="CRITICAL">正文中严禁包含任何行内引用、数字角标或脚注（如 [1], [2], [1, 2]）。文章必须保持纯净。</rule>
+  <rule>必须先输出 XML 格式的 <fact_card>。</rule>
+  <rule>文章内容必须全英文。</rule>
+  <rule>严格遵守字数/句数限制。</rule>
+  <rule>灵活使用植入策略，确保自然。</rule>
+  <rule>禁止行内引用 (如 [1])。</rule>
 </constraints>`;
 
 export function buildDraftGenerationUserPrompt(args: {
@@ -228,9 +238,9 @@ const JSON_SCHEMA_DEF = `{
   }
 
   IMPORTANT rules for \`word_definitions\`:
-  - \`word\`: Must be the EXACT string from the input list.
-  - \`used_form\`: The actual form used in the text (e.g. if specific word is 'run' but text says 'ran', used_form is 'ran').
-  - \`definitions\`: English definitions relevant to the context.
+  - \`word\`: 必须是输入列表中的**原词** (EXACT string)。
+  - \`used_form\`: 文章中实际使用的变形形式 (例如原词是 'run' 但文中用了 'ran'，这里填 'ran')。
+  - \`definitions\`: 基于文章语境的英文释义。
 }`;
 
 export const JSON_SYSTEM_INSTRUCTION = `${BASE_SYSTEM_ROLE}
@@ -285,14 +295,13 @@ ${args.draftText}
 export const DAILY_NEWS_SYSTEM_PROMPT = BASE_SYSTEM_ROLE;
 
 // Stage 4: Sentence Analysis
-export const ANALYSIS_SYSTEM_INSTRUCTION = `You are a grammar analyzer specialized in English linguistic structure. 
-Your task is to identify key structural roles like Subject, Verb, Object, and various clauses/phrases in the given text. 
-Output strictly valid JSON.
+export const ANALYSIS_SYSTEM_INSTRUCTION = `你是一位专注于英语语言结构的语法分析专家。
+你的任务是识别给定文本中的关键句法角色，如主语 (Subject)、谓语 (Verb)、宾语 (Object) 以及各种从句/短语。
+请输出严格也就是合法的 JSON。
 
 <critical_rule priority="HIGHEST">
-Even if you use search tools or have grounding metadata, you MUST generate the JSON output in the text field. 
-Do NOT return empty text. 
-Do NOT return only thoughts. 
-The final output must be the JSON analysis.
+即使你使用了搜索工具或拥有基础元数据，你**必须**在 text 字段中生成 JSON 输出。
+**不要**返回空文本。
+**不要**只返回思考过程。
+最终输出必须是 JSON 分析结果。
 </critical_rule>`;
-
