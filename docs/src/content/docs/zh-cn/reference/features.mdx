@@ -1,0 +1,189 @@
+---
+title: 功能模块
+description: UpWord 文章阅读器的四大功能支柱。
+---
+
+import { Card, CardGrid, Aside, FileTree } from '@astrojs/starlight/components';
+
+UpWord 的文章阅读器围绕 **四个核心功能支柱** 组织，每个支柱负责阅读体验的一个独特方面。
+
+## 架构概览
+
+<FileTree>
+- src/lib/features/
+  - audio/
+    - audioPreloader.ts
+    - useAudioPlayer.ts
+    - edge-client.ts
+    - types.ts
+  - echoes/
+    - hoverController.ts
+  - reading/
+    - levelSwitcher.ts
+    - readTracker.ts
+  - syntax/
+    - SyntaxController.ts
+    - SyntaxVisualizer.ts
+    - SyntaxDefinitions.ts
+    - AnnotationEngine.ts
+</FileTree>
+
+---
+
+## Reading 阅读
+
+<Card title="核心职责" icon="open-book">
+  难度切换和阅读进度追踪。
+</Card>
+
+### 关键文件
+
+| 文件 | 用途 |
+|------|------|
+| `levelSwitcher.ts` | 管理简单/中等/困难内容切换 |
+| `readTracker.ts` | 追踪阅读进度和用时 |
+
+### 使用示例
+
+```typescript
+import { switchLevel } from '@/lib/features/reading/levelSwitcher';
+
+// 切换到中等难度
+switchLevel('medium');
+```
+
+### 功能特性
+- 无刷新难度切换
+- 跨会话持久化阅读进度
+- 阅读时间统计
+
+---
+
+## Syntax 语法
+
+<Card title="核心职责" icon="pencil">
+  语法分析、可视化注解和语法高亮。
+</Card>
+
+### 关键文件
+
+| 文件 | 用途 |
+|------|------|
+| `SyntaxController.ts` | 协调语法分析展示 |
+| `SyntaxVisualizer.ts` | 渲染可视化语法注解 |
+| `SyntaxDefinitions.ts` | 语法规则定义 |
+| `AnnotationEngine.ts` | 将注解应用到文本 |
+
+### 语法数据结构
+
+```typescript
+interface SyntaxData {
+  sentences: {
+    text: string;
+    tokens: {
+      word: string;
+      pos: string;      // 词性
+      lemma: string;    // 原形
+      dependency: string;
+    }[];
+  }[];
+}
+```
+
+### 功能特性
+- 词性标注与颜色编码
+- 依存关系可视化
+- 交互式语法解释
+
+---
+
+## Echoes 回响
+
+<Card title="核心职责" icon="approve-check-circle">
+  悬停词汇时显示跨文章历史语境。
+</Card>
+
+### 关键文件
+
+| 文件 | 用途 |
+|------|------|
+| `hoverController.ts` | 管理悬停交互和 API 调用 |
+
+### 工作原理
+
+当用户悬停在词汇上时：
+
+1. `hoverController` 检测悬停事件
+2. 查询 `/api/echoes/batch` 获取历史语境
+3. 展示该词在历史文章中出现的句子
+
+```typescript
+// API 响应示例
+{
+  "vocabulary": [
+    {
+      "articleId": 5,
+      "sentence": "Expanding your vocabulary is essential for...",
+      "date": "2024-01-10"
+    }
+  ]
+}
+```
+
+### 功能特性
+- 防抖悬停检测优化性能
+- 响应缓存减少 API 调用
+- 智能 Tooltip 定位
+
+---
+
+## Audio 音频
+
+<Card title="核心职责" icon="rss">
+  TTS 预加载、音频播放器和 Edge TTS 客户端。
+</Card>
+
+### 关键文件
+
+| 文件 | 用途 |
+|------|------|
+| `audioPreloader.ts` | 预加载音频实现流畅播放 |
+| `useAudioPlayer.ts` | 音频控制 React Hook |
+| `edge-client.ts` | Edge TTS API 客户端 |
+
+### 音频播放器 Hook
+
+```typescript
+import { useAudioPlayer } from '@/lib/features/audio/useAudioPlayer';
+
+function ArticleReader() {
+  const { play, pause, isPlaying, progress } = useAudioPlayer(articleId);
+
+  return (
+    <button onClick={isPlaying ? pause : play}>
+      {isPlaying ? '暂停' : '播放'}
+    </button>
+  );
+}
+```
+
+### 功能特性
+- 后台音频预加载
+- 多种 TTS 语音选项
+- 播放速度控制
+- 进度追踪与跳转支持
+
+---
+
+## 扩展功能
+
+添加新的功能支柱：
+
+1. 在 `src/lib/features/` 下创建新目录
+2. 在控制器文件中实现核心逻辑
+3. 添加 React Hook 用于 UI 集成
+4. 在主文章页面注册该功能
+
+<Aside type="tip">
+  遵循现有命名规范：`*Controller.ts` 用于逻辑，`use*.ts` 用于 React Hook。
+</Aside>

@@ -1,0 +1,136 @@
+---
+title: 部署指南
+description: 使用 Cloudflare Pages 和 Docker 将 UpWord 部署到生产环境。
+---
+
+import { Tabs, TabItem, Steps, Aside, FileTree } from '@astrojs/starlight/components';
+
+UpWord 采用 **前后端分离部署** 策略：前端通过 Cloudflare Pages CDN 提供服务，后端在 VPS 上的 Docker 容器中运行。
+
+## 前端 (Cloudflare Pages)
+
+**优势**：零成本、全球 CDN 加速、Git 自动集成。
+
+<Steps>
+
+1. 进入 [Cloudflare Dashboard](https://dash.cloudflare.com/) > **Workers & Pages** > **Create application** > **Pages** > **Connect to Git**。
+
+2. 选择您的仓库 (`upword` 或 `aperture-daily`)。
+
+3. 配置 **构建设置**：
+
+   | 设置 | 值 |
+   |------|-----|
+   | Framework preset | `Astro` |
+   | Build command | `npm run build` |
+   | Output directory | `dist` |
+
+4. 如需添加 **环境变量**：
+   - `PUBLIC_API_URL`：您的后端 API 地址（例如 `https://api.yourdomain.com`）
+
+</Steps>
+
+<Aside type="note">
+  前端需要连接后端 API。在生产环境中，请将 API 地址更新为您的 VPS 域名/IP。
+</Aside>
+
+## 后端 (Docker + GitHub Actions)
+
+### 自动化构建流水线
+
+项目包含 `.github/workflows/docker-publish.yml`，它会：
+1. 监听 `main` 分支的推送
+2. 从 `server/` 目录构建 Docker 镜像
+3. 发布到 `ghcr.io/<your-username>/upword:latest`
+
+**前置条件**：
+- 在仓库 > Settings > Actions > General > Workflow permissions 中开启 **Read and write permissions**
+
+### VPS 部署
+
+<Steps>
+
+1. 在 VPS 上创建 `docker-compose.yml`：
+
+   ```yaml
+   version: '3.8'
+   services:
+     backend:
+       image: ghcr.io/<your-username>/upword:latest
+       container_name: upword-backend
+       restart: always
+       ports:
+         - "3000:3000"
+       environment:
+         - DB_DRIVER=sqlite-local
+         - DB_CONNECTION=/app/data/local.db
+         - LLM_PROVIDER=gemini
+         - GEMINI_API_KEY=your-api-key
+         # 根据需要添加其他环境变量
+       volumes:
+         - ./data:/app/data
+
+     # 可选：使用 Watchtower 自动更新
+     watchtower:
+       image: containrrr/watchtower
+       volumes:
+         - /var/run/docker.sock:/var/run/docker.sock
+       command: --interval 300 upword-backend
+   ```
+
+2. 启动服务：
+
+   ```bash
+   docker-compose up -d
+   ```
+
+3. 验证后端运行状态：
+
+   ```bash
+   curl http://localhost:3000/api/health
+   ```
+
+</Steps>
+
+## 环境变量
+
+请参阅 [环境变量配置](/zh-cn/guides/env-vars/) 获取完整配置参考，包括：
+- 数据库驱动（SQLite、Turso、Cloudflare D1、MySQL、PostgreSQL）
+- LLM 提供商（Gemini、OpenAI、Claude）
+
+## HuggingFace Space 保活
+
+如果部署到 HuggingFace Spaces（免费版），Space 将在 48 小时无活动后休眠。
+
+使用 [UptimeRobot](https://uptimerobot.com) 防止休眠：
+
+1. 注册 UptimeRobot（免费）
+2. 添加新 Monitor，类型选择 **HTTP(s)**
+3. URL：`https://your-space.hf.space/api/health`
+4. 间隔：5-60 分钟
+
+## 反向代理（可选）
+
+在生产环境中，建议使用 Nginx 或 Caddy 作为反向代理：
+
+<Tabs>
+  <TabItem label="Caddy">
+    ```caddy
+    api.yourdomain.com {
+        reverse_proxy localhost:3000
+    }
+    ```
+  </TabItem>
+  <TabItem label="Nginx">
+    ```nginx
+    server {
+        server_name api.yourdomain.com;
+        location / {
+            proxy_pass http://localhost:3000;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+        }
+    }
+    ```
+  </TabItem>
+</Tabs>

@@ -1,0 +1,171 @@
+---
+title: 数据库
+description: 多驱动数据库架构与 Schema 设计。
+---
+
+import { Tabs, TabItem, Aside, FileTree } from '@astrojs/starlight/components';
+
+UpWord 通过统一的抽象层支持多种数据库后端，使用 Drizzle ORM 进行 Schema 定义和迁移。
+
+## 支持的驱动
+
+| 驱动 | 使用场景 | 连接字符串 |
+|------|----------|-----------|
+| `sqlite-local` | 本地开发 | `./local.db` |
+| `turso` | Serverless LibSQL | `libsql://your-db.turso.io` |
+| `d1-binding` | Cloudflare Workers (原生) | 平台自动注入 |
+| `d1-http` | 通过 HTTP 远程访问 D1 | 需要 API Token |
+| `mysql` | MySQL/MariaDB | `mysql://user:pass@host/db` |
+| `postgres` | PostgreSQL | `postgres://user:pass@host/db` |
+
+## 架构
+
+<FileTree>
+- server/
+  - db/
+    - schema.ts         # Drizzle Schema 定义
+  - src/db/
+    - factory.ts        # 驱动工厂
+    - drivers/
+      - sqlite.ts
+      - turso.ts
+      - d1-binding.ts
+      - d1-http-dialect.ts
+      - mysql.ts
+      - postgres.ts
+</FileTree>
+
+## Schema 设计
+
+Schema 使用 Drizzle ORM 定义于 `server/db/schema.ts`：
+
+### 核心表
+
+```typescript
+// 文章表
+export const articles = sqliteTable('articles', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  date: text('date').notNull(),
+  difficulty: text('difficulty').notNull(), // 'easy' | 'medium' | 'hard'
+  title: text('title').notNull(),
+  content: text('content').notNull(),
+  syntaxJson: text('syntax_json'),
+  summary: text('summary'),
+  audioUrl: text('audio_url'),
+  createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+});
+
+// 词汇表
+export const words = sqliteTable('words', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  word: text('word').notNull().unique(),
+  definition: text('definition'),
+  ipa: text('ipa'),
+  createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+});
+
+// 词汇-文章关联表
+export const wordArticles = sqliteTable('word_articles', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  wordId: integer('word_id').references(() => words.id),
+  articleId: integer('article_id').references(() => articles.id),
+  sentence: text('sentence'),
+});
+```
+
+## 数据库管理
+
+### 本地开发
+
+```bash
+# 将 Schema 推送到本地 SQLite
+npm run db:push
+
+# 打开 Drizzle Studio 可视化管理
+npm run db:studio
+```
+
+### 迁移
+
+生产数据库使用迁移文件：
+
+```bash
+# 根据 Schema 变更生成迁移
+drizzle-kit generate:sqlite
+
+# 应用迁移
+drizzle-kit push:sqlite
+```
+
+## 驱动配置
+
+<Tabs>
+  <TabItem label="本地 SQLite">
+    ```bash
+    DB_DRIVER=sqlite-local
+    DB_CONNECTION=./local.db
+    ```
+  </TabItem>
+  <TabItem label="Turso">
+    ```bash
+    DB_DRIVER=turso
+    DB_CONNECTION=libsql://your-db.turso.io
+    TURSO_AUTH_TOKEN=eyJ...
+    ```
+  </TabItem>
+  <TabItem label="Cloudflare D1">
+    ```bash
+    # HTTP 访问方式 (Docker/VPS)
+    DB_DRIVER=d1-http
+    CLOUDFLARE_ACCOUNT_ID=your-account-id
+    CLOUDFLARE_DATABASE_ID=your-db-id
+    CLOUDFLARE_API_TOKEN=your-token
+
+    # Workers 原生绑定
+    DB_DRIVER=d1-binding
+    # 平台自动注入 env.DB
+    ```
+  </TabItem>
+</Tabs>
+
+## 工厂模式
+
+`factory.ts` 模块提供统一接口：
+
+```typescript
+// server/src/db/factory.ts
+import { getDriver } from './factory';
+
+// 根据 DB_DRIVER 环境变量自动选择驱动
+const db = getDriver();
+
+// 配合 Drizzle 使用
+const articles = await db.select().from(articlesTable).all();
+```
+
+<Aside type="tip">
+  工厂模式允许无缝切换本地开发 (SQLite) 和生产环境 (D1/Turso)，无需修改代码。
+</Aside>
+
+## D1 HTTP Dialect
+
+Docker 部署远程访问 Cloudflare D1 时，使用自定义 Kysely dialect：
+
+```typescript
+// server/src/db/d1-http-dialect.ts
+export class D1HttpDialect implements Dialect {
+  // 实现基于 HTTP 的查询执行
+  // 处理认证和错误映射
+}
+```
+
+**限制：**
+- 无法查询 `sqlite_master`（D1 限制）
+- 迁移需要自定义 introspector
+
+## 最佳实践
+
+1. **使用事务** 处理多步操作
+2. **索引高频查询列**（date、word、articleId）
+3. **保持 syntaxJson 紧凑** 避免存储膨胀
+4. **开发环境 Schema 变更后运行 db:push**

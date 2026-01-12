@@ -1,0 +1,90 @@
+---
+title: Quick Start
+description: Get UpWord running locally in minutes.
+---
+
+import { Tabs, TabItem, Steps, Aside } from '@astrojs/starlight/components';
+
+This guide will help you set up UpWord for local development. The project uses a **split-stack architecture**: a frontend built with Astro and a backend powered by Elysia (Bun).
+
+## Prerequisites
+
+- [Bun](https://bun.sh/) runtime (v1.0+)
+- [Node.js](https://nodejs.org/) (v18+ for npm scripts)
+
+## Setup
+
+<Steps>
+
+1. **Clone the repository**
+
+   ```bash
+   git clone https://github.com/MonchiLin/upword.git
+   cd upword
+   ```
+
+2. **Install dependencies**
+
+   <Tabs>
+     <TabItem label="Frontend">
+       ```bash
+       bun install
+       ```
+     </TabItem>
+     <TabItem label="Backend">
+       ```bash
+       cd server && bun install
+       ```
+     </TabItem>
+   </Tabs>
+
+3. **Configure environment variables**
+
+   Copy the example environment file and edit it:
+
+   ```bash
+   cp server/.env.example server/.env
+   ```
+
+   See [Environment Variables](/guides/env-vars/) for detailed configuration options.
+
+4. **Initialize the database**
+
+   ```bash
+   npm run db:push
+   ```
+
+   This creates the local SQLite database and applies the schema.
+
+5. **Start the development servers**
+
+   <Tabs>
+     <TabItem label="Backend (Port 3000)">
+       ```bash
+       npm run dev:server
+       ```
+     </TabItem>
+     <TabItem label="Frontend (Port 4321)">
+       ```bash
+       npm run dev
+       ```
+     </TabItem>
+   </Tabs>
+
+</Steps>
+
+<Aside type="tip">
+  Run both servers in separate terminals for the best development experience.
+</Aside>
+
+## Database Management
+
+| Command | Description |
+|---------|-------------|
+| `npm run db:push` | Push schema changes to the database |
+| `npm run db:studio` | Open Drizzle Studio for visual DB management |
+
+## Next Steps
+
+- [Environment Variables](/guides/env-vars/) - Configure LLM providers and database connections
+- [Deployment Guide](/guides/deployment/) - Deploy to production

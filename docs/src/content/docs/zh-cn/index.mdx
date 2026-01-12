@@ -1,36 +1,55 @@
 ---
 title: UpWord 文档
-description: UpWord 的文档。
+description: UpWord 文档 - 您的每日英语阅读伴侣。
 template: splash
 hero:
-  tagline: UpWord 的配置和部署指南。
+  tagline: AI 驱动的每日英语文章，根据您的词汇水平量身定制。
   image:
     file: ../../../assets/houston.webp
   actions:
+    - text: 快速开始
+      link: guides/quick-start/
+      icon: right-arrow
     - text: 环境变量配置
       link: guides/env-vars/
-      icon: right-arrow
-    - text: 阅读 Starlight 文档
-      link: https://starlight.astro.build
-      icon: external
+      icon: setting
       variant: minimal
 ---
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
-## 下一步
+## 四大功能支柱
+
+UpWord 的文章阅读器围绕 **四个核心功能支柱** 组织：
 
 <CardGrid stagger>
-	<Card title="更新内容" icon="pencil">
-		编辑 `src/content/docs/index.mdx` 来查看页面变化。
+	<Card title="Reading 阅读" icon="open-book">
+		难度切换（简单/中等/困难）和阅读进度追踪。
 	</Card>
-	<Card title="添加新内容" icon="add-document">
-		在 `src/content/docs` 中添加 Markdown 或 MDX 文件以创建新页面。
+	<Card title="Syntax 语法" icon="pencil">
+		语法分析，可视化注解与语法高亮。
 	</Card>
-	<Card title="配置站点" icon="setting">
-		在 `astro.config.mjs` 中编辑 `sidebar` 和其他配置。
+	<Card title="Echoes 回响" icon="approve-check-circle">
+		悬停词汇时显示跨文章历史语境。
 	</Card>
-	<Card title="阅读文档" icon="open-book">
-		在 [Starlight 文档](https://starlight.astro.build/) 中了解更多。
+	<Card title="Audio 音频" icon="rss">
+		TTS 预加载、音频播放器与 Edge TTS 客户端支持。
+	</Card>
+</CardGrid>
+
+## 技术栈
+
+<CardGrid>
+	<Card title="前端" icon="laptop">
+		**Astro** + React 组件，部署于 Cloudflare Pages。
+	</Card>
+	<Card title="后端" icon="seti:db">
+		**Elysia** (Bun) + SQLite/D1/Turso，通过 Docker 部署。
+	</Card>
+	<Card title="LLM 管线" icon="star">
+		多阶段文章生成，支持难度自适应。
+	</Card>
+	<Card title="任务队列" icon="list-format">
+		后台 Worker 异步处理 LLM 任务。
 	</Card>
 </CardGrid>

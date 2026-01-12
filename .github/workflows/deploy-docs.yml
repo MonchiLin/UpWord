@@ -34,6 +34,8 @@ jobs:
           bun install
 
       - name: Build
+        env:
+          DOCS_BASE_PATH: /upword
         run: |
           cd docs
           bun run build

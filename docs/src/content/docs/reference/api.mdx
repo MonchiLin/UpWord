@@ -1,0 +1,207 @@
+---
+title: API Reference
+description: Backend REST API endpoints for UpWord.
+---
+
+import { Aside, Badge } from '@astrojs/starlight/components';
+
+The UpWord backend exposes a RESTful API at `http://localhost:3000` (development) or your configured domain.
+
+## Authentication
+
+Protected endpoints require the `ADMIN_KEY` via header or cookie:
+
+```bash
+# Header authentication
+curl -H "Authorization: Bearer YOUR_ADMIN_KEY" http://localhost:3000/api/admin/...
+
+# Cookie authentication
+curl --cookie "admin_key=YOUR_ADMIN_KEY" http://localhost:3000/api/admin/...
+```
+
+<Aside type="caution">
+  Keep your `ADMIN_KEY` secret. Never expose it in client-side code or logs.
+</Aside>
+
+## Endpoints Overview
+
+### Public Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/health` | Health check |
+| GET | `/api/articles` | List all articles |
+| GET | `/api/articles/:id` | Get article by ID |
+| GET | `/api/words` | Get today's vocabulary words |
+| GET | `/api/echoes/batch` | Batch query cross-article context |
+| POST | `/api/tts` | Generate TTS audio |
+| GET | `/api/config` | Get public configuration |
+
+### Protected Endpoints <Badge text="ADMIN_KEY required" variant="caution" />
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/admin/generate` | Trigger article generation |
+| DELETE | `/api/articles/:id` | Delete an article |
+| PATCH | `/api/articles/:id` | Update article metadata |
+| GET | `/api/tasks` | List task queue status |
+| POST | `/api/tasks/:id/cancel` | Cancel a running task |
+| POST | `/api/cron/trigger` | Manually trigger cron job |
+| POST | `/api/setup` | Initial setup configuration |
+
+---
+
+## Articles API
+
+### List Articles
+
+```http
+GET /api/articles
+```
+
+**Query Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `date` | string | Filter by date (YYYY-MM-DD) |
+| `limit` | number | Max results (default: 10) |
+| `offset` | number | Pagination offset |
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "title": "Article Title",
+      "difficulty": "easy",
+      "createdAt": "2024-01-15T08:00:00Z",
+      "wordCount": 350
+    }
+  ]
+}
+```
+
+### Get Article
+
+```http
+GET /api/articles/:id
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "title": "Article Title",
+    "content": "Article content in HTML...",
+    "difficulty": "easy",
+    "syntaxJson": { ... },
+    "audioUrl": "/audio/article-1.mp3"
+  }
+}
+```
+
+---
+
+## TTS API
+
+### Generate Audio
+
+```http
+POST /api/tts
+Content-Type: application/json
+
+{
+  "text": "Hello, world!",
+  "voice": "en-US-AriaNeural"
+}
+```
+
+**Response:** Audio stream (audio/mpeg)
+
+---
+
+## Echoes API
+
+### Batch Query
+
+Retrieve cross-article context for vocabulary words.
+
+```http
+POST /api/echoes/batch
+Content-Type: application/json
+
+{
+  "words": ["vocabulary", "comprehension"]
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "vocabulary": [
+      {
+        "articleId": 5,
+        "sentence": "Building vocabulary is essential...",
+        "context": "..."
+      }
+    ]
+  }
+}
+```
+
+---
+
+## Tasks API
+
+### List Tasks <Badge text="Protected" variant="caution" />
+
+```http
+GET /api/tasks
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "queue": [
+      {
+        "id": "task-123",
+        "type": "generate",
+        "status": "running",
+        "progress": 65,
+        "createdAt": "2024-01-15T10:00:00Z"
+      }
+    ]
+  }
+}
+```
+
+---
+
+## Error Responses
+
+All errors follow a consistent format:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Article not found"
+  }
+}
+```
+
+**Common Error Codes:**
+| Code | HTTP Status | Description |
+|------|-------------|-------------|
+| `NOT_FOUND` | 404 | Resource not found |
+| `UNAUTHORIZED` | 401 | Missing or invalid ADMIN_KEY |
+| `VALIDATION_ERROR` | 400 | Invalid request parameters |
+| `INTERNAL_ERROR` | 500 | Server error |

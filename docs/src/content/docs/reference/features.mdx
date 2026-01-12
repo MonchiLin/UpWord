@@ -1,0 +1,189 @@
+---
+title: Feature Modules
+description: The four pillars of UpWord's article reader experience.
+---
+
+import { Card, CardGrid, Aside, FileTree } from '@astrojs/starlight/components';
+
+UpWord's article reader is organized around **four core feature pillars**, each responsible for a distinct aspect of the reading experience.
+
+## Architecture Overview
+
+<FileTree>
+- src/lib/features/
+  - audio/
+    - audioPreloader.ts
+    - useAudioPlayer.ts
+    - edge-client.ts
+    - types.ts
+  - echoes/
+    - hoverController.ts
+  - reading/
+    - levelSwitcher.ts
+    - readTracker.ts
+  - syntax/
+    - SyntaxController.ts
+    - SyntaxVisualizer.ts
+    - SyntaxDefinitions.ts
+    - AnnotationEngine.ts
+</FileTree>
+
+---
+
+## Reading
+
+<Card title="Core Responsibility" icon="open-book">
+  Difficulty switching and reading progress tracking.
+</Card>
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `levelSwitcher.ts` | Manages Easy/Medium/Hard content switching |
+| `readTracker.ts` | Tracks reading progress and time spent |
+
+### Usage Example
+
+```typescript
+import { switchLevel } from '@/lib/features/reading/levelSwitcher';
+
+// Switch to medium difficulty
+switchLevel('medium');
+```
+
+### Features
+- Seamless difficulty switching without page reload
+- Persistent reading progress across sessions
+- Reading time analytics
+
+---
+
+## Syntax
+
+<Card title="Core Responsibility" icon="pencil">
+  Grammar analysis, visual annotations, and syntax highlighting.
+</Card>
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `SyntaxController.ts` | Orchestrates syntax analysis display |
+| `SyntaxVisualizer.ts` | Renders visual grammar annotations |
+| `SyntaxDefinitions.ts` | Grammar rule definitions |
+| `AnnotationEngine.ts` | Applies annotations to text |
+
+### Syntax Data Structure
+
+```typescript
+interface SyntaxData {
+  sentences: {
+    text: string;
+    tokens: {
+      word: string;
+      pos: string;      // Part of speech
+      lemma: string;    // Base form
+      dependency: string;
+    }[];
+  }[];
+}
+```
+
+### Features
+- Part-of-speech tagging with color coding
+- Dependency relationship visualization
+- Interactive grammar explanations
+
+---
+
+## Echoes
+
+<Card title="Core Responsibility" icon="approve-check-circle">
+  Cross-article context display when hovering over vocabulary.
+</Card>
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `hoverController.ts` | Manages hover interactions and API calls |
+
+### How It Works
+
+When a user hovers over a vocabulary word:
+
+1. `hoverController` detects the hover event
+2. Queries `/api/echoes/batch` for historical context
+3. Displays sentences from previous articles where the word appeared
+
+```typescript
+// Example API response
+{
+  "vocabulary": [
+    {
+      "articleId": 5,
+      "sentence": "Expanding your vocabulary is essential for...",
+      "date": "2024-01-10"
+    }
+  ]
+}
+```
+
+### Features
+- Debounced hover detection for performance
+- Cached responses to reduce API calls
+- Contextual tooltip positioning
+
+---
+
+## Audio
+
+<Card title="Core Responsibility" icon="rss">
+  TTS preloading, audio player, and Edge TTS client.
+</Card>
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `audioPreloader.ts` | Preloads audio for smooth playback |
+| `useAudioPlayer.ts` | React hook for audio controls |
+| `edge-client.ts` | Edge TTS API client |
+
+### Audio Player Hook
+
+```typescript
+import { useAudioPlayer } from '@/lib/features/audio/useAudioPlayer';
+
+function ArticleReader() {
+  const { play, pause, isPlaying, progress } = useAudioPlayer(articleId);
+
+  return (
+    <button onClick={isPlaying ? pause : play}>
+      {isPlaying ? 'Pause' : 'Play'}
+    </button>
+  );
+}
+```
+
+### Features
+- Background audio preloading
+- Multiple TTS voice options
+- Playback speed control
+- Progress tracking with seek support
+
+---
+
+## Extending Features
+
+To add a new feature pillar:
+
+1. Create a new directory under `src/lib/features/`
+2. Implement core logic in a controller file
+3. Add React hooks for UI integration
+4. Register the feature in the main article page
+
+<Aside type="tip">
+  Follow the existing naming conventions: `*Controller.ts` for logic, `use*.ts` for React hooks.
+</Aside>

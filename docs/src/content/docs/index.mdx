@@ -1,40 +1,55 @@
 ---
-title: Aperture Daily Docs
-description: Documentation for Aperture Daily.
+title: UpWord Docs
+description: Documentation for UpWord - Your daily English reading companion.
 template: splash
 hero:
-  tagline: Configuration and deployment guides for Aperture Daily.
+  tagline: AI-powered daily English articles tailored to your vocabulary level.
   image:
     file: ../../assets/houston.webp
   actions:
+    - text: Quick Start
+      link: guides/quick-start/
+      icon: right-arrow
     - text: Environment Variables
       link: guides/env-vars/
-      icon: right-arrow
-    - text: Read the Starlight docs
-      link: https://starlight.astro.build
-      icon: external
+      icon: setting
       variant: minimal
 ---
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
-## Next steps
+## Four Pillars of Features
+
+UpWord's article reader is organized around **four core feature pillars**:
 
 <CardGrid stagger>
-	<Card title="Update content" icon="pencil">
-		Edit `src/content/docs/index.mdx` to see this page change.
+	<Card title="Reading" icon="open-book">
+		Difficulty switching (Easy/Medium/Hard) and reading progress tracking.
 	</Card>
-	<Card title="Change page layout" icon="document">
-		Delete `template: splash` in `src/content/docs/index.mdx` to display a
-		sidebar on this page.
+	<Card title="Syntax" icon="pencil">
+		Grammar analysis with visual annotations and syntax highlighting.
 	</Card>
-	<Card title="Add new content" icon="add-document">
-		Add Markdown or MDX files to `src/content/docs` to create new pages.
+	<Card title="Echoes" icon="approve-check-circle">
+		Cross-article context display when hovering over vocabulary words.
 	</Card>
-	<Card title="Configure your site" icon="setting">
-		Edit your `sidebar` and other config in `astro.config.mjs`.
+	<Card title="Audio" icon="rss">
+		TTS preloading, audio player, and Edge TTS client support.
 	</Card>
-	<Card title="Read the docs" icon="open-book">
-		Learn more in [the Starlight Docs](https://starlight.astro.build/).
+</CardGrid>
+
+## Tech Stack
+
+<CardGrid>
+	<Card title="Frontend" icon="laptop">
+		**Astro** + React components, deployed on Cloudflare Pages.
+	</Card>
+	<Card title="Backend" icon="seti:db">
+		**Elysia** (Bun) + SQLite/D1/Turso, deployed via Docker.
+	</Card>
+	<Card title="LLM Pipeline" icon="star">
+		Multi-stage article generation with difficulty adaptation.
+	</Card>
+	<Card title="Task Queue" icon="list-format">
+		Background workers for async LLM processing.
 	</Card>
 </CardGrid>

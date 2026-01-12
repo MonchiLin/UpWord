@@ -1,0 +1,90 @@
+---
+title: 快速开始
+description: 几分钟内在本地运行 UpWord。
+---
+
+import { Tabs, TabItem, Steps, Aside } from '@astrojs/starlight/components';
+
+本指南将帮助您设置 UpWord 本地开发环境。项目采用 **前后端分离架构**：前端使用 Astro 构建，后端由 Elysia (Bun) 驱动。
+
+## 前置条件
+
+- [Bun](https://bun.sh/) 运行时 (v1.0+)
+- [Node.js](https://nodejs.org/) (v18+ 用于 npm 脚本)
+
+## 设置步骤
+
+<Steps>
+
+1. **克隆仓库**
+
+   ```bash
+   git clone https://github.com/MonchiLin/upword.git
+   cd upword
+   ```
+
+2. **安装依赖**
+
+   <Tabs>
+     <TabItem label="前端">
+       ```bash
+       bun install
+       ```
+     </TabItem>
+     <TabItem label="后端">
+       ```bash
+       cd server && bun install
+       ```
+     </TabItem>
+   </Tabs>
+
+3. **配置环境变量**
+
+   复制示例环境文件并编辑：
+
+   ```bash
+   cp server/.env.example server/.env
+   ```
+
+   详细配置选项请参阅 [环境变量](/zh-cn/guides/env-vars/)。
+
+4. **初始化数据库**
+
+   ```bash
+   npm run db:push
+   ```
+
+   这将创建本地 SQLite 数据库并应用 Schema。
+
+5. **启动开发服务器**
+
+   <Tabs>
+     <TabItem label="后端 (端口 3000)">
+       ```bash
+       npm run dev:server
+       ```
+     </TabItem>
+     <TabItem label="前端 (端口 4321)">
+       ```bash
+       npm run dev
+       ```
+     </TabItem>
+   </Tabs>
+
+</Steps>
+
+<Aside type="tip">
+  在两个独立的终端中分别运行服务器，以获得最佳开发体验。
+</Aside>
+
+## 数据库管理
+
+| 命令 | 说明 |
+|------|------|
+| `npm run db:push` | 将 Schema 变更推送到数据库 |
+| `npm run db:studio` | 打开 Drizzle Studio 可视化管理数据库 |
+
+## 下一步
+
+- [环境变量](/zh-cn/guides/env-vars/) - 配置 LLM 提供商和数据库连接
+- [部署指南](/zh-cn/guides/deployment/) - 部署到生产环境

@@ -1,4 +1,4 @@
-# UpWord (formerly Aperture Daily / Dancix)
+# UpWord
 
 ## 目标
 基于 Astro (Frontend) + ElysiaJS (Backend) 的每日单词阅读平台。

@@ -1,0 +1,136 @@
+---
+title: Deployment Guide
+description: Deploy UpWord to production with Cloudflare Pages and Docker.
+---
+
+import { Tabs, TabItem, Steps, Aside, FileTree } from '@astrojs/starlight/components';
+
+UpWord uses a **split-stack deployment** strategy: the frontend is served via Cloudflare Pages CDN, while the backend runs in a Docker container on your VPS.
+
+## Frontend (Cloudflare Pages)
+
+**Benefits**: Zero-cost, global CDN acceleration, automatic Git integration.
+
+<Steps>
+
+1. Go to [Cloudflare Dashboard](https://dash.cloudflare.com/) > **Workers & Pages** > **Create application** > **Pages** > **Connect to Git**.
+
+2. Select your repository (`upword` or `aperture-daily`).
+
+3. Configure **Build settings**:
+
+   | Setting | Value |
+   |---------|-------|
+   | Framework preset | `Astro` |
+   | Build command | `npm run build` |
+   | Output directory | `dist` |
+
+4. Add **Environment variables** if needed:
+   - `PUBLIC_API_URL`: Your backend API URL (e.g., `https://api.yourdomain.com`)
+
+</Steps>
+
+<Aside type="note">
+  The frontend connects to the backend API. In production, update the API URL to your VPS domain/IP.
+</Aside>
+
+## Backend (Docker + GitHub Actions)
+
+### Automated Build Pipeline
+
+The project includes `.github/workflows/docker-publish.yml` which:
+1. Listens for pushes to the `main` branch
+2. Builds the Docker image from `server/` directory
+3. Publishes to `ghcr.io/<your-username>/upword:latest`
+
+**Prerequisites**:
+- Enable **Read and write permissions** in: Repository > Settings > Actions > General > Workflow permissions
+
+### VPS Deployment
+
+<Steps>
+
+1. Create a `docker-compose.yml` on your VPS:
+
+   ```yaml
+   version: '3.8'
+   services:
+     backend:
+       image: ghcr.io/<your-username>/upword:latest
+       container_name: upword-backend
+       restart: always
+       ports:
+         - "3000:3000"
+       environment:
+         - DB_DRIVER=sqlite-local
+         - DB_CONNECTION=/app/data/local.db
+         - LLM_PROVIDER=gemini
+         - GEMINI_API_KEY=your-api-key
+         # Add other environment variables as needed
+       volumes:
+         - ./data:/app/data
+
+     # Optional: Auto-update with Watchtower
+     watchtower:
+       image: containrrr/watchtower
+       volumes:
+         - /var/run/docker.sock:/var/run/docker.sock
+       command: --interval 300 upword-backend
+   ```
+
+2. Start the services:
+
+   ```bash
+   docker-compose up -d
+   ```
+
+3. Verify the backend is running:
+
+   ```bash
+   curl http://localhost:3000/api/health
+   ```
+
+</Steps>
+
+## Environment Variables
+
+See [Environment Variables](/guides/env-vars/) for complete configuration reference including:
+- Database drivers (SQLite, Turso, Cloudflare D1, MySQL, PostgreSQL)
+- LLM providers (Gemini, OpenAI, Claude)
+
+## HuggingFace Space Keep-Alive
+
+If deploying to HuggingFace Spaces (free tier), the space will sleep after 48 hours of inactivity.
+
+Use [UptimeRobot](https://uptimerobot.com) to prevent hibernation:
+
+1. Sign up for UptimeRobot (free)
+2. Add a new Monitor, type: **HTTP(s)**
+3. URL: `https://your-space.hf.space/api/health`
+4. Interval: 5-60 minutes
+
+## Reverse Proxy (Optional)
+
+For production, consider using Nginx or Caddy as a reverse proxy:
+
+<Tabs>
+  <TabItem label="Caddy">
+    ```caddy
+    api.yourdomain.com {
+        reverse_proxy localhost:3000
+    }
+    ```
+  </TabItem>
+  <TabItem label="Nginx">
+    ```nginx
+    server {
+        server_name api.yourdomain.com;
+        location / {
+            proxy_pass http://localhost:3000;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+        }
+    }
+    ```
+  </TabItem>
+</Tabs>

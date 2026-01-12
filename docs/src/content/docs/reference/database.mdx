@@ -1,0 +1,171 @@
+---
+title: Database
+description: Multi-driver database architecture and schema design.
+---
+
+import { Tabs, TabItem, Aside, FileTree } from '@astrojs/starlight/components';
+
+UpWord supports multiple database backends through a unified abstraction layer, using Drizzle ORM for schema definition and migrations.
+
+## Supported Drivers
+
+| Driver | Use Case | Connection String |
+|--------|----------|-------------------|
+| `sqlite-local` | Local development | `./local.db` |
+| `turso` | Serverless LibSQL | `libsql://your-db.turso.io` |
+| `d1-binding` | Cloudflare Workers (native) | Platform-injected |
+| `d1-http` | Remote D1 access via HTTP | Requires API token |
+| `mysql` | MySQL/MariaDB | `mysql://user:pass@host/db` |
+| `postgres` | PostgreSQL | `postgres://user:pass@host/db` |
+
+## Architecture
+
+<FileTree>
+- server/
+  - db/
+    - schema.ts         # Drizzle schema definitions
+  - src/db/
+    - factory.ts        # Driver factory
+    - drivers/
+      - sqlite.ts
+      - turso.ts
+      - d1-binding.ts
+      - d1-http-dialect.ts
+      - mysql.ts
+      - postgres.ts
+</FileTree>
+
+## Schema Design
+
+The schema is defined using Drizzle ORM in `server/db/schema.ts`:
+
+### Core Tables
+
+```typescript
+// Articles table
+export const articles = sqliteTable('articles', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  date: text('date').notNull(),
+  difficulty: text('difficulty').notNull(), // 'easy' | 'medium' | 'hard'
+  title: text('title').notNull(),
+  content: text('content').notNull(),
+  syntaxJson: text('syntax_json'),
+  summary: text('summary'),
+  audioUrl: text('audio_url'),
+  createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Words table
+export const words = sqliteTable('words', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  word: text('word').notNull().unique(),
+  definition: text('definition'),
+  ipa: text('ipa'),
+  createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+});
+
+// Word-Article relationship
+export const wordArticles = sqliteTable('word_articles', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  wordId: integer('word_id').references(() => words.id),
+  articleId: integer('article_id').references(() => articles.id),
+  sentence: text('sentence'),
+});
+```
+
+## Database Management
+
+### Local Development
+
+```bash
+# Push schema to local SQLite
+npm run db:push
+
+# Open Drizzle Studio for visual management
+npm run db:studio
+```
+
+### Migrations
+
+For production databases, use migration files:
+
+```bash
+# Generate migration from schema changes
+drizzle-kit generate:sqlite
+
+# Apply migrations
+drizzle-kit push:sqlite
+```
+
+## Driver Configuration
+
+<Tabs>
+  <TabItem label="SQLite Local">
+    ```bash
+    DB_DRIVER=sqlite-local
+    DB_CONNECTION=./local.db
+    ```
+  </TabItem>
+  <TabItem label="Turso">
+    ```bash
+    DB_DRIVER=turso
+    DB_CONNECTION=libsql://your-db.turso.io
+    TURSO_AUTH_TOKEN=eyJ...
+    ```
+  </TabItem>
+  <TabItem label="Cloudflare D1">
+    ```bash
+    # For HTTP access (Docker/VPS)
+    DB_DRIVER=d1-http
+    CLOUDFLARE_ACCOUNT_ID=your-account-id
+    CLOUDFLARE_DATABASE_ID=your-db-id
+    CLOUDFLARE_API_TOKEN=your-token
+
+    # For Workers (native binding)
+    DB_DRIVER=d1-binding
+    # Platform injects env.DB automatically
+    ```
+  </TabItem>
+</Tabs>
+
+## Factory Pattern
+
+The `factory.ts` module provides a unified interface:
+
+```typescript
+// server/src/db/factory.ts
+import { getDriver } from './factory';
+
+// Automatically selects driver based on DB_DRIVER env var
+const db = getDriver();
+
+// Use with Drizzle
+const articles = await db.select().from(articlesTable).all();
+```
+
+<Aside type="tip">
+  The factory pattern allows seamless switching between local development (SQLite) and production (D1/Turso) without code changes.
+</Aside>
+
+## D1 HTTP Dialect
+
+For Docker deployments accessing Cloudflare D1 remotely, we use a custom Kysely dialect:
+
+```typescript
+// server/src/db/d1-http-dialect.ts
+export class D1HttpDialect implements Dialect {
+  // Implements HTTP-based query execution
+  // Handles authentication and error mapping
+}
+```
+
+**Limitations:**
+- Cannot query `sqlite_master` (D1 restriction)
+- Requires custom introspector for migrations
+
+## Best Practices
+
+1. **Use transactions** for multi-step operations
+2. **Index frequently queried columns** (date, word, articleId)
+3. **Keep syntaxJson compact** to avoid storage bloat
+4. **Run db:push** after schema changes in development

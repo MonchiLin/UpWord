@@ -53,7 +53,7 @@ npm run db:studio
 **零成本、全球CDN加速、Git 自动集成**
 
 1.  进入 [Cloudflare Dashboard](https://dash.cloudflare.com/) > **Workers & Pages** > **Create application** > **Pages** > **Connect to Git**.
-2.  选择你的仓库 (`upword` 或原用名 `aperture-daily`).
+2.  选择你的仓库 (`upword`).
 3.  **构建配置 (Build settings)**:
     *   **Framework preset**: `Astro`
     *   **Build command**: `npm run build`
@@ -104,7 +104,7 @@ services:
     image: containrrr/watchtower
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    command: --interval 300 aperture-daily-backend
+    command: --interval 300 upword-backend
 ```
 
 **启动服务**：
@@ -120,7 +120,7 @@ Hugging Face 免费 Space 在 48 小时无访问后会休眠。使用 [UptimeRob
 
 1.  注册 UptimeRobot (免费)。
 2.  添加新 Monitor，类型选 **HTTP(s)**。
-3.  URL 填：`https://hf2025-aperturedailyserver.hf.space/api/health`
+3.  URL 填：`https://<your-space>.hf.space/api/health`
 4.  间隔设 5-60 分钟均可。
 
 ## Todo

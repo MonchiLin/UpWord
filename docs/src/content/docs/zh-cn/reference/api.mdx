@@ -1,0 +1,207 @@
+---
+title: API 参考
+description: UpWord 后端 REST API 端点文档。
+---
+
+import { Aside, Badge } from '@astrojs/starlight/components';
+
+UpWord 后端提供 RESTful API，开发环境运行于 `http://localhost:3000`，生产环境使用您配置的域名。
+
+## 认证
+
+受保护的端点需要通过 Header 或 Cookie 携带 `ADMIN_KEY`：
+
+```bash
+# Header 认证
+curl -H "Authorization: Bearer YOUR_ADMIN_KEY" http://localhost:3000/api/admin/...
+
+# Cookie 认证
+curl --cookie "admin_key=YOUR_ADMIN_KEY" http://localhost:3000/api/admin/...
+```
+
+<Aside type="caution">
+  请妥善保管 `ADMIN_KEY`，切勿在客户端代码或日志中暴露。
+</Aside>
+
+## 端点概览
+
+### 公开端点
+
+| 方法 | 端点 | 说明 |
+|------|------|------|
+| GET | `/api/health` | 健康检查 |
+| GET | `/api/articles` | 获取文章列表 |
+| GET | `/api/articles/:id` | 根据 ID 获取文章 |
+| GET | `/api/words` | 获取今日词汇 |
+| GET | `/api/echoes/batch` | 批量查询跨文章语境 |
+| POST | `/api/tts` | 生成 TTS 音频 |
+| GET | `/api/config` | 获取公开配置 |
+
+### 受保护端点 <Badge text="需要 ADMIN_KEY" variant="caution" />
+
+| 方法 | 端点 | 说明 |
+|------|------|------|
+| POST | `/api/admin/generate` | 触发文章生成 |
+| DELETE | `/api/articles/:id` | 删除文章 |
+| PATCH | `/api/articles/:id` | 更新文章元数据 |
+| GET | `/api/tasks` | 获取任务队列状态 |
+| POST | `/api/tasks/:id/cancel` | 取消运行中的任务 |
+| POST | `/api/cron/trigger` | 手动触发定时任务 |
+| POST | `/api/setup` | 初始化配置 |
+
+---
+
+## 文章 API
+
+### 获取文章列表
+
+```http
+GET /api/articles
+```
+
+**查询参数：**
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `date` | string | 按日期筛选 (YYYY-MM-DD) |
+| `limit` | number | 最大结果数（默认：10） |
+| `offset` | number | 分页偏移量 |
+
+**响应：**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "title": "文章标题",
+      "difficulty": "easy",
+      "createdAt": "2024-01-15T08:00:00Z",
+      "wordCount": 350
+    }
+  ]
+}
+```
+
+### 获取文章详情
+
+```http
+GET /api/articles/:id
+```
+
+**响应：**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "title": "文章标题",
+    "content": "HTML 格式的文章内容...",
+    "difficulty": "easy",
+    "syntaxJson": { ... },
+    "audioUrl": "/audio/article-1.mp3"
+  }
+}
+```
+
+---
+
+## TTS API
+
+### 生成音频
+
+```http
+POST /api/tts
+Content-Type: application/json
+
+{
+  "text": "Hello, world!",
+  "voice": "en-US-AriaNeural"
+}
+```
+
+**响应：** 音频流 (audio/mpeg)
+
+---
+
+## Echoes API
+
+### 批量查询
+
+获取词汇的跨文章历史语境。
+
+```http
+POST /api/echoes/batch
+Content-Type: application/json
+
+{
+  "words": ["vocabulary", "comprehension"]
+}
+```
+
+**响应：**
+```json
+{
+  "success": true,
+  "data": {
+    "vocabulary": [
+      {
+        "articleId": 5,
+        "sentence": "Building vocabulary is essential...",
+        "context": "..."
+      }
+    ]
+  }
+}
+```
+
+---
+
+## 任务 API
+
+### 获取任务列表 <Badge text="受保护" variant="caution" />
+
+```http
+GET /api/tasks
+```
+
+**响应：**
+```json
+{
+  "success": true,
+  "data": {
+    "queue": [
+      {
+        "id": "task-123",
+        "type": "generate",
+        "status": "running",
+        "progress": 65,
+        "createdAt": "2024-01-15T10:00:00Z"
+      }
+    ]
+  }
+}
+```
+
+---
+
+## 错误响应
+
+所有错误遵循统一格式：
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "文章未找到"
+  }
+}
+```
+
+**常见错误码：**
+| 错误码 | HTTP 状态 | 说明 |
+|--------|-----------|------|
+| `NOT_FOUND` | 404 | 资源未找到 |
+| `UNAUTHORIZED` | 401 | 缺少或无效的 ADMIN_KEY |
+| `VALIDATION_ERROR` | 400 | 请求参数无效 |
+| `INTERNAL_ERROR` | 500 | 服务器错误 |
