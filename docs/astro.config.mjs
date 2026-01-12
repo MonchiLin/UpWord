@@ -42,6 +42,7 @@ export default defineConfig({
 					},
 					items: [
 						{ label: 'Deployment', slug: 'guides/deployment', translations: { 'zh-CN': '部署指南' } },
+						{ label: 'RSS Subscription', slug: 'guides/rss', translations: { 'zh-CN': 'RSS 订阅' } },
 					],
 				},
 				{
