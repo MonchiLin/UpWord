@@ -146,28 +146,35 @@ export default function ProfileEditor({ open, mode, initialDraft, onClose, onSuc
 
                     <div className="space-y-1">
                         <label className="block text-xs font-bold uppercase tracking-widest text-stone-700 mb-2">Topics</label>
-                        <div className="border border-stone-200 rounded p-3 max-h-60 overflow-y-auto bg-stone-50">
+                        <div className="border border-stone-200 rounded p-4 max-h-60 overflow-y-auto bg-stone-50/50">
                             {availableTopics.length === 0 ? (
                                 <div className="text-stone-400 text-sm italic p-2">No active topics found. Add topics in the Topics tab first.</div>
                             ) : (
-                                <div className="grid grid-cols-2 gap-2">
-                                    {availableTopics.map(topic => (
-                                        <label key={topic.id} className="flex items-center gap-2 cursor-pointer p-1.5 hover:bg-white rounded transition-colors group">
-                                            <input
-                                                type="checkbox"
-                                                checked={draft.topicIds.includes(topic.id)}
-                                                onChange={() => toggleTopic(topic.id)}
-                                                className="w-4 h-4 text-stone-900 border-stone-300 rounded focus:ring-stone-500"
-                                            />
-                                            <span className={clsx("text-sm", draft.topicIds.includes(topic.id) ? "text-stone-900 font-bold" : "text-stone-600")}>
+                                <div className="flex flex-wrap gap-2">
+                                    {availableTopics.map(topic => {
+                                        const isSelected = draft.topicIds.includes(topic.id);
+                                        return (
+                                            <button
+                                                key={topic.id}
+                                                onClick={() => toggleTopic(topic.id)}
+                                                className={clsx(
+                                                    "px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all border",
+                                                    isSelected
+                                                        ? "bg-stone-900 text-white border-stone-900 shadow-sm"
+                                                        : "bg-white text-stone-500 border-stone-200 hover:border-stone-400 hover:text-stone-700"
+                                                )}
+                                            >
                                                 {topic.label}
-                                            </span>
-                                        </label>
-                                    ))}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
-                        <p className="text-[10px] text-stone-400 pt-1">Select at least one topic.</p>
+                        <p className="text-[10px] text-stone-400 pt-2 flex justify-between">
+                            <span>Select at least one topic for this profile.</span>
+                            <span className="italic">{draft.topicIds.length} selected</span>
+                        </p>
                     </div>
 
                     {/* Concurrency/Timeout removed */}

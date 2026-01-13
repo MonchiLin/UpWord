@@ -63,9 +63,15 @@ export default function AdminDrawer({ date, initialTasks }: Props) {
                     onClose={() => setOpen(false)}
                     open={open}
                     size="large"
+                    classNames={{
+                        content: 'backdrop-blur-xl bg-white/90 dark:bg-zinc-900/90',
+                        header: 'bg-transparent',
+                        body: 'bg-transparent'
+                    }}
                     styles={{
-                        header: { borderBottom: '1px solid #e7e5e4' },
-                        body: { padding: '24px' }
+                        header: { borderBottom: '1px solid rgba(231, 229, 228, 0.5)' },
+                        body: { padding: '24px' },
+                        mask: { backdropFilter: 'blur(4px)' }
                     }}
                 >
                     <AdminDayPanel date={date} isDrawerMode={true} initialTasks={initialTasks} />

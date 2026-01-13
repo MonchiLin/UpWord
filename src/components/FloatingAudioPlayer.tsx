@@ -65,8 +65,8 @@ const FloatingAudioPlayer: React.FC = () => {
                 className={`
                     relative overflow-hidden flex flex-row z-50 pointer-events-auto origin-bottom-right
                     ${isExpanded
-                        ? 'bg-white/95 backdrop-blur-2xl shadow-[0_30px_60px_-10px_rgba(0,0,0,0.12)] border border-stone-200/50'
-                        : 'bg-white shadow-[0_8px_24px_rgba(0,0,0,0.1)] border border-stone-100 cursor-pointer'
+                        ? 'bg-white/90 backdrop-blur-2xl shadow-[0_30px_60px_-10px_rgba(0,0,0,0.12)] border border-stone-200/50'
+                        : 'bg-white/80 backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,0.1)] border border-stone-100/50 cursor-pointer hover:bg-white/90 transition-colors'
                     }
                 `}
                 onClick={() => !isExpanded && setIsExpanded(true)}

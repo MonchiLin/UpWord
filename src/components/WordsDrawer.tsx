@@ -44,9 +44,15 @@ export default function WordsDrawer({ date, wordData }: { date: string; wordData
                     onClose={() => setOpen(false)}
                     open={open}
                     size="large"
+                    classNames={{
+                        content: 'backdrop-blur-xl bg-white/80 dark:bg-zinc-900/80',
+                        header: 'bg-transparent',
+                        body: 'bg-transparent'
+                    }}
                     styles={{
-                        header: { borderBottom: '1px solid #e7e5e4' },
-                        body: { padding: '24px' }
+                        header: { borderBottom: '1px solid rgba(231, 229, 228, 0.5)' },
+                        body: { padding: '24px' },
+                        mask: { backdropFilter: 'blur(4px)' }
                     }}
                 >
                     {open && <WordListPanel date={date} initialData={wordData} />}

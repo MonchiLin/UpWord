@@ -8,6 +8,7 @@
  */
 import { useStore } from '@nanostores/react';
 import { articlesStore } from '../../lib/store/articlesStore';
+import { motion, AnimatePresence } from 'framer-motion';
 
 import { toArticleSlug } from "../../../server/lib/slug";
 
@@ -18,17 +19,49 @@ interface ArticleItemProps {
     date: string;
 }
 
+const itemVariants = {
+    hidden: { opacity: 0, y: 10 },
+    visible: {
+        opacity: 1,
+        y: 0,
+        transition: {
+            duration: 0.4,
+            ease: "easeOut"
+        }
+    },
+    exit: { opacity: 0, height: 0 }
+};
+
+const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+        opacity: 1,
+        transition: {
+            staggerChildren: 0.08,
+            delayChildren: 0.1
+        }
+    }
+};
+
 function ArticleItem({ title, index, isRead = false, date }: ArticleItemProps) {
     const slug = toArticleSlug(title);
     const href = `/${date}/${slug}`;
 
     return (
-        <article className="group relative border-b border-stone-200/60 last:border-0 hover:bg-stone-50/50 -mx-4 px-4 transition-all duration-300 cursor-pointer">
+        <motion.article
+            variants={itemVariants}
+            className="group relative border-b border-stone-200/60 last:border-0 hover:bg-stone-50/50 -mx-4 px-4 transition-colors duration-300 cursor-pointer"
+            whileHover={{
+                x: 4,
+                backgroundColor: "rgba(250, 250, 249, 0.8)", // stone-50/80
+                transition: { duration: 0.2 }
+            }}
+        >
             <a href={href} className="flex items-baseline py-5 w-full gap-6">
                 {/* Number / Checkmark */}
                 <span className={`inline-flex shrink-0 transition-colors duration-300 select-none w-8 justify-end ${isRead
                     ? 'text-amber-600/60 translate-y-[2px]'
-                    : 'font-display italic text-2xl text-stone-300/80 group-hover:text-stone-500 group-hover:translate-x-1 transition-all'
+                    : 'font-display italic text-2xl text-stone-300/80 group-hover:text-stone-500 transition-all'
                     }`}>
                     {isRead ? (
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
@@ -46,14 +79,18 @@ function ArticleItem({ title, index, isRead = false, date }: ArticleItemProps) {
                 </h3>
 
                 {/* Arrow Icon (Subtle) */}
-                <div className="inline-flex items-center shrink-0 opacity-0 group-hover:opacity-100 transition-all duration-300 transform -translate-x-4 group-hover:translate-x-0 text-stone-300 self-center">
+                <motion.div
+                    className="inline-flex items-center shrink-0 text-stone-300 self-center"
+                    initial={{ opacity: 0, x: -10 }}
+                    whileHover={{ opacity: 1, x: 0 }}
+                >
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
                         <line x1="5" y1="12" x2="19" y2="12"></line>
                         <polyline points="12 5 19 12 12 19"></polyline>
                     </svg>
-                </div>
+                </motion.div>
             </a>
-        </article>
+        </motion.article>
     );
 }
 
@@ -77,23 +114,38 @@ export default function ArticleListClient({ date, initialArticles = [] }: Articl
 
     return (
         <div className="flex-1">
-            {articles.length > 0 ? (
-                <div className="flex flex-col">
-                    {articles.map((article, idx) => (
-                        <ArticleItem
-                            key={article.id}
-                            title={article.title}
-                            index={idx}
-                            isRead={(article.read_levels || 0) > 0}
-                            date={date}
-                        />
-                    ))}
-                </div>
-            ) : (
-                <div className="py-12 flex flex-col items-center justify-center text-stone-400 gap-2">
-                    <span className="font-serif italic text-base text-stone-500">No content.</span>
-                </div>
-            )}
+            <AnimatePresence mode='wait'>
+                {articles.length > 0 ? (
+                    <motion.div
+                        key="list"
+                        className="flex flex-col"
+                        variants={containerVariants}
+                        initial="hidden"
+                        animate="visible"
+                        exit="exit"
+                    >
+                        {articles.map((article, idx) => (
+                            <ArticleItem
+                                key={article.id}
+                                title={article.title}
+                                index={idx}
+                                isRead={(article.read_levels || 0) > 0}
+                                date={date}
+                            />
+                        ))}
+                    </motion.div>
+                ) : (
+                    <motion.div
+                        key="empty"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="py-12 flex flex-col items-center justify-center text-stone-400 gap-2"
+                    >
+                        <span className="font-serif italic text-base text-stone-500">No content.</span>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

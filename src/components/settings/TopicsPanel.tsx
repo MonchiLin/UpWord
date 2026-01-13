@@ -1,5 +1,6 @@
 
 import { useState, useEffect } from 'react';
+import { Drawer, ConfigProvider, Popconfirm } from 'antd';
 import { PlusIcon, TrashIcon, Pencil1Icon } from '@radix-ui/react-icons';
 import { clsx } from 'clsx';
 import Modal from '../ui/Modal';
@@ -83,8 +84,6 @@ export default function TopicsPanel() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Delete this topic? Use caution if it is linked to profiles.')) return;
-
         try {
             await apiFetch(`/api/topics/${id}`, { method: 'DELETE' });
             fetchTopics();
@@ -148,12 +147,19 @@ export default function TopicsPanel() {
                                             >
                                                 <Pencil1Icon />
                                             </button>
-                                            <button
-                                                onClick={() => handleDelete(topic.id)}
-                                                className="p-1 hover:bg-red-100 rounded text-stone-400 hover:text-red-600"
+                                            <Popconfirm
+                                                title="Delete this topic?"
+                                                description="Are you sure? This action cannot be undone."
+                                                onConfirm={() => handleDelete(topic.id)}
+                                                okText="Yes"
+                                                cancelText="No"
                                             >
-                                                <TrashIcon />
-                                            </button>
+                                                <button
+                                                    className="p-1 hover:bg-red-100 rounded text-stone-400 hover:text-red-600"
+                                                >
+                                                    <TrashIcon />
+                                                </button>
+                                            </Popconfirm>
                                         </div>
                                     </td>
                                 </tr>
