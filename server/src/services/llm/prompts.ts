@@ -208,7 +208,12 @@ const JSON_SCHEMA_DEF = `{
           { "pos": "n/v/adj...", "definition": "中文释义 (必须匹配文章语境)" }
       ]
     }
-  ]
+  ],
+  "word_usage_check": {
+    "target_words_count": "Number (输入的目标词总数)",
+    "used_count": "Number (实际在文章中使用的词数)",
+    "missing_words": ["未能融入文章的单词列表"]
+  }
 }`;
 
 export const JSON_SYSTEM_INSTRUCTION = `<role>
@@ -256,12 +261,79 @@ ${args.draftText}
 // 兼容性导出
 export const DAILY_NEWS_SYSTEM_PROMPT = SEARCH_AND_SELECTION_SYSTEM_INSTRUCTION;
 
-// Stage 4: Sentence Analysis (JSON Schema is simple enough, usage English is fine for strict JSON output)
-export const ANALYSIS_SYSTEM_INSTRUCTION = `You are a Syntax Analysis Expert.
-Your task is to analyze the sentence structure of the provided text.
-Output strict JSON format.
+// ============ Stage 4: 句法分析 ============
 
-<rule priority="HIGHEST">
-You MUST return valid JSON in the text field.
-Do not output raw analysis text.
-</rule>`;
+/**
+ * Stage 4 Prompt 设计原则：
+ * 1. 分治策略：每次只分析一个段落 (5-10 句)，避免 "Lost in the Middle"。
+ * 2. 索引映射：使用 [S0], [S1] 编号，确保 LLM 输出可追溯。
+ * 3. 角色限定：明确定义需要标注的语法角色。
+ */
+
+export const ANALYSIS_SYSTEM_INSTRUCTION = `<role>
+你是一名 **句法分析专家 (Syntax Analysis Expert)**，精通英语语法结构分析。
+你的任务是对提供的英文句子进行主谓宾等成分标注，输出严格的 JSON 格式。
+</role>
+
+<roles_definition>
+核心成分:
+- s = 主语 (Subject)
+- v = 谓语动词 (Verb，含完整动词短语如 "has been running")
+- o = 直接宾语 (Direct Object)
+- io = 间接宾语 (Indirect Object)
+- cmp = 补语 (Complement)
+
+从句与短语:
+- rc = 定语从句 (Relative Clause)
+- pp = 介词短语 (Prepositional Phrase)
+- adv = 状语 (Adverbial)
+- app = 同位语 (Appositive)
+
+特殊结构:
+- pas = 被动语态标记 (Passive Voice)
+- con = 连接词 (Connective)
+- inf = 不定式 (Infinitive)
+- ger = 动名词 (Gerund)
+- ptc = 分词 (Participle)
+</roles_definition>
+
+<rules>
+1. **精确匹配**: \`text\` 必须是句子中的原文片段，不可改动。
+2. **完整谓语**: 谓语 \`v\` 应包含完整动词短语 (如 "will be announced"，而非仅 "announced")。
+3. **被动语态**: 同时标注 \`v\` 和 \`pas\`。
+4. **JSON 严格性**: 禁止 trailing comma，禁止注释。
+</rules>
+
+<output_schema>
+\`\`\`json
+{
+  "S0": [{"text": "片段", "role": "角色"}, ...],
+  "S1": [{"text": "片段", "role": "角色"}, ...],
+  ...
+}
+\`\`\`
+</output_schema>
+
+<example>
+输入:
+[S0] The company announced a new product.
+[S1] It will be released next month.
+
+输出:
+\`\`\`json
+{
+  "S0": [
+    {"text": "The company", "role": "s"},
+    {"text": "announced", "role": "v"},
+    {"text": "a new product", "role": "o"}
+  ],
+  "S1": [
+    {"text": "It", "role": "s"},
+    {"text": "will be released", "role": "v"},
+    {"text": "will be released", "role": "pas"},
+    {"text": "next month", "role": "adv"}
+  ]
+}
+\`\`\`
+</example>`;
+

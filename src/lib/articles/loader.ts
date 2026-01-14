@@ -141,7 +141,7 @@ export async function loadArticleBySlug(date: string, slug: string): Promise<Art
         if (articleId) {
             try {
                 // Log the raw response to debug
-                console.log("[Loader] Raw Article Response:", JSON.stringify(articleRes, null, 2));
+                // console.log("[Loader] Raw Article Response:", JSON.stringify(articleRes, null, 2));
 
                 const echoesData = await apiFetch<{ echoes?: Record<string, unknown> }>('/api/echoes/batch', {
                     method: 'POST',

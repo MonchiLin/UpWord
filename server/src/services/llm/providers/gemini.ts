@@ -21,7 +21,7 @@ import {
     buildDraftGenerationUserPrompt,
     buildJsonConversionUserPrompt
 } from '../prompts';
-import { extractHttpUrlsFromText, resolveRedirectUrls } from '../utils';
+import { extractHttpUrlsFromText, resolveRedirectUrls, stripCitations } from '../utils';
 import { runSentenceAnalysis } from '../analyzer';
 
 // 35 分钟超时
@@ -233,12 +233,7 @@ export class GeminiProvider implements DailyNewsProvider {
             }
         });
 
-        let draftText = response.text.trim();
-        // Clean inline citations
-        const citationRegex = /\[\s*\d+(?:,\s*\d+)*\s*\]/g;
-        if (citationRegex.test(draftText)) {
-            draftText = draftText.replace(citationRegex, '');
-        }
+        let draftText = stripCitations(response.text.trim());
 
         const validated = Stage2OutputSchema.parse({ draftText });
 

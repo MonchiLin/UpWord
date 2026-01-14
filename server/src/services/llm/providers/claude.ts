@@ -25,7 +25,7 @@ import {
     buildDraftGenerationUserPrompt,
     buildJsonConversionUserPrompt
 } from '../prompts';
-import { extractHttpUrlsFromText, resolveRedirectUrls, extractJson } from '../utils';
+import { extractHttpUrlsFromText, resolveRedirectUrls, extractJson, stripCitations } from '../utils';
 import { runSentenceAnalysis } from '../analyzer';
 
 // 用户请求的常量定义
@@ -206,7 +206,9 @@ export class ClaudeProvider implements DailyNewsProvider {
             candidateWords: input.candidateWords,
             topicPreference: input.topicPreference,
             currentDate: input.currentDate,
-            recentTitles: input.recentTitles
+            recentTitles: input.recentTitles,
+            topics: input.topics,               // 用户配置的主题列表
+            newsCandidates: input.newsCandidates // RSS 预取的新闻候选
         });
 
         const response = await this.generate({
@@ -253,11 +255,7 @@ export class ClaudeProvider implements DailyNewsProvider {
             prompt: userPrompt
         });
 
-        let draftText = response.text.trim();
-        const citationRegex = /\[\s*\d+(?:,\s*\d+)*\s*\]/g;
-        if (citationRegex.test(draftText)) {
-            draftText = draftText.replace(citationRegex, '');
-        }
+        let draftText = stripCitations(response.text.trim());
 
         const validated = Stage2OutputSchema.parse({ draftText });
         return {
@@ -271,7 +269,8 @@ export class ClaudeProvider implements DailyNewsProvider {
         const userPrompt = buildJsonConversionUserPrompt({
             draftText: input.draftText,
             sourceUrls: input.sourceUrls,
-            selectedWords: input.selectedWords
+            selectedWords: input.selectedWords,
+            topicPreference: input.topicPreference  // 用于设置输出 JSON 的 topic 字段
         });
 
         const response = await this.generate({

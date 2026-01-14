@@ -22,7 +22,7 @@ import {
     buildDraftGenerationUserPrompt,
     buildJsonConversionUserPrompt
 } from '../prompts';
-import { extractHttpUrlsFromText, resolveRedirectUrls } from '../utils';
+import { extractHttpUrlsFromText, resolveRedirectUrls, stripCitations } from '../utils';
 import { runSentenceAnalysis } from '../analyzer';
 
 export class OpenAIProvider implements DailyNewsProvider {
@@ -87,7 +87,9 @@ export class OpenAIProvider implements DailyNewsProvider {
             candidateWords: input.candidateWords,
             topicPreference: input.topicPreference,
             currentDate: input.currentDate,
-            recentTitles: input.recentTitles
+            recentTitles: input.recentTitles,
+            topics: input.topics,               // 用户配置的主题列表
+            newsCandidates: input.newsCandidates // RSS 预取的新闻候选
         });
 
         // Responses API with search
@@ -139,11 +141,7 @@ export class OpenAIProvider implements DailyNewsProvider {
             }
         });
 
-        let draftText = response.text.trim();
-        const citationRegex = /\[\s*\d+(?:,\s*\d+)*\s*\]/g;
-        if (citationRegex.test(draftText)) {
-            draftText = draftText.replace(citationRegex, '');
-        }
+        let draftText = stripCitations(response.text.trim());
 
         const validated = Stage2OutputSchema.parse({ draftText });
         return {
@@ -157,7 +155,8 @@ export class OpenAIProvider implements DailyNewsProvider {
         const userPrompt = buildJsonConversionUserPrompt({
             draftText: input.draftText,
             sourceUrls: input.sourceUrls,
-            selectedWords: input.selectedWords
+            selectedWords: input.selectedWords,
+            topicPreference: input.topicPreference  // 用于设置输出 JSON 的 topic 字段
         });
 
         const response = await this.generate({

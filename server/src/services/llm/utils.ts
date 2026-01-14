@@ -266,6 +266,17 @@ export function collectHttpUrlsFromUnknown(value: unknown): string[] {
     return urls;
 }
 
+/**
+ * 移除 LLM 输出中的行内引用标记
+ * 
+ * 常见格式：[1], [2, 3], [1,2,3] 等
+ * 这些是 LLM 在使用搜索工具后自动添加的引用标注
+ */
+export function stripCitations(text: string): string {
+    const citationRegex = /\[\s*\d+(?:,\s*\d+)*\s*\]/g;
+    return text.replace(citationRegex, '');
+}
+
 // ════════════════════════════════════════════════════════════════
 // URL 重定向解析
 // ════════════════════════════════════════════════════════════════

@@ -20,10 +20,13 @@ export const tasksRoutes = (queue: TaskQueue) => new Elysia({ prefix: '/api' })
     .get('/tasks', async ({ query: { task_date } }) => {
         if (!task_date) throw AppError.badRequest("Missing task_date");
 
+        // JOIN profile 表获取 profile 名称，便于前端展示任务所属配置
         const results = await db.selectFrom('tasks')
-            .selectAll()
-            .where('task_date', '=', task_date)
-            .orderBy('created_at', 'desc')
+            .leftJoin('generation_profiles', 'tasks.profile_id', 'generation_profiles.id')
+            .selectAll('tasks')
+            .select('generation_profiles.name as profile_name')
+            .where('tasks.task_date', '=', task_date)
+            .orderBy('tasks.created_at', 'desc')
             .execute();
 
         return { tasks: toCamelCase(results) };

@@ -182,12 +182,10 @@ function groupSentencesByParagraph(content: string, sentences: SentenceData[]): 
 }
 
 /**
- * 构建段落批量分析的 System Prompt
+ * 构建段落批量分析的 User Prompt
  * 
- * Prompt 设计要点：
- * 1. 索引映射：要求 LLM 针对 [Sn] 编号的句子输出，避免原文/译文混淆。
- * 2. 角色限定：明确定义需要的语法角色 (S/V/O 等)。
- * 3. 严格 JSON：强制输出严格的 JSON 结构，便于程序解析。
+ * 注意：详细的角色定义和输出格式已移至 ANALYSIS_SYSTEM_INSTRUCTION (System Prompt)。
+ * 这里只需提供待分析的句子列表。
  */
 function buildParagraphPrompt(sentences: SentenceData[]): string {
     const numberedSentences = sentences
@@ -195,33 +193,13 @@ function buildParagraphPrompt(sentences: SentenceData[]): string {
         .join('\n\n');
 
     return `<task>
-分析以下段落中每个句子的语法成分。
+请分析以下段落中每个句子的语法成分。
 
 <paragraph>
 ${numberedSentences}
 </paragraph>
 
-<roles>
-s=主语, v=谓语(含助动词), o=直接宾语, io=间接宾语, cmp=补语,
-rc=定语从句, pp=介词短语, adv=状语, app=同位语,
-pas=被动语态, con=连接词, inf=不定式, ger=动名词, ptc=分词
-</roles>
-
-<rules>
-1. text 必须是句子中的原文片段
-2. 谓语 v 包含完整动词短语
-3. 被动语态同时标注 v 和 pas
-</rules>
-
-<output>
-\`\`\`json
-{
-  "S0": [{"text": "片段", "role": "角色"}, ...],
-  "S1": [...],
-  ...
-}
-\`\`\`
-</output>
+按照 System Prompt 中的 <output_schema> 格式返回 JSON。
 </task>`;
 }
 
@@ -359,10 +337,12 @@ async function analyzeArticle(args: {
         const prompt = buildParagraphPrompt(para.sentences);
 
         try {
+            // Stage 4 禁用搜索工具：纯文本分析任务不需要联网，
+            // 且搜索工具会干扰 Thinking Model，导致只输出思考过程而无实际 JSON
             const response = await client.generate({
                 prompt: prompt,
                 system: ANALYSIS_SYSTEM_INSTRUCTION,
-                // config logic handled by provider
+                config: { tools: [] }  // 禁用搜索
             });
 
             const responseText = response.text;
