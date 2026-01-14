@@ -132,101 +132,6 @@ function normalizeUrl(raw: string) {
 }
 
 // ════════════════════════════════════════════════════════════════
-// 选词处理
-// ════════════════════════════════════════════════════════════════
-
-/**
- * 词汇列表去重和裁剪
- *
- * 确保不超过 WORD_SELECTION_MAX_WORDS 上限
- */
-function normalizeWordList(words: string[]) {
-    const unique = Array.from(
-        new Set(words.map((word) => word.trim()).filter(Boolean))
-    );
-    return unique.slice(0, WORD_SELECTION_MAX_WORDS);
-}
-
-/**
- * 从 LLM 响应中提取词汇列表
- *
- * 容错处理：LLM 可能返回多种格式
- * - 字符串：单个词
- * - 字符串数组：["word1", "word2"]
- * - 对象数组：[{ word: "word1" }, { word: "word2" }]
- */
-function pickWordList(raw: unknown): string[] | null {
-    if (typeof raw === 'string') {
-        const trimmed = raw.trim();
-        return trimmed ? [trimmed] : null;
-    }
-    if (!Array.isArray(raw)) return null;
-
-    // 尝试直接提取字符串数组
-    const direct = raw
-        .filter((item) => typeof item === 'string')
-        .map((word) => word.trim())
-        .filter(Boolean);
-    if (direct.length > 0) return normalizeWordList(direct);
-
-    // 尝试从对象数组中提取 word 字段
-    const fromObjects = raw
-        .map((item) => {
-            if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
-            const word = (item as Record<string, unknown>).word;
-            return typeof word === 'string' ? word.trim() : null;
-        })
-        .filter((word): word is string => Boolean(word));
-    if (fromObjects.length > 0) return normalizeWordList(fromObjects);
-
-    return null;
-}
-
-/**
- * 提取选词理由（兼容多种字段名）
- *
- * LLM 可能使用不同的字段名：
- * selection_reasoning, selectionReasoning, reasoning, reason, rationale...
- */
-function pickSelectionReasoning(obj: Record<string, unknown>) {
-    const raw =
-        obj.selection_reasoning ??
-        obj.selectionReasoning ??
-        obj.reasoning ??
-        obj.reason ??
-        obj.rationale ??
-        obj.selection_rationale;
-    if (typeof raw !== 'string') return undefined;
-    const trimmed = raw.trim();
-    return trimmed ? trimmed : undefined;
-}
-
-/**
- * 归一化选词 JSON 响应
- *
- * 严格模式：只接受 selected_words 字段，不做模糊匹配
- * 这是为了避免歧义和提高可预测性
- */
-export function normalizeWordSelectionPayload(value: unknown): unknown {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
-    const obj = value as Record<string, unknown>;
-
-    const selectedWords = pickWordList(obj.selected_words);
-    if (!selectedWords?.length) return value;
-
-    const normalized: Record<string, unknown> = {
-        ...obj,
-        selected_words: selectedWords
-    };
-
-    if (typeof obj.selection_reasoning !== 'string') {
-        const reasoning = pickSelectionReasoning(obj);
-        if (reasoning) normalized.selection_reasoning = reasoning;
-    }
-    return normalized;
-}
-
-// ════════════════════════════════════════════════════════════════
 // URL 提取
 // ════════════════════════════════════════════════════════════════
 
@@ -331,6 +236,48 @@ export async function resolveRedirectUrls(urls: string[]): Promise<string[]> {
     return Array.from(new Set(resolved));
 }
 
+/**
+ * 从 Stage 1 响应中收集并解析 Source URLs
+ *
+ * 处理逻辑：
+ * 1. 提取 validated 中的 source/sources 字段
+ * 2. 从 newsSummary 和 responseText 中提取 HTTP URLs
+ * 3. 合并 Grounding URLs (Gemini 特有)
+ * 4. 去重并限制数量 (最多 5 个)
+ * 5. 解析重定向 URL
+ */
+export async function buildSourceUrls(args: {
+    validated: { source?: string; sources?: string[] };
+    newsSummary: string;
+    responseText: string;
+    groundingUrls?: string[];
+    limit?: number;
+}): Promise<string[]> {
+    const { validated, newsSummary, responseText, groundingUrls = [], limit = 5 } = args;
+
+    // 1. 提取 validated 中的 source(s)
+    let rawSources: string[] = [];
+    if (validated.source) {
+        rawSources = [validated.source];
+    } else if (validated.sources) {
+        rawSources = validated.sources;
+    }
+
+    // 2. 从文本中提取 URLs
+    const textUrls = extractHttpUrlsFromText(newsSummary)
+        .concat(extractHttpUrlsFromText(responseText));
+
+    // 3. 合并所有 URL 并去重
+    const allUrls = Array.from(new Set([
+        ...rawSources,
+        ...textUrls,
+        ...groundingUrls
+    ])).slice(0, limit);
+
+    // 4. 解析重定向
+    return resolveRedirectUrls(allUrls);
+}
+
 // ════════════════════════════════════════════════════════════════
 // JSON 提取
 // ════════════════════════════════════════════════════════════════
@@ -373,7 +320,10 @@ export function extractJson(text: string): string {
 }
 
 // ════════════════════════════════════════════════════════════════
-// 多轮对话支持
+// [RESERVED] 多轮对话支持
+// 
+// 设计意图：为未来实现 Multi-Turn Conversation 能力预留的类型和工具函数。
+// 当前未启用。如需使用，可在 analyzer.ts 或新的对话模块中调用。
 // ════════════════════════════════════════════════════════════════
 
 /** 通用消息格式（跨 Provider 兼容） */
@@ -407,4 +357,3 @@ export function appendResponseToHistory(history: AgnosticMessage[], responseText
         { role: 'assistant', content: responseText }
     ];
 }
-

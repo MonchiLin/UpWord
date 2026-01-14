@@ -21,7 +21,7 @@ import {
     buildDraftGenerationUserPrompt,
     buildJsonConversionUserPrompt
 } from '../prompts';
-import { extractHttpUrlsFromText, resolveRedirectUrls, stripCitations } from '../utils';
+import { extractHttpUrlsFromText, resolveRedirectUrls, stripCitations, extractJson, buildSourceUrls } from '../utils';
 import { runSentenceAnalysis } from '../analyzer';
 
 // 35 分钟超时
@@ -95,9 +95,10 @@ export class GeminiProvider implements DailyNewsProvider {
         // 确保即使 Prompt 没有显式要求，模型也能访问实时信息。
         const tools = options.config?.tools || [{ googleSearch: {} }];
 
-        // 配置: Thinking 默认为 high
+        // 配置: Thinking 默认为 high, 最大输出 65536 tokens
         const generationConfig = {
             temperature: 1,
+            maxOutputTokens: 64000,  // Gemini 3 Pro 最大输出长度
             thinkingConfig: {
                 includeThoughts: true,
                 thinkingLevel: 'high'
@@ -183,30 +184,19 @@ export class GeminiProvider implements DailyNewsProvider {
             }
         });
 
-        const cleanJson = this.stripMarkdownCodeBlock(response.text);
+        const cleanJson = extractJson(response.text);
         const parsed = JSON.parse(cleanJson);
-        const validated = Stage1OutputSchema.parse(validatedPayload(parsed));
+        const validated = Stage1OutputSchema.parse(parsed);
 
-        // URL Resolution Logic moved here from stages.ts
+        // 使用共享函数处理 URL
         const selectedWords = validated.selected_words;
         const newsSummary = validated.news_summary;
-
-        let rawSources: string[] = [];
-        if (validated.source) rawSources = [validated.source];
-        else if (validated.sources) rawSources = validated.sources;
-
-        // Extract URLs from text and grounding metadata (if available in raw output)
-        // Note: Generic generate returns raw 'output' in GenerateResponse
-        const groundingUrls = this.extractGroundingUrls(response.output);
-        const textUrls = extractHttpUrlsFromText(newsSummary).concat(extractHttpUrlsFromText(response.text));
-
-        const allUrls = Array.from(new Set([
-            ...rawSources,
-            ...textUrls,
-            ...groundingUrls
-        ])).slice(0, 5); // Limit sources
-
-        const sourceUrls = await resolveRedirectUrls(allUrls);
+        const sourceUrls = await buildSourceUrls({
+            validated,
+            newsSummary,
+            responseText: response.text,
+            groundingUrls: this.extractGroundingUrls(response.output)
+        });
 
         return {
             selectedWords,
@@ -260,7 +250,7 @@ export class GeminiProvider implements DailyNewsProvider {
             }
         });
 
-        const cleanJson = this.stripMarkdownCodeBlock(response.text);
+        const cleanJson = extractJson(response.text);
         const parsed = JSON.parse(cleanJson);
         // Additional normalization if needed, similar to normalizeDailyNewsOutput
         const validated = Stage3OutputSchema.parse(parsed);
@@ -310,24 +300,7 @@ export class GeminiProvider implements DailyNewsProvider {
         return text;
     }
 
-    /**
-     * 剥离 markdown 代码块包装
-     */
-    private stripMarkdownCodeBlock(text: string): string {
-        const trimmed = text.trim();
-        // 匹配 ```json\n...\n``` 或 ```\n...\n```
-        const match = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/);
-        if (match && match[1]) {
-            return match[1].trim();
-        }
-        // Fallback: extract from first { to last }
-        const start = trimmed.indexOf('{');
-        const end = trimmed.lastIndexOf('}');
-        if (start !== -1 && end !== -1 && end > start) {
-            return trimmed.substring(start, end + 1);
-        }
-        return trimmed;
-    }
+
 
     private extractGroundingUrls(_response: GeminiApiResponse): string[] {
         // Logic to extract URLs from groundingMetadata if strictly needed
@@ -335,11 +308,3 @@ export class GeminiProvider implements DailyNewsProvider {
         return [];
     }
 }
-
-// Helper to make Stage 1 validation more lenient if needed
-function validatedPayload(parsed: any) {
-    // If strict Zod fails, we might need the normalization logic from utils.ts
-    // For now assuming LLM follows schema.
-    return parsed;
-}
-

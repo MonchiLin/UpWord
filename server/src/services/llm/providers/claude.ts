@@ -25,7 +25,7 @@ import {
     buildDraftGenerationUserPrompt,
     buildJsonConversionUserPrompt
 } from '../prompts';
-import { extractHttpUrlsFromText, resolveRedirectUrls, extractJson, stripCitations } from '../utils';
+import { extractHttpUrlsFromText, resolveRedirectUrls, extractJson, stripCitations, buildSourceUrls } from '../utils';
 import { runSentenceAnalysis } from '../analyzer';
 
 // 用户请求的常量定义
@@ -220,18 +220,14 @@ export class ClaudeProvider implements DailyNewsProvider {
         const parsed = JSON.parse(cleanJson);
         const validated = Stage1OutputSchema.parse(parsed);
 
-        // URL logic matching other providers
+        // 使用共享函数处理 URL
         const selectedWords = validated.selected_words;
         const newsSummary = validated.news_summary;
-
-        let rawSources: string[] = [];
-        if (validated.source) rawSources = [validated.source];
-        else if (validated.sources) rawSources = validated.sources;
-
-        const textUrls = extractHttpUrlsFromText(newsSummary).concat(extractHttpUrlsFromText(response.text));
-
-        const allUrls = Array.from(new Set([...rawSources, ...textUrls])).slice(0, 5);
-        const sourceUrls = await resolveRedirectUrls(allUrls);
+        const sourceUrls = await buildSourceUrls({
+            validated,
+            newsSummary,
+            responseText: response.text
+        });
 
         return {
             selectedWords,
@@ -252,7 +248,14 @@ export class ClaudeProvider implements DailyNewsProvider {
 
         const response = await this.generate({
             system: DRAFT_SYSTEM_INSTRUCTION,
-            prompt: userPrompt
+            prompt: userPrompt,
+            config: {
+                tools: [{
+                    type: "web_search_20250305",
+                    name: "web_search",
+                    max_uses: 3
+                }]
+            }
         });
 
         let draftText = stripCitations(response.text.trim());
@@ -275,7 +278,14 @@ export class ClaudeProvider implements DailyNewsProvider {
 
         const response = await this.generate({
             system: JSON_SYSTEM_INSTRUCTION,
-            prompt: userPrompt
+            prompt: userPrompt,
+            config: {
+                tools: [{
+                    type: "web_search_20250305",
+                    name: "web_search",
+                    max_uses: 3
+                }]
+            }
         });
 
         const cleanJson = extractJson(response.text);

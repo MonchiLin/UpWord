@@ -22,7 +22,7 @@ import {
     buildDraftGenerationUserPrompt,
     buildJsonConversionUserPrompt
 } from '../prompts';
-import { extractHttpUrlsFromText, resolveRedirectUrls, stripCitations } from '../utils';
+import { extractHttpUrlsFromText, resolveRedirectUrls, stripCitations, extractJson, buildSourceUrls } from '../utils';
 import { runSentenceAnalysis } from '../analyzer';
 
 export class OpenAIProvider implements DailyNewsProvider {
@@ -101,20 +101,18 @@ export class OpenAIProvider implements DailyNewsProvider {
             }
         });
 
-        const cleanJson = this.stripMarkdownCodeBlock(response.text);
+        const cleanJson = extractJson(response.text);
         const parsed = JSON.parse(cleanJson);
         const validated = Stage1OutputSchema.parse(parsed);
 
-        // URL logic
+        // 使用共享函数处理 URL
         const selectedWords = validated.selected_words;
         const newsSummary = validated.news_summary;
-        let rawSources: string[] = [];
-        if (validated.source) rawSources = [validated.source];
-        else if (validated.sources) rawSources = validated.sources;
-        const textUrls = extractHttpUrlsFromText(newsSummary).concat(extractHttpUrlsFromText(response.text));
-
-        const allUrls = Array.from(new Set([...rawSources, ...textUrls])).slice(0, 5);
-        const sourceUrls = await resolveRedirectUrls(allUrls);
+        const sourceUrls = await buildSourceUrls({
+            validated,
+            newsSummary,
+            responseText: response.text
+        });
 
         return {
             selectedWords,
@@ -167,7 +165,7 @@ export class OpenAIProvider implements DailyNewsProvider {
             }
         });
 
-        const cleanJson = this.stripMarkdownCodeBlock(response.text);
+        const cleanJson = extractJson(response.text);
         const parsed = JSON.parse(cleanJson);
         const validated = Stage3OutputSchema.parse(parsed);
 
@@ -199,18 +197,5 @@ export class OpenAIProvider implements DailyNewsProvider {
         return result;
     }
 
-    private stripMarkdownCodeBlock(text: string): string {
-        const trimmed = text.trim();
-        const match = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/);
-        if (match && match[1]) {
-            return match[1].trim();
-        }
-        const start = trimmed.indexOf('{');
-        const end = trimmed.lastIndexOf('}');
-        if (start !== -1 && end !== -1 && end > start) {
-            return trimmed.substring(start, end + 1);
-        }
-        return trimmed;
-    }
 }
 

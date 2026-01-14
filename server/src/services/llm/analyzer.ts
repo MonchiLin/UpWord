@@ -337,12 +337,10 @@ async function analyzeArticle(args: {
         const prompt = buildParagraphPrompt(para.sentences);
 
         try {
-            // Stage 4 禁用搜索工具：纯文本分析任务不需要联网，
-            // 且搜索工具会干扰 Thinking Model，导致只输出思考过程而无实际 JSON
+            // Stage 4 使用默认工具配置
             const response = await client.generate({
                 prompt: prompt,
-                system: ANALYSIS_SYSTEM_INSTRUCTION,
-                config: { tools: [] }  // 禁用搜索
+                system: ANALYSIS_SYSTEM_INSTRUCTION
             });
 
             const responseText = response.text;
