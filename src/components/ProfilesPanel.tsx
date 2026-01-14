@@ -2,6 +2,8 @@ import { Pencil1Icon, PlusIcon, ReloadIcon, TrashIcon } from '@radix-ui/react-ic
 import { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '../lib/api';
 import ProfileDrawer, { type GenerationProfile, type ProfileDraft } from './settings/ProfileDrawer';
+import { Tag } from './ui/Tag';
+import { getStringColor } from '../lib/ui-utils';
 
 
 
@@ -143,11 +145,13 @@ export default function ProfilesPanel() {
                                 <tr key={p.id} className="group hover:bg-stone-50 transition-colors">
                                     <td className="p-4">
                                         <div className="font-serif font-bold text-stone-900 mb-2">{p.name}</div>
+
+
                                         <div className="flex flex-wrap gap-1">
                                             {p.topics?.map((t) => (
-                                                <span key={t.id} className="px-2 py-0.5 bg-white border border-stone-200 text-[10px] text-stone-500 uppercase tracking-wide rounded-full">
+                                                <Tag key={t.id} variant="solid" color={getStringColor(t.label)}>
                                                     {t.label}
-                                                </span>
+                                                </Tag>
                                             ))}
                                         </div>
                                     </td>

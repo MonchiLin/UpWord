@@ -1,12 +1,18 @@
 import { useState, useEffect } from 'react';
+import { Popconfirm } from 'antd';
 import { apiFetch } from '../../lib/api';
 import { PlusIcon, TrashIcon, UploadIcon } from '@radix-ui/react-icons';
+import { Tag } from '../ui/Tag';
+import { getStringColor } from '../../lib/ui-utils';
+
+
 
 interface NewsSource {
     id: string;
     name: string;
     url: string;
     is_active: boolean;
+    topics?: { id: string; label: string }[];
 }
 
 /**
@@ -63,7 +69,6 @@ export default function GlobalRssPanel() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Delete this feed? This will unbind it from all topics.')) return;
         try {
             await apiFetch(`/api/rss/${id}`, { method: 'DELETE' });
             setSources(prev => prev.filter(s => s.id !== id));
@@ -201,14 +206,15 @@ export default function GlobalRssPanel() {
                         <tr>
                             <th className="px-4 py-3">Source Name</th>
                             <th className="px-4 py-3">Feed URL</th>
+                            <th className="px-4 py-3 w-20 text-center">Topics</th>
                             <th className="px-4 py-3 w-16 text-right">Action</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-stone-100">
                         {loading ? (
-                            <tr><td colSpan={3} className="p-6 text-center text-stone-400">Loading...</td></tr>
+                            <tr><td colSpan={4} className="p-6 text-center text-stone-400">Loading...</td></tr>
                         ) : sources.length === 0 ? (
-                            <tr><td colSpan={3} className="p-6 text-center text-stone-400 italic">No sources found. Add one above or Import OPML.</td></tr>
+                            <tr><td colSpan={4} className="p-6 text-center text-stone-400 italic">No sources found. Add one above or Import OPML.</td></tr>
                         ) : (
                             sources.map(source => (
                                 <tr key={source.id} className="group hover:bg-stone-50/50">
@@ -218,13 +224,33 @@ export default function GlobalRssPanel() {
                                     <td className="px-4 py-3 text-stone-500 font-mono text-xs truncate max-w-xs" title={source.url}>
                                         {source.url}
                                     </td>
+                                    <td className="px-4 py-3">
+                                        {(source.topics || []).length === 0 ? (
+                                            <span className="text-stone-300 italic text-xs">—</span>
+                                        ) : (
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {(source.topics || []).map(t => (
+                                                    <Tag key={t.id} variant="solid" color={getStringColor(t.label)}>
+                                                        {t.label}
+                                                    </Tag>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </td>
                                     <td className="px-4 py-3 text-right">
-                                        <button
-                                            onClick={() => handleDelete(source.id)}
-                                            className="p-1.5 hover:bg-red-50 text-stone-400 hover:text-red-600 rounded transition-colors"
+                                        <Popconfirm
+                                            title="Delete this feed?"
+                                            description="This will unbind it from all topics."
+                                            onConfirm={() => handleDelete(source.id)}
+                                            okText="Yes"
+                                            cancelText="No"
                                         >
-                                            <TrashIcon />
-                                        </button>
+                                            <button
+                                                className="p-1.5 hover:bg-red-50 text-stone-400 hover:text-red-600 rounded transition-colors"
+                                            >
+                                                <TrashIcon />
+                                            </button>
+                                        </Popconfirm>
                                     </td>
                                 </tr>
                             ))

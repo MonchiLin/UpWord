@@ -1,17 +1,20 @@
 
 import { useState, useEffect } from 'react';
-import { Popconfirm, Drawer } from 'antd';
+import { Popconfirm, Drawer, Popover } from 'antd';
 import { PlusIcon, TrashIcon, Pencil1Icon } from '@radix-ui/react-icons';
 import { clsx } from 'clsx';
 // import Modal from '../ui/Modal'; // Removed
 import { apiFetch } from '../../lib/api';
 import RssSourceManager from './RssSourceManager'; // [NEW]
+import { Tag } from '../ui/Tag';
+import { getStringColor } from '../../lib/ui-utils';
 
 interface Topic {
     id: string;
     label: string;
     prompts?: string;
     is_active: boolean;
+    sources?: { id: string; name: string }[];
 }
 
 export default function TopicsPanel() {
@@ -69,15 +72,22 @@ export default function TopicsPanel() {
         const method = isCreating ? 'POST' : 'PUT';
 
         try {
-            await apiFetch(url, {
+            const res = await apiFetch<{ success: boolean; id?: string }>(url, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
             });
 
             await fetchTopics();
-            setIsCreating(false);
-            setEditingTopic(null);
+
+            // 创建成功后自动切换到编辑模式（显示 RSS 管理器）
+            if (isCreating && res.id) {
+                setIsCreating(false);
+                setEditingTopic({ id: res.id, label: formData.label, prompts: formData.prompts, is_active: formData.is_active });
+            } else {
+                setIsCreating(false);
+                setEditingTopic(null);
+            }
         } catch (error) {
             console.error('Save error', error);
             alert('Failed to save topic');
@@ -116,6 +126,7 @@ export default function TopicsPanel() {
                         <tr>
                             <th className="px-4 py-3">Label</th>
                             <th className="px-4 py-3">Prompt Instruction</th>
+                            <th className="px-4 py-3 w-20 text-center">RSS</th>
                             <th className="px-4 py-3 w-20">Status</th>
                             <th className="px-4 py-3 w-24 text-right">Actions</th>
                         </tr>
@@ -123,7 +134,7 @@ export default function TopicsPanel() {
                     <tbody className="divide-y divide-stone-100">
                         {topics.length === 0 ? (
                             <tr>
-                                <td colSpan={4} className="px-4 py-8 text-center text-stone-400 italic">No topics defined.</td>
+                                <td colSpan={5} className="px-4 py-8 text-center text-stone-400 italic">No topics defined.</td>
                             </tr>
                         ) : (
                             topics.map(topic => (
@@ -131,6 +142,40 @@ export default function TopicsPanel() {
                                     <td className="px-4 py-3 font-medium text-stone-800">{topic.label}</td>
                                     <td className="px-4 py-3 text-stone-600 truncate max-w-xs" title={topic.prompts}>
                                         {topic.prompts || <span className="text-stone-300 italic">Default</span>}
+                                    </td>
+                                    <td className="px-4 py-3 text-center">
+                                        {(topic.sources || []).length === 0 ? (
+                                            <span className="text-stone-300 italic text-xs">—</span>
+                                        ) : (
+
+
+                                            <Popover
+                                                placement="right"
+                                                title={<div className="text-xs font-bold uppercase tracking-wider text-stone-500">Linked Feeds</div>}
+                                                content={
+                                                    <div className="flex flex-col gap-1 min-w-[200px]">
+                                                        {topic.sources?.map(s => (
+                                                            <div key={s.id} className="text-sm text-stone-700 py-1 border-b border-stone-50 last:border-0 truncate">
+                                                                {s.name}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                }
+                                            >
+                                                <span className="inline-block">
+                                                    <Tag
+                                                        variant="solid"
+                                                        color={getStringColor(topic.label)}
+                                                        clickable
+                                                        className={clsx(
+                                                            (topic.sources || []).length === 0 && "opacity-50 grayscale"
+                                                        )}
+                                                    >
+                                                        {(topic.sources || []).length} Sources
+                                                    </Tag>
+                                                </span>
+                                            </Popover>
+                                        )}
                                     </td>
                                     <td className="px-4 py-3">
                                         <span className={clsx(
@@ -176,7 +221,7 @@ export default function TopicsPanel() {
                 placement="right"
                 onClose={() => { setIsCreating(false); setEditingTopic(null); }}
                 open={isCreating || !!editingTopic}
-                width={800}
+                size="large"
                 styles={{
                     header: { borderBottom: '1px solid #e7e5e4', padding: '20px 24px' },
                     body: { padding: '24px', backgroundColor: '#fafaf9' }

@@ -5,7 +5,10 @@
  * 使用 Asia/Shanghai 时区确保国内用户访问到正确的“今日”日期。
  */
 
+
+
 import { getBusinessDate } from '@server/lib/time';
 
-return Astro.redirect(`/day/${getBusinessDate()}`);
+const today = getBusinessDate();
+return Astro.redirect(`/day/${today}`);
 ---

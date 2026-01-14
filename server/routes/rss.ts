@@ -23,17 +23,33 @@ const testFetchSchema = t.Object({
 export const rssRoutes = new Elysia({ prefix: '/api/rss' })
     /**
      * GET /api/rss
-     * 获取所有 RSS 源列表
+     * 获取所有 RSS 源列表，包含关联的 Topic 信息
      */
     .get('/', async () => {
+        // 获取所有 RSS 源
         const sources = await db.selectFrom('news_sources')
             .selectAll()
             .orderBy('created_at', 'desc')
             .execute();
 
+        // 获取所有源-主题关联关系
+        const allBindings = await db.selectFrom('topic_sources')
+            .innerJoin('topics', 'topic_sources.topic_id', 'topics.id')
+            .select(['topic_sources.source_id', 'topics.id as topic_id', 'topics.label'])
+            .execute();
+
+        // 按源 ID 分组
+        const bindingsBySource = new Map<string, { id: string; label: string }[]>();
+        for (const b of allBindings) {
+            const list = bindingsBySource.get(b.source_id) || [];
+            list.push({ id: b.topic_id, label: b.label });
+            bindingsBySource.set(b.source_id, list);
+        }
+
         return sources.map(s => ({
             ...s,
-            is_active: Boolean(s.is_active)
+            is_active: Boolean(s.is_active),
+            topics: bindingsBySource.get(s.id) || []
         }));
     })
 

@@ -62,7 +62,7 @@ export default function AdminDrawer({ date, initialTasks }: Props) {
                     placement="right"
                     onClose={() => setOpen(false)}
                     open={open}
-                    width={800}
+                    size="large"
                     classNames={{
                         header: 'bg-transparent',
                         body: 'bg-transparent'

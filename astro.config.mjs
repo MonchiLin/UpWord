@@ -31,7 +31,8 @@ export default defineConfig({
     plugins: [/** @type {any} */(tailwindcss())],
     resolve: {
       alias: {
-        "@": path.resolve(dirname, "./src")
+        "@": path.resolve(dirname, "./src"),
+        "@server": path.resolve(dirname, "./server/src")
       }
     },
 

@@ -43,7 +43,7 @@ export default function WordsDrawer({ date, wordData }: { date: string; wordData
                     placement="right"
                     onClose={() => setOpen(false)}
                     open={open}
-                    width={800}
+                    size="large"
                     classNames={{
                         header: 'bg-transparent',
                         body: 'bg-transparent'

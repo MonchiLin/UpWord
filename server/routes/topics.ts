@@ -20,15 +20,30 @@ const updateTopicSchema = t.Object({
 export const topicsRoutes = new Elysia({ prefix: '/api/topics' })
     // GET /api/topics - List all topics
     .get('/', async () => {
+        // Fetch all topics
         const topics = await db.selectFrom('topics')
             .selectAll()
             .orderBy('created_at', 'desc')
             .execute();
 
-        // Parse boolean for better DX
+        // Fetch all topic-source bindings
+        const allBindings = await db.selectFrom('topic_sources')
+            .innerJoin('news_sources', 'topic_sources.source_id', 'news_sources.id')
+            .select(['topic_sources.topic_id', 'news_sources.id', 'news_sources.name'])
+            .execute();
+
+        // Group bindings by topic
+        const bindingsByTopic = new Map<string, { id: string; name: string }[]>();
+        for (const b of allBindings) {
+            const list = bindingsByTopic.get(b.topic_id) || [];
+            list.push({ id: b.id, name: b.name });
+            bindingsByTopic.set(b.topic_id, list);
+        }
+
         return topics.map(t => ({
             ...t,
-            is_active: Boolean(t.is_active)
+            is_active: Boolean(t.is_active),
+            sources: bindingsByTopic.get(t.id) || []
         }));
     })
 

@@ -301,7 +301,7 @@ export default function ProfileDrawer({ open, mode, initialDraft, onClose, onSuc
                 placement="right"
                 onClose={onClose}
                 open={open}
-                width={800}
+                size="large"
                 classNames={{
                     header: 'border-b border-stone-100 px-6 py-4',
                     body: 'p-0',
