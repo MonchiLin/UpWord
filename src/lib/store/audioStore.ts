@@ -42,7 +42,7 @@ export interface AudioState {
     currentIndex: number;
     charIndex: number;
     isPlaying: boolean;
-    playbackRate: number;
+    playbackRate: number; // 播放速度（0.85x ~ 1x）
     isPreloading: boolean;
     isReady: boolean;
     voice: string;

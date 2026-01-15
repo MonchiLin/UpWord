@@ -3,8 +3,9 @@ import { useStore } from '@nanostores/react';
 import { audioState, setPlaybackRate, setVoice, togglePlay as storeTogglePlay } from '../../store/audioStore';
 import { getCachedAudio, getSentenceAudioOffset, getSentenceIndexAtTime, setPreloaderVoice } from './audioPreloader';
 
-const SPEEDS = [0.75, 1, 1.25, 1.5];
+const SPEEDS = [0.85, 0.9, 0.95, 1];
 const VOICE_STORAGE_KEY = 'upword_voice_preference';
+const RATE_STORAGE_KEY = 'upword_playback_rate';
 
 /**
  * Audio Player Engine Hook (音频播放引擎钩子)
@@ -35,13 +36,21 @@ export function useAudioPlayer() {
     // Flag to track if seek was triggered by user action
     const userSeekRef = useRef<boolean>(false);
 
-    // 1. Initialize voice from storage
+    // 1. Initialize voice & speed from storage
     useEffect(() => {
         try {
             const savedVoice = localStorage.getItem(VOICE_STORAGE_KEY);
             if (savedVoice) {
                 setVoice(savedVoice);
                 setPreloaderVoice(savedVoice);
+            }
+
+            const savedRate = localStorage.getItem(RATE_STORAGE_KEY);
+            if (savedRate) {
+                const rate = parseFloat(savedRate);
+                if (SPEEDS.includes(rate)) {
+                    setPlaybackRate(rate);
+                }
             }
         } catch { /* ignore */ }
     }, []);
@@ -83,20 +92,6 @@ export function useAudioPlayer() {
         audio.playbackRate = playbackRate;
     }, [isPlaying, isReady, playbackRate]);
 
-    // 5. Handle USER-triggered sentence change - seek to correct position
-    useEffect(() => {
-        if (!userSeekRef.current) return;
-
-        const audio = audioRef.current;
-        if (!audio || !isReady) return;
-
-        const offset = getSentenceAudioOffset(currentIndex);
-        audio.currentTime = offset;
-        console.log('[useAudioPlayer] User seeked to sentence', currentIndex, 'at', offset.toFixed(2), 's');
-
-        userSeekRef.current = false;
-    }, [currentIndex, isReady]);
-
     // 6. Time update handler - update sentence index based on audio time
     const onTimeUpdate = useCallback(() => {
         const audio = audioRef.current;
@@ -126,11 +121,14 @@ export function useAudioPlayer() {
 
     const nextSpeed = useCallback(() => {
         const nextIdx = (SPEEDS.indexOf(playbackRate) + 1) % SPEEDS.length;
-        setPlaybackRate(SPEEDS[nextIdx]);
+        const newRate = SPEEDS[nextIdx];
+        setPlaybackRate(newRate);
+        localStorage.setItem(RATE_STORAGE_KEY, newRate.toString());
     }, [playbackRate]);
 
     const changeSpeed = useCallback((speed: number) => {
         setPlaybackRate(speed);
+        localStorage.setItem(RATE_STORAGE_KEY, speed.toString());
     }, []);
 
     const restart = useCallback(() => {
@@ -143,15 +141,28 @@ export function useAudioPlayer() {
         lastSentenceIndexRef.current = -1;
     }, []);
 
-    // 9. Jump to specific sentence (USER action - will trigger seek)
+    // 9. Jump to specific sentence (USER action - IMPERATIVE seek)
     const jumpToSentence = useCallback((index: number) => {
-        if (index >= 0 && index < playlist.length) {
+        const s = audioState.get();
+        if (index >= 0 && index < s.playlist.length && audioRef.current && s.isReady) {
+
+            // 1. Guard against time updates fighting us
             userSeekRef.current = true;
             lastSentenceIndexRef.current = index;
+
+            // 2. Perform the seek immediately
+            const offset = getSentenceAudioOffset(index);
+            audioRef.current.currentTime = offset;
+            console.log('[useAudioPlayer] User jumped to sentence', index, 'at', offset.toFixed(2), 's');
+
+            // 3. Update UI state
             audioState.setKey('currentIndex', index);
             audioState.setKey('isPlaying', true);
+
+            // 4. Reset guard
+            userSeekRef.current = false;
         }
-    }, [playlist.length]);
+    }, []);
 
     return {
         state,

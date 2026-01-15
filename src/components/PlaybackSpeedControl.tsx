@@ -7,7 +7,7 @@ export interface PlaybackSpeedControlProps {
     className?: string;
 }
 
-const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+const SPEEDS = [0.85, 0.9, 0.95, 1];
 
 export const PlaybackSpeedControl: React.FC<PlaybackSpeedControlProps> = ({
     currentSpeed,
