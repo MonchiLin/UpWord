@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Popconfirm } from 'antd';
+import { Popconfirm, message, Modal, Input } from 'antd';
 import { apiFetch } from '../../lib/api';
 import { PlusIcon, TrashIcon, UploadIcon } from '@radix-ui/react-icons';
 import { Tag } from '../ui/Tag';
@@ -62,7 +62,7 @@ export default function GlobalRssPanel() {
             setNewUrl('');
             fetchSources();
         } catch (e) {
-            alert('Failed to create source. Check URL or duplicates.');
+            message.error('Failed to create source. Check URL or duplicates.');
         } finally {
             setIsSubmitting(false);
         }
@@ -73,7 +73,7 @@ export default function GlobalRssPanel() {
             await apiFetch(`/api/rss/${id}`, { method: 'DELETE' });
             setSources(prev => prev.filter(s => s.id !== id));
         } catch (e) {
-            alert('Failed to delete source');
+            message.error('Failed to delete source');
         }
     };
 
@@ -95,14 +95,14 @@ export default function GlobalRssPanel() {
                 });
 
                 if (res.success) {
-                    alert(`Import successful! Found ${res.totalFound} feeds, added ${res.added} new feeds.`);
+                    message.success(`Import successful! Found ${res.totalFound} feeds, added ${res.added} new.`);
                     fetchSources();
                 } else {
-                    alert('Import failed: ' + (res as any).message);
+                    message.error('Import failed: ' + (res as any).message);
                 }
             } catch (err) {
                 console.error(err);
-                alert('Import failed due to server error.');
+                message.error('Import failed due to server error.');
             } finally {
                 setLoading(false);
                 // Reset file input
@@ -113,29 +113,44 @@ export default function GlobalRssPanel() {
     };
 
     const handleImportUrl = async () => {
-        const url = prompt("Enter OPML URL (e.g. public export link):");
-        if (!url) return;
+        let inputUrl = '';
 
-        try {
-            setLoading(true);
-            const res = await apiFetch<{ success: boolean; totalFound: number; added: number }>('/api/rss/import', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url })
-            });
+        Modal.confirm({
+            title: 'Import from URL',
+            icon: null,
+            content: (
+                <Input
+                    placeholder="Enter OPML URL (e.g. public export link)"
+                    onChange={(e) => { inputUrl = e.target.value; }}
+                />
+            ),
+            okText: 'Import',
+            cancelText: 'Cancel',
+            onOk: async () => {
+                if (!inputUrl) return;
 
-            if (res.success) {
-                alert(`Import successful! Found ${res.totalFound} feeds, added ${res.added} new feeds.`);
-                fetchSources();
-            } else {
-                alert('Import failed: ' + (res as any).message);
+                try {
+                    setLoading(true);
+                    const res = await apiFetch<{ success: boolean; totalFound: number; added: number }>('/api/rss/import', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ url: inputUrl })
+                    });
+
+                    if (res.success) {
+                        message.success(`Import successful! Found ${res.totalFound} feeds, added ${res.added} new.`);
+                        fetchSources();
+                    } else {
+                        message.error('Import failed: ' + (res as any).message);
+                    }
+                } catch (err) {
+                    console.error(err);
+                    message.error('Import failed due to server error.');
+                } finally {
+                    setLoading(false);
+                }
             }
-        } catch (err) {
-            console.error(err);
-            alert('Import failed due to server error.');
-        } finally {
-            setLoading(false);
-        }
+        });
     };
 
     return (

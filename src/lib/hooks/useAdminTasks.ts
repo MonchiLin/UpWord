@@ -69,7 +69,7 @@ export function useAdminTasks({ date, initialTasks, onSucceeded }: UseAdminTasks
         }, 10000);
 
         return () => clearInterval(timer);
-    }, [tasks.length > 0, tasks.some(t => t.status === 'running' || t.status === 'queued'), refresh]);
+    }, [tasks, refresh]);
 
     const generate = async () => {
         setLoading(true);

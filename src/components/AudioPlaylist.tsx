@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import type { AudioSegment } from '../lib/articles/types';
 import { setHoveredSentence } from '../lib/store/interactionStore';
 
@@ -27,19 +27,23 @@ export const AudioPlaylist: React.FC<AudioPlaylistProps> = ({
 }) => {
     const activeLineRef = useRef<HTMLDivElement>(null);
 
-    // 1. Grouping Logic (Direct calculation as requested)
-    const blocks: AudioSegment[][] = [];
-    let currentBlock: AudioSegment[] = [];
+    // 1. Grouping Logic - memoized to avoid recalculation on every render
+    const blocks = useMemo(() => {
+        const result: AudioSegment[][] = [];
+        let currentBlock: AudioSegment[] = [];
 
-    playlist.forEach((item, i) => {
-        if (item.isNewParagraph && currentBlock.length > 0) {
-            blocks.push(currentBlock);
-            currentBlock = [];
-        }
-        // Retain original index for playback sync
-        currentBlock.push({ ...item, originalIndex: i } as any);
-    });
-    if (currentBlock.length > 0) blocks.push(currentBlock);
+        playlist.forEach((item, i) => {
+            if (item.isNewParagraph && currentBlock.length > 0) {
+                result.push(currentBlock);
+                currentBlock = [];
+            }
+            // Retain original index for playback sync
+            currentBlock.push({ ...item, originalIndex: i } as any);
+        });
+        if (currentBlock.length > 0) result.push(currentBlock);
+
+        return result;
+    }, [playlist]);
 
     // 2. Auto-scroll Logic
     useEffect(() => {
