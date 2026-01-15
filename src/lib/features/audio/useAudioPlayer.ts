@@ -28,7 +28,7 @@ const RATE_STORAGE_KEY = 'upword_playback_rate';
  */
 export function useAudioPlayer() {
     const state = useStore(audioState);
-    const { isPlaying, currentIndex, playlist, playbackRate, isReady, voice } = state;
+    const { isPlaying, playbackRate, isReady, voice } = state;
 
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const lastSentenceIndexRef = useRef<number>(-1);

@@ -1,7 +1,6 @@
 import { Elysia } from 'elysia';
 import { db } from '../src/db/factory';
 import { TaskQueue } from '../src/services/tasks/queue';
-import { sql } from 'kysely';
 
 interface AdminBody { task_date?: string; }
 

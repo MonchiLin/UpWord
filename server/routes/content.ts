@@ -1,6 +1,5 @@
 import { Elysia } from 'elysia';
 import { db } from '../src/db/factory';
-import { sql } from 'kysely';
 import { toCamelCase } from '../src/utils/casing';
 
 export const contentRoutes = new Elysia({ prefix: '/api' })

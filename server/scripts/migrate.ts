@@ -54,7 +54,6 @@ export async function down(db: Kysely<any>): Promise<void> {
         } else {
             console.error('Usage: bun run migrate <up|down|latest|create>');
             process.exit(1);
-            return { error: null, results: [] }; // Unreachable but makes TS happy
         }
     })();
 

@@ -63,7 +63,7 @@ async function pull() {
     const db = new Database(LOCAL_DB_PATH);
 
     // Execute the SQL statements
-    db.exec(sqlContent);
+    (db as any).exec(sqlContent);
     db.close();
 
     // Clean up backup file

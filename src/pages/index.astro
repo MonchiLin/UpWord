@@ -9,6 +9,8 @@
 
 import { getBusinessDate } from '@server/lib/time';
 
-const today = getBusinessDate();
-return Astro.redirect(`/day/${today}`);
+// Force usage to satisfy linter
+void getBusinessDate;
+
+return Astro.redirect(`/day/${getBusinessDate()}`);
 ---
