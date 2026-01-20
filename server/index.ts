@@ -48,8 +48,10 @@ console.log("Using D1 (Strict). Skipping runtime migration (Managed via Wrangler
 const queue = new TaskQueue(db);
 
 // 启动后台 Worker（非阻塞）
-startTaskWorker(queue);
-startCronScheduler(queue);
+if (process.env.NODE_ENV === 'production') {
+    startTaskWorker(queue);
+    startCronScheduler(queue);
+}
 
 // ─────────────────────────────────────────────────────────────
 // 错误处理配置
