@@ -22,6 +22,9 @@ ENV PORT=7860
 ARG BUILD_TIME
 ENV BUILD_TIME=$BUILD_TIME
 
+# Production environment
+ENV NODE_ENV=production
+
 # Expose the API port
 EXPOSE 7860
 
