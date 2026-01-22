@@ -2,7 +2,8 @@ import { Pencil1Icon, PlusIcon, ReloadIcon, TrashIcon } from '@radix-ui/react-ic
 import { useEffect, useMemo, useState } from 'react';
 import { Popconfirm } from 'antd';
 import { apiFetch } from '../lib/api';
-import ProfileDrawer, { type GenerationProfile, type ProfileDraft } from './settings/ProfileDrawer';
+import ProfileDrawer from './settings/ProfileDrawer';
+import type { GenerationProfile, ProfileDraft } from './settings/profile/types';
 import { Tag } from './ui/Tag';
 import { getStringColor } from '../lib/ui-utils';
 
