@@ -47,17 +47,14 @@ export type CandidateWord = {
 // ════════════════════════════════════════════════════════════════
 
 /**
- * 确保文章内容有正确的段落分隔
- *
- * 问题背景：
- * LLM 有时会生成没有段落分隔的连续文本，影响阅读体验。
- *
- * 处理策略：
- * 1. 如果已有 \n\n 分隔，保持原样（只清理格式）
- * 2. 如果没有分隔，按句子拆分后重新组合为段落
- *    - Level 1: 2 段
- *    - Level 2: 2 段
- *    - Level 3: 3 段
+ * [Content Normalization Strategy]
+ * ------------------------------------------------------------------
+ * 问题：LLM 有时会"忘记"分段，输出一大坨连在一起的文本。
+ * 策略 (Fallback Pipeline)：
+ * 1. 快乐路径：若检测到 `\n\n`，直接信任并清理首尾。
+ * 2. 兜底修复：若无分段，基于句末标点 (`.!?` + 大写开头) 强行拆句。
+ * 3. 动态重组：根据 `level` (难度) 将碎片句子按照 (2/2/3) 的密度重组为段落，
+ *    避免 L3 级别的长文因为没分段而变成"文字墙"吓退用户。
  */
 function ensureContentParagraphs(content: string, level: number) {
     const text = content.replace(/\r\n/g, '\n').trim();
@@ -142,10 +139,12 @@ export function extractHttpUrlsFromText(text: string): string[] {
 }
 
 /**
- * 递归收集对象中的所有 URL
- *
- * 用于从复杂的 LLM 响应结构中提取所有 URL
- * 防止循环引用导致死循环
+ * [Deep URL Extraction]
+ * 意图：从任意嵌套的未知结构 (JSON/List/Object) 中刮取所有 HTTP 链接。
+ * 
+ * 安全机制: **Cycle Detection (环检测)**
+ * - 风险：输入的 `value` 可能包含环形引用 (Circular Reference)。
+ * - 防御：使用 `WeakSet` (或 Set) 追踪已访问对象，遇到重复立即回退 (Backtrack)。
  */
 export function collectHttpUrlsFromUnknown(value: unknown): string[] {
     const urls: string[] = [];

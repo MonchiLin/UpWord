@@ -1,16 +1,17 @@
 /**
- * LLM 生成流水线 (LLM Generation Pipeline)
- * 
- * 核心架构模式：Pipeline Pattern + Checkpointing
- * 
- * 该模块将复杂的长文本生成任务拆分为 4 个离散的、顺序执行的阶段 (Stage)。
- * 每个阶段都是无状态的，但可以通过 `PipelineCheckpoint` 对象传递上下文。
- * 
- * 关键特性：
- * 1. 容错性 (Fault Tolerance): 支持在任意阶段保存中间状态。如果任务失败或进程崩溃，
- *    可以从最近的 Checkpoint 恢复，而无需重头开始。这对耗时 2-5 分钟的 LLM 任务至关重要。
- * 2. 模块化 (Modularity): 每个阶段的 Prompt 和逻辑是隔离的，便于独立优化和测试。
- * 3. 可观察性 (Observability): 每个阶段都有明确的输入输出和 Token 消耗记录。
+ * [LLM 生成流水线 (pipeline.ts)]
+ * ------------------------------------------------------------------
+ * 功能：将非结构化的 AI 生成过程拆解为 4 个原子阶段 (FSM)，实现状态管理。
+ *
+ * 核心流程 (Stages)：
+ * 1. Search & Selection: 决定"写什么" (结合 RSS/Lexicon/Topic)。
+ * 2. Draft Generation: 决定"怎么写" (输出纯文本，隔离 JSON 格式风险)。
+ * 3. JSON Conversion: 确定性格式化 (Text -> JSON)。
+ * 4. Syntax Analysis: 句法分析 (最耗时步骤，支持增量 Checkpoint)。
+ *
+ * 设计权衡 (Trade-off):
+ * - Separation of Concerns: 拒绝 "One Prompt to Rule Them All"。
+ *   将 "创意写作" (Stage 2) 与 "格式遵循" (Stage 3) 分离，不仅提升了文笔质量，也降低了 JSON 解析报错率。
  */
 
 import type { LLMClient } from './client';
@@ -27,11 +28,11 @@ export interface PipelineCheckpoint {
     selectedWords?: string[];
     newsSummary?: string;
     sourceUrls?: string[];
-    selectedRssItem?: NewsItem; // [NEW]
+    selectedRssItem?: NewsItem;
     draftText?: string;
     completedLevels?: ArticleWithAnalysis[];
     usage?: Record<string, any>;
-    selectedRssId?: number; // [NEW]
+    selectedRssId?: number;
 }
 
 // PipelineArgs interface update
@@ -56,54 +57,64 @@ export interface PipelineResult {
     selectedWords: string[];
     usage: Record<string, any>;
     selectedRssId?: number;
-    selectedRssItem?: NewsItem; // [NEW]
+    selectedRssItem?: NewsItem;
 }
 
 // ============ 流水线核心逻辑 (Pipeline Core) ============
 
 /**
  * 执行完整的文章生成流水线
- * 
- * @param args 配置参数，包含 LLM 客户端、运行时配置和恢复用的 Checkpoint
- * @returns 最终生成的文章数据、元数据和 Token 消耗统计
+ *
+ * 逻辑流程:
+ * Init -> [Checkpoint Restore] -> Stage 1 (选词) -> Stage 2 (Draft) -> Stage 3 (JSON) -> Stage 4 (NLP) -> Result
+ *
+ * @param args 包含 LLM 客户端、运行时配置和 Checkpoint 数据
  */
 export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
+    // 状态恢复区
     let selectedWords = args.checkpoint?.selectedWords || [];
     let newsSummary = args.checkpoint?.newsSummary || '';
     let sourceUrls = args.checkpoint?.sourceUrls || [];
-    let selectedRssItem = args.checkpoint?.selectedRssItem; // [NEW]
+    let selectedRssItem = args.checkpoint?.selectedRssItem;
     let draftText = args.checkpoint?.draftText || '';
     let usage: Record<string, any> = args.checkpoint?.usage || {};
-    let selectedRssId = args.checkpoint?.selectedRssId; // [NEW]
+    let selectedRssId = args.checkpoint?.selectedRssId;
 
-    // 初始化上下文：优先从 Checkpoint 恢复，否则使用空默认值
-    // 这种模式允许函数既能处理“全新开始”的任务，也能处理“中途恢复”的任务
+    // "无状态服务"的有状态启动 (Stateful Resume for Stateless Service)
+    // 意图：Worker 可能因为超时、内存泄漏或部署而重启。Pipeline 必须即插即用。
+    // 实现：直接从 args.checkpoint.stage 读取上次中断的位置，跳过已完成的步骤。
     const currentStage = args.checkpoint?.stage || 'start';
     const config = args.config || {};
 
-    // 策略模式：根据 mode 获取对应的 Prompt 策略
+    // 策略模式 (Strategy Pattern)
+    // 意图：解耦 "内容源" 与 "生成逻辑"。
+    // - RSS Mode: 侧重 factual accuracy，从新闻源提取信息。
+    // - Impression Mode: 侧重 creativity，基于抽象词汇进行创意写作。
+    // 效果：通过 mode 参数动态切换 System/User Prompts，核心 Pipeline 流程 (4 Stages) 保持不变。
     const strategy = getStrategy(args.mode);
 
 
 
     // [Stage 1] 搜索与选题 (Search & Selection)
-    // 目标：从 LLM 的知识库或实时网络搜索中获取新闻素材，并选定本文的教学词汇。
-    // 该阶段对应“编辑”的角色，决定写什么，用什么词。
+    // -----------------------------------------------------------------------
+    // 角色: Editor (主编)
+    // 目标: 确定"写什么"。
+    // 动作:
+    // 1. (Optional) 抓取 RSS 实时新闻作为素材。
+    // 2. 结合候选词 (Candidates) 和 话题偏好 (Topics)，向 LLM 索要最佳选题。
+    // -----------------------------------------------------------------------
     if (currentStage === 'start') {
-        // [NEW] 尝试获取 RSS 新闻推荐
+        // [RSS Fetch] 尝试获取外部新闻，失败不阻断。
         let newsCandidates: NewsItem[] = [];
         try {
             const fetcher = new NewsFetcher();
-            // 提取 Topic IDs 用于过滤 (假设 Topic 对象有 id 字段)
             const topicIds = args.topics?.map(t => t.id) || [];
             newsCandidates = await fetcher.fetchAggregate(topicIds, args.currentDate, args.excludeRssLinks);
             // console.log(`[Pipeline] Fetched ${newsCandidates.length} news candidates via RSS.`);
         } catch (error) {
             console.warn(`[Pipeline] Failed to fetch RSS news (falling back to pure search):`, error);
-            // 不阻断流程，仅记录警告
         }
 
-        // 策略模式：根据 mode 构建对应的 Prompt
         const stage1System = strategy.stage1.system;
         const stage1User = strategy.stage1.buildUser({
             candidateWords: args.candidateWords,
@@ -130,7 +141,7 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
         newsSummary = res.newsSummary;
         sourceUrls = res.sourceUrls;
         selectedRssId = res.selectedRssId;
-        selectedRssItem = res.selectedRssItem; // [NEW]
+        selectedRssItem = res.selectedRssItem;
         usage.search_selection = res.usage;
 
         console.log(`[Pipeline] Stage 1 Complete. Selected ${selectedWords.length} words.`);
@@ -147,13 +158,12 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
         }
     }
 
-    // [Stage 2] 草稿生成 (Draft Generation)
-    // 目标：基于 Stage 1 的素材和词汇，撰写一篇连贯的、符合难度要求的英文新闻草稿。
-    // 该阶段对应“作家”的角色，专注于内容创作，暂不关心 JSON 结构化。
-    // 输入：Selected Words, News Summary, Source URLs
-    // 输出：纯文本草稿 (Draft Text)
+    // [Stage 2] Draft Generation (Writer Role)
+    // 意图：聚焦"内容创作"，彻底隔离"格式化"干扰。
+    // Trade-off：
+    // - 痛点：若强迫 LLM 同时进行 creative writing 和 JSON formatting，往往两头不到岸 (JSON 坏死或文笔干瘪)。
+    // - 决策：Stage 2 只输出 Pure Text，解放 LLM 的 Token 算力用于修辞和叙事。格式化留给 Stage 3。
     if (currentStage === 'start' || currentStage === 'search_selection') {
-        // 策略模式：根据 mode 构建对应的 Prompt
         const stage2System = strategy.stage2.system;
         const stage2User = strategy.stage2.buildUser({
             selectedWords,
@@ -192,11 +202,12 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
     }
 
     // [Stage 3] 结构化转换 (JSON Conversion)
-    // 目标：将纯文本草稿转化为富文本 JSON 结构 (包含标题、难度分级、定义等)。
-    // 该阶段对应“排版”的角色。LLM 在此阶段不仅要格式化，还要根据内容重写出 3 个不同难度 (Level 1-3) 的版本。
-    // 注意：目前 Stage 3 紧接在 Stage 2 后执行，通常不进行中间 Checkpoint 保存，除非 Stage 2 非常耗时。
-
-    // 如果需要在此处添加 Checkpoint，可以增加 if 判断，但目前的逻辑是直接执行。
+    // -----------------------------------------------------------------------
+    // 角色: Formatter (排版)
+    // 目标: 将纯文本草稿转化为结构化数据 (Level 1/2/3 Variations)。
+    // 动作: 接收 Draft Text，要求 LLM 按 JSON Schema 输出。
+    // 注意: 此阶段通常耗时较短，属于"确定性变换"。
+    // -----------------------------------------------------------------------
 
     const generation = await args.client.runStage3_JsonConversion({
         draftText,
@@ -220,13 +231,13 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
         });
     }
 
-    // [Stage 4] 句法分析 (Sentence Analysis)
-    // 目标：对生成的文章进行语言学分析 (Subject/Verb/Object 标注)。
-    // 核心难点：句法分析非常消耗 Token 且容易超时。
-    // 解决方案：
-    // 1. 批处理：将文章按 Level 分开处理。
-    // 2. 增量 Checkpoint：利用 analyzer.ts 内部的 onLevelComplete 回调，每分析完一个 Level 就保存一次数据库。
-    //    这样如果 Level 3 分析超时，重试时只需分析 Level 3，跳过 Level 1/2。
+    // [Stage 4] Syntax Analysis (Linguist Role)
+    // 难点：该步骤最耗时 (60s+)，且生成长 JSON 极易触发 Output Limit 或 Network Error。
+    // 策略：Incremental Checkpointing (增量存档)。
+    // 机制：利用 `onLevelComplete` 回调，每分析完一个 Level (共3个) 就立即刷写 DB。
+    // 收益：Worker 即使在 Level 3 崩溃，重启后 pipeline.ts 会跳过 Level 1/2，直接续跑，实现"断点续传"。
+    //   即便 Worker 在中途被杀，下次重启也能从已完成的 Level 接着跑 (断点续传)。
+    // -----------------------------------------------------------------------
     if (generation.output.articles && Array.isArray(generation.output.articles) && generation.output.articles.length > 0) {
         const completedFromCheckpoint = args.checkpoint?.completedLevels || [];
 
@@ -237,6 +248,7 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
             completedLevels: completedFromCheckpoint,
             config,
             onLevelComplete: args.onCheckpoint ? async (completedArticles) => {
+                // 增量保存: 即使整个 Stage 4 没跑完，也先把已跑完的 Levels 存下来
                 await args.onCheckpoint!({
                     stage: 'grammar_analysis',
                     selectedWords,

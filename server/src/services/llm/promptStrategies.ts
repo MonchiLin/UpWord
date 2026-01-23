@@ -1,15 +1,11 @@
 /**
- * Prompt 策略模块
+ * [Prompt Strategy Registry (promptStrategies.ts)]
+ * ------------------------------------------------------------------
+ * 功能：管理不同生成模式 (RSS vs Impression) 的 Prompt 构建逻辑。
  *
- * 核心设计：策略模式
- * - 每种生成模式 (GenerationMode) 对应一套 Prompt 策略
- * - Pipeline 根据 mode 选择对应的 Prompt 构建函数
- * - Provider 接口保持不变，只接收构建好的 Prompt
- *
- * 扩展方式：
- * 1. 创建 prompts.{mode}.ts
- * 2. 在此文件注册策略
- * 3. 在 queue.ts 添加入队方法
+ * 核心架构: **Strategy Pattern (策略模式)**
+ * - 意图：将"如何构建 Prompt"的逻辑从 Pipeline 中解耦。Pipeline 只管调用 `buildUser()`，不关心是 RSS 新闻还是随机单词。
+ * - 扩展性：新增模式只需实现 `Strategy` 接口并在 `strategies` 对象注册，无需修改 Pipeline 代码 (OCP 原则)。
  */
 
 import type { Stage1Input, Stage2Input } from './types';

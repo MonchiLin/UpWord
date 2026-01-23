@@ -1,24 +1,15 @@
 /**
- * Feature: Analysis Focus Manager (分析聚焦管理器)
- * 
- * 管理 "Structure Analysis" (结构分析) 功能的用户交互。
- * 
- * **Behaviors (行为)**:
- * 1. **Click-to-Focus (点击聚焦)**:
- *    - 点击句子 Token (`.s-token`) 会激活该句子的 `analysis-focus` 状态。
- *    - 严格的单句聚焦模式 (Strict single-sentence focus)，点击新句子会清除以前的聚焦。
- *    - 点击文章外部区域会清除聚焦。
- * 2. **Unified Hover (统一悬停)**:
- *    - 悬停在句子内的任意 Token 上，都会高亮整句 (`.sentence-hover`)。
- * 3. **Keyboard (键盘交互)**:
- *    - 按下 `Escape` 键清除聚焦。
- * 4. **Smart Copy (智能复制)**:
- *    - 如果在设置中开启，激活句子时会自动将其文本复制到剪贴板。
- * 
- * **Architecture (架构)**:
- * - **Event Delegation (事件代理)**: 在 `document` 层级监听事件，避免为数千个 Token 单独绑定监听器。
- * - **Scoped DOM Query**: 将查询限制在 `.article-level` 容器内，防止跨 Level 的 SID 冲突。
- * - **Idempotency**: 通过 `data-analysis-init` 属性防止重复初始化。
+ * [Feature: Analysis Focus Manager (SyntaxController.ts)]
+ * ------------------------------------------------------------------
+ * 功能：管理 "Structure Analysis" (结构分析) 的高亮交互。
+ *
+ * 核心架构: **Global Event Delegation (全局事件代理)**
+ * - 痛点：一篇文章包含 2000+ 个 Token。如果为每个 Token 绑定 `.onclick`，内存会爆炸。
+ * - 方案：在 `document` 根节点仅注册 **1个** 监听器。
+ * - 路由：通过 `e.target.closest('.s-token')` 动态查找触发源。
+ *
+ * 作用域 (Scoping):
+ * - 严格限制在 `.article-level` 容器内，防止跨 L1/L2/L3 的 ID 冲突 (Token ID 在不同 Level 间是复用的)。
  */
 
 import { visualizeSyntax, clearSyntaxVisuals } from './SyntaxVisualizer';

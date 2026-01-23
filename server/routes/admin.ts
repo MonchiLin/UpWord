@@ -3,6 +3,9 @@ import { db } from '../src/db/factory';
 import { TaskQueue } from '../src/services/tasks/queue';
 import { DeletionService } from '../src/services/tasks/deletion';
 
+// [Admin Maintenance Controller]
+// 功能：提供系统级的运维接口（非用户业务）。
+// 场景：当 LLM 任务大规模失败（如 API Key 欠费）时，提供 "Batch Retry" 和 "Batch Clean" 手段。
 interface AdminBody { task_date?: string; }
 
 export const adminRoutes = (_queue: TaskQueue) => new Elysia({ prefix: '/api/admin' })

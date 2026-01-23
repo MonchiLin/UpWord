@@ -1,10 +1,14 @@
 /**
- * LLM Prompts - 三阶段架构 (中文优化版)
- * 
- * 核心原则：
- * 1. RSS First: 优先使用 RSS 提供的上下文，减少幻觉和联网搜索的不确定性。
- * 2. Role-Playing: 明确的专家角色设定 (策展人 -> 撰稿人 -> 格式化专员)。
- * 3. XML Structured: 使用 XML 明确界定上下文边界，提高指令遵循度。
+ * [LLM Prompt Architecture: RSS Strategy]
+ * ------------------------------------------------------------------
+ * 核心原则 (Core Philosophy):
+ * 1. **RSS First (Truth Grounding)**: 
+ *    - 优先使用 RSS 提供的上下文，将其作为"Ground Truth"。
+ *    - 只有当 RSS 无法满足时，才允许 LLM 调用搜索工具 (Fallback)。
+ * 2. **Role-Playing (Expert Persona)**: 
+ *    - Stage 1: Curator (策展人) -> 负责筛选和连接。
+ *    - Stage 2: Journalist (记者) -> 负责叙事和分级。
+ * 3. **XML Boundaries**: 使用 `<tag>` 明确分隔上下文，防止指令注入 (Prompt Injection) 和上下文混淆。
  */
 
 import type { Topic, NewsItem } from './types';

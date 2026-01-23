@@ -1,3 +1,16 @@
+/**
+ * [前端 API 网关]
+ * ------------------------------------------------------------------
+ * 功能描述: 统一封装 Fetch 请求，处理鉴权注入、路径规范化与响应解析。
+ *
+ * 核心职责:
+ * - 拦截器 (Interceptor): 自动注入 `x-admin-key` 头与 `Content-Type: application/json`。
+ * - 统一契约 (Contract): 保证所有响应 (成功/失败) 均解析为 JSON 或抛出标准化 Error。
+ * - 路径规范化: 自动处理 `/api` 前缀与多余斜杠，防止 URL 拼接错误。
+ *
+ * 外部依赖: Native Fetch API
+ * 注意事项: 本模块信任后端返回的 JSON 结构，暂未引入 Zod 进行运行时 Response 校验 (Runtime Validation)。
+ */
 export const API_BASE = import.meta.env.PUBLIC_API_BASE;
 
 type FetchOptions = RequestInit & {
@@ -5,17 +18,6 @@ type FetchOptions = RequestInit & {
     credentials?: RequestCredentials; // For cookie auth
 };
 
-/**
- * 统一的 API 客户端 (Fetch Wrapper)
- * 
- * 设计意图：
- * 1. 路径规范化：自动处理 base path (`/api`)，防止手动拼接出错。
- * 2. 鉴权注入 (Middleware-like)：自动将 token 注入 `x-admin-key` 头。
- * 3. 响应解析流水线：
- *    - 自动识别 Content-Type json。
- *    - 统一 catch 网络错误和非 200 状态码，即使是 await 成功也可能 throw。
- *    - 尝试解析 JSON，如果失败降级为 null 并记录警告（因为我们的 API 约定始终返回 JSON）。
- */
 export async function apiFetch<T = any>(path: string, options: FetchOptions = {}): Promise<T> {
     const { token, credentials, ...init } = options;
 

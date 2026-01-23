@@ -27,19 +27,22 @@ export function trackReading() {
     const minutes = parseInt(activeLevel.getAttribute('data-minutes') || '1');
 
     // [Downward Inclusion Strategy]
-    // 逻辑：如果你把 "Level 3" 的文章读完了，通常意味着你也理解了 Level 1 和 Level 2 的内容。
-    // 为了简化用户操作，我们假设阅读高等级会自动解锁低等级的阅读状态。
-    // targetMask (111 for L3, 011 for L2, 001 for L1).
+    // 假设：用户能阅读 L3，必然也能阅读 L1/L2。
+    // 意图：减少用户操作负担，一次提交自动点亮所有低维度的 "Read" 状态。
+    // 实现：Target Mask 是包含所有低位的二进制全1序列 (e.g. L3=111)。
+    // 优化：利用位运算 `(current & target) === target` 快速幂等检查 (Idempotency Check)。
     const targetMask = (1 << level) - 1;
 
     // 位运算检查：(Current & Target) === Target
     // 意味着 Target 的所有位都已经在 Current 中置 1 了，无需重复提交。
     if ((currentMask & targetMask) === targetMask) return;
 
-    // [Smart Thresholding]
-    // 为了防止“误触”或“每秒提交”，我们设置一个动态阈值。
-    // 阈值 = 估算阅读时间的 50%，且至少 10 秒。
-    // 只有当用户停留在页面超过此时间，才算“有效阅读”。
+    // [Smart Thresholding Heuristic]
+    // 意图：区分 "Scanning" (扫视) 和 "Reading" (深度阅读)。
+    // 规则：
+    // 1. 动态阈值：基于文章长度估算 (WordCount -> Estimated Minutes -> 50% Threshold)。
+    // 2. 最小低保：至少停留 10s，防止误触。
+    // 3. 视觉锚点：必须进入 `visibility` 状态且滚动到该区域 (Implied by current logic usually, simplified here).
     const threshold = Math.max(10000, minutes * 30 * 1000);
 
     readTimer = window.setTimeout(async () => {

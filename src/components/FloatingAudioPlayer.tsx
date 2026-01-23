@@ -17,14 +17,12 @@ const MinimizeIcon = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill
  * 
  * 问题背景：
  * Framer Motion 的 `layout` 属性通常使用 CSS Transform (scale) 来模拟尺寸变化。
- * 这对于矩形很有效，但包含圆形元素 (Vinyl Record) 时会导致严重的“压扁/拉伸”变形 (Distortion)。
- * 也就是著名的 "Scale Distortion" 问题。
+ * 这对于矩形很有效，但包含圆形元素 (Vinyl Record) 时会导致严重的“压扁/拉伸”变形 (Scale Distortion)。
  * 
  * 解决方案：
- * 我们必须**禁用**父容器的 `layout` 属性。
- * 转而使用显式的 width/height/borderRadius 动画。
- *这会触发浏览器的 Layout 重排 (Reflow)，虽然性能开销略大，但对于这种复杂的几何嵌套组件，
- * 是唯一能保持子元素（尤其是正圆形的黑胶唱片）宽高比不变的方法。
+ * 1. 禁用 `layout` Prop: 放弃自动插值。
+ * 2. Explicit Animation: 手动把控 width/height/borderRadius 的数值变化。
+ * 3. 性能 Trade-off: 虽然触发 Browser Reflow (重排) 开销略大，但这是保持子元素（正圆唱片）宽高比不变的唯一解。
  */
 const FloatingAudioPlayer: React.FC = () => {
     const [isExpanded, setIsExpanded] = useState(false);
@@ -40,8 +38,10 @@ const FloatingAudioPlayer: React.FC = () => {
         if (playlist.length > 0 && audio.duration) setProgress((audio.currentTime / audio.duration) * 100);
     };
 
-    // --- PHYSICS ---
-    // Softer spring to prevent "Snap" artifacts at the end of JS animation
+    // --- PHYSICS CONFIGURATION ---
+    // 意图：模拟真实机械结构的阻尼感。
+    // 选择：使用 stiffness=180, damping=26 的 Spring。
+    // 防抖：避免标准 Ease-out 曲线结束时的 "Snap" (生硬吸附) 伪影。
     const SPRING_CONFIG = { type: "spring" as const, stiffness: 180, damping: 26, mass: 1 };
 
     if (!playlist || playlist.length === 0) return null;
@@ -82,10 +82,9 @@ const FloatingAudioPlayer: React.FC = () => {
                 >
                     {/* VINYL WRAPPER */}
                     {/* 
-                      几何锚点 (Geometrical Stronghold)
-                      我们强制锁定 aspect-square，并配合显式的 width/height 动画。
-                      transition 使用弹簧物理 (Spring Physics)，
-                      模拟真实的机械展开质感，避免由于 JS 动画帧率波动导致的“生硬感”。
+                      [Geometric Stronghold]
+                      意图：强制锁定初始宽高比 (aspect-square)，防止在父容器变宽时被拉伸。
+                      策略：配合显式的 width/height 动画与父容器动画保持同步 (Sync)，确保视觉上的连贯性。
                     */}
                     <motion.div
                         // NO layout prop

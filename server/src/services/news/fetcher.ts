@@ -3,22 +3,24 @@ import { db } from '../../db/factory';
 import type { NewsItem } from '../llm/types';
 
 /**
- * NewsFetcher 服务
- * 负责从 RSS 源实时抓取新闻数据的核心服务。
- * 
- * 核心策略:
- * 1. Topic-Aware: 根据传入的主题 ID 智能选择 RSS 源。
- * 2. Defensive Sampling: 防止源过多导致请求风暴，实行随机采样限制。
- * 3. Robustness: 强容错机制，单个源失败不影响整体。
+ * [RSS 新闻聚合服务 (fetcher.ts)]
+ * ------------------------------------------------------------------
+ * 功能：负责多源 RSS 的并发抓取、清洗、去重与时效过滤。
+ *
+ * 核心策略：
+ * - 防御性采样 (Defensive Sampling): 对大规模订阅源进行随机切片 (Subset)，防止并发过高导致 IP 被封或 Self-DDoS。
+ * - 故障隔离 (Circuit Breaker): 使用 `Promise.allSettled` 确保单源超时不会炸毁整个 Batch。
+ * - 时效窗口 (Temporal Window): 严格剔除 `TaskDate - 48h` 之外的旧闻，保证 AI 输入的新鲜度。
+ *
+ * 外部依赖: rss-parser (XML标准化)
  */
 export class NewsFetcher {
     private parser: Parser;
 
-    // 硬限制：每次聚合最多只请求 20 个源，防止超时
+    // Circuit Breaker Config:
+    // Limits upstream requests to avoid self-DDoS during mass generation.
     private static MAX_SOURCES_PER_FETCH = 20;
-    // 硬限制：RSS 请求超时时间 (毫秒)
     private static FETCH_TIMEOUT_MS = 5000;
-    // 结果限制：最终返回给 LLM 的新闻条数
     private static MAX_ITEMS_TO_RETURN = 20;
 
     constructor() {
@@ -49,15 +51,15 @@ export class NewsFetcher {
             return [];
         }
 
-        // 2. 防御性采样 (Defensive Sampling)
-        // 如果源过多，随机打乱并截取前 N 个，保证性能恒定。
+        // 2. Defensive Sampling
+        // Randomly subsets large source pools to maintain consistent performance (O(N) -> O(Constant)).
         const selectedSources = this.sampleSources(sources);
         console.log(`[NewsFetcher] Selected ${selectedSources.length} sources for fetching (pool size: ${sources.length}).`);
 
-        // 3. 并发抓取 (Concurrent Fetching)
-        // 使用 Promise.allSettled 确保部分失败不影响整体
-        // 3. 并发抓取 (Concurrent Fetching)
-        // 使用 Promise.allSettled 确保部分失败不影响整体
+        // 3. Concurrent Execution Strategy
+        // 意图：全并发执行，最大化利用 I/O 带宽。
+        // 容错：使用 allSettled 而非 all。
+        // 理由：RSS 源极其不稳定，允许部分失败是系统设计的基石，而非异常情况。
         const fetchPromises = selectedSources.map(source => this.fetchSingleSource(source, taskDate));
         const results = await Promise.allSettled(fetchPromises);
 
@@ -136,10 +138,8 @@ export class NewsFetcher {
     }
 
     /**
-     * 抓取单个 RSS 源 (Core Logic)
-     */
-    /**
-     * 抓取单个 RSS 源 (Core Logic)
+     * Fetch Single RSS Feed
+     * Wraps parser.parseURL with timeout handling and normalization.
      */
     private async fetchSingleSource(source: { id: string; name: string; url: string }, taskDate?: string): Promise<NewsItem[]> {
         try {
@@ -161,9 +161,9 @@ export class NewsFetcher {
                 pubDate: item.pubDate || new Date().toISOString()
             })).filter(item => item.title && item.link); // 过滤无效数据
 
-            // 过滤太久远的新闻 (比如超过 48 小时的)
-            // 过滤太久远的新闻 (比如超过 48 小时的)
-            // 如果提供了 taskDate，则以 taskDate 为基准；否则以当前时间为基准
+            // Temporal Filtering Strategy:
+            // Since RSS feeds often contain old items, we strictly filter validation window.
+            // Window: [TargetDate - 48h, TargetDate]
             const referenceDate = taskDate ? new Date(taskDate).getTime() : Date.now();
             const twoDaysAgo = referenceDate - 48 * 60 * 60 * 1000;
             const recentItems = items.filter(item => {

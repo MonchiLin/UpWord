@@ -1,18 +1,15 @@
 /**
- * Historical Echoes - The Memory Spirit
- * 
- * Replaces MemorySpirit.tsx and HighlightManager.tsx.
- * Features:
- * - Hybrid Architecture (Event Delegation + Nanostores)
- * - Framer Motion for entrance/exit animations
- * - Floating UI for smart positioning (auto flip/shift)
- * - Portal-based rendering
- * 
- * Refactored: 2026-01-23
- * - Extracted subcomponents to echoes/ directory
- * - Replaced window events with nanostores
- * - Removed AntD Popover, using Floating UI instead
- * - Added type safety (removed all `any`)
+ * [历史回响组件 (HistoricalEchoes.tsx)]
+ * ------------------------------------------------------------------
+ * 功能：当用户悬停在文章单词上时，渲染穿越时空的上下文 (Contextual Clues)。
+ *
+ * 核心模式: **Hybrid Architecture (混合架构)**
+ * - 监听层: Event Delegation，监听 Store 中的 `activeInteraction` 信号。
+ * - 渲染层: React Portal，将 Popover 挂载到 `document.body` 以逃逸 `overflow: hidden` 容器。
+ *
+ * 关键技术:
+ * - Smart Positioning: 利用 Floating UI 的 `flip` 和 `shift` 中间件，实现 Popover 的"智能避障"。
+ * - Virtual Element: 因为 Trigger (单词) 在另一个组件树中，我们构造假的 DOMRect (Virtual Reference) 来告诉 Floating UI 它的位置。
  */
 import { useEffect, useState, useRef } from 'react';
 import { useStore } from '@nanostores/react';
@@ -63,7 +60,13 @@ export default function HistoricalEchoes({ showDefinition = false, articleId }: 
         whileElementsMounted: autoUpdate,  // Auto-update on scroll/resize
     });
 
-    // 5. Update virtual reference when interaction changes
+    /**
+     * [Virtual Reference Strategy]
+     * 意图：解耦 Trigger (单词) 与 Content (浮层)。
+     * 痛点：单词由 Astro/React 渲染在深层 DOM，无法直接传递 Ref 给同级的 Popover。
+     * 方案：监听 Store 里的坐标 (Rect)，动态生成一个 "Phantom Element" (幽灵元素)。
+     *      Floating UI 以为它在跟随一个真实元素，实际上是在跟随这个坐标数据。
+     */
     useEffect(() => {
         const rect = interaction?.current?.rect;
         if (rect) {

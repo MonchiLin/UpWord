@@ -1,17 +1,14 @@
 /**
- * 文章词汇索引模块
+ * [每日单词索引器 (wordIndexer.ts)]
+ * ------------------------------------------------------------------
+ * 功能：构建倒排索引 (Inverted Index)，连接 [用户词汇库] 与 [生成文章]。
  *
- * 核心职责：将文章中使用的目标词汇建立索引，支持历史回顾和高亮功能
+ * 业务逻辑：
+ * - 上下文优选：在 Level 1-3 中，优先选择篇幅最长 (Context Richness) 的文章提取例句。
+ * - 滑动窗口：提取关键词前后 80 字符作为 `context_snippet`，用于前端 Popover 即时展示 (无需查原表)。
  *
- * 索引策略：
- * 1. 从生成结果中提取所有目标词（selected + new + review）
- * 2. 在文章正文中查找包含该词的句子作为上下文
- * 3. 存入 article_word_index 表，供前端查询
- *
- * 应用场景：
- * - "我学过哪些词？" → 查询 article_word_index
- * - "这个词出现在哪篇文章？" → 通过 word 字段检索
- * - 高亮复现：context_snippet 保存了原始上下文
+ * 归一化规则：
+ * - 忽略大小写与标点 (Sanitization)，确保 "Apple" 与 "apple." 命中同一索引。
  */
 
 import type { AppKysely } from '../db/factory';
@@ -53,10 +50,10 @@ interface WordIndexInsertRow {
 // ════════════════════════════════════════════════════════════════
 
 /**
- * 词汇标准化
+ * 词汇归一化 (Normalization)
  *
- * 转小写 + 移除非字母数字字符
- * 确保 "Apple" 和 "apple" 被视为同一词
+ * 规则：Lowercase + 去除非字母数字。
+ * 目的：解决 "Apple", "apple.", "APPLE" 被视为不同单词的问题，确保查全率。
  */
 function sanitizeWord(w: string) {
     return w.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -104,12 +101,15 @@ export async function indexArticleWords(db: AppKysely, articleId: string, conten
 
     console.log(`[WordIndexer] Indexing ${targets.size} words for article ${articleId}`);
 
-    // 选择字数最多的文章作为上下文来源
+    // [Article Selection Strategy]
+    // 意图：为单词匹配最佳语境 (Best Context)。
+    // 启发：Level 3 通常词汇密度最高、句式最复杂，最适合作为"例句来源"。
+    // 兜底：若 Level 3 生成失败，回退到字数最多的可用版本 (`b.word_count - a.word_count`)。
     const articles = contentJson.result.articles as ArticleContent[];
     const mainArticle = articles.sort((a, b) => (b.word_count || 0) - (a.word_count || 0))[0];
 
     if (!mainArticle || !mainArticle.content) {
-        console.warn(`[WordIndexer] No article content found for ${articleId}`);
+        console.warn(`[WordIndexer] No valid content found in any level for ${articleId}`);
         return;
     }
 
@@ -125,7 +125,10 @@ export async function indexArticleWords(db: AppKysely, articleId: string, conten
         const matchedSentence = sentences.find(s => regex.test(s));
 
         if (matchedSentence) {
-            // 截取上下文（最多 200 字符，居中于目标词）
+            // [Snippet Extraction: Sliding Window]
+            //意图：截取目标词前后的 text window，存入 DB 以供前端 Popover 直接展示。
+            // 策略：Window Size = 160 chars (前后各 80)。
+            // 细节：若截断位置在句子中间，添加 "..." 省略号提示用户。
             let snippet = matchedSentence.trim();
             if (snippet.length > 200) {
                 const matchIndex = snippet.toLowerCase().indexOf(word);

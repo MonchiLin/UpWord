@@ -3,9 +3,21 @@ import { sql } from 'kysely';
 import { db } from '../src/db/factory';
 import { DeletionService } from '../src/services/tasks/deletion';
 import { toCamelCase } from '../src/utils/casing';
-
 import { AppError } from '../src/errors/AppError';
 
+/**
+ * [文章资源控制器]
+ * ------------------------------------------------------------------
+ * 功能：处理文章 (Article) 及其衍生资源 (Variants, Vocabulary) 的 CRUD 操作。
+ *
+ * 核心职责：
+ * - 数据重组 (Hydration)：将 DB 中拆散存储的 Article/Variants/Vocab重新组装为前端所需的聚合 JSON 对象。
+ * - 进度追踪：使用位掩码 (Bitmask) 高效存储用户的阅读进度 (read_levels)。
+ * - 级联删除：调用 DeletionService 清理文章本身及其关联的所有生成产物。
+ *
+ * 业务语境：
+ * - 前端展示组件 (`ImpressionArticle.tsx`) 强依赖此处的 `content_json` 聚合结构，修改需同步。
+ */
 export const articlesRoutes = new Elysia({ prefix: '/api/articles' })
     .get('/lookup', async ({ query: { date, slug } }) => {
         if (!date || !slug) throw AppError.badRequest('Missing date or slug');
@@ -28,6 +40,9 @@ export const articlesRoutes = new Elysia({ prefix: '/api/articles' })
         const { level } = body as { level: number };
         if (level === undefined) return { status: "error", message: "level required" };
 
+        // Bitmask Logic: Cumulative Read Status
+        // Sets all levels up to 'level' as read.
+        // E.g. Level 2 (Binary 10) -> Mask (1<<2)-1 = 3 (Binary 011) -> Levels 1 & 2 marked read.
         const mask = (1 << level) - 1;
 
         await db.updateTable('articles')
@@ -44,7 +59,8 @@ export const articlesRoutes = new Elysia({ prefix: '/api/articles' })
         return { status: "ok" };
     });
 
-// Helper
+// Data Aggregation Helper
+// Reconstructs the complex 'content_json' structure from relational tables.
 async function getArticleDetails(id: string) {
     const article = await db.selectFrom('articles')
         .selectAll()
@@ -122,19 +138,13 @@ async function getArticleDetails(id: string) {
         content_json_reconstructed = JSON.stringify(toCamelCase(reconstructed));
     }
 
-    // Mixin. toCamelCase on article row converts `generation_task_id` -> `generationTaskId`.
-    // And `content_json` -> `contentJson` is NOT automatic because `article` doesn't have `content_json` column physically filled if we just fetched from DB and didn't join?
-    // Wait, Drizzle had `content_json` virtual logic or real column?
-    // Schema says `ArticlesTable` has NO `content_json`. It was constructed.
-    // Drizzle code used to construct it manually.
-    // So here I manually return `contentJson`.
+    // Legacy Compatibility: Reconstruct 'contentJson' for frontend consumers.
+    // The frontend expects a single JSON blob containing title, variants, and definitions.
 
     const camelArticle = toCamelCase(article) as Record<string, any>;
 
-    // [Refactor] Use task.mode directly
     const generationMode = task?.mode === 'impression' ? 'impression' : 'rss';
 
-    // We append `contentJson` property.
     return {
         articles: {
             ...camelArticle,

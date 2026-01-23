@@ -1,20 +1,16 @@
 /**
- * 任务执行器 (TaskExecutor)
+ * [任务执行器 (executor.ts)]
+ * ------------------------------------------------------------------
+ * 功能：生成任务的总指挥，负责 "选词 -> 扩写 -> 解析 -> 入库" 全流程编排。
  *
- * 核心职责：执行单个文章生成任务的完整流程
+ * 核心职责：
+ * - 策略路由：区分 "RSS新闻模式" (RSS) 与 "印象模式" (Impression) 的执行路径。
+ * - 资源抢占：基于 `locked_until` 实现分布式锁续租 (Keep-Alive)，防止长任务被误判为死锁。
+ * - 容错恢复：支持从 `context_json` 恢复断点 (Checkpoint)，避免 LLM 阶段性失败导致的 Token 浪费。
  *
- * 执行流程：
- *   1. 加载生成配置 (Profile)
- *   2. 准备候选词（新词优先，过滤已用词）
- *   3. 构建 LLM 客户端配置
- *   4. 恢复 Checkpoint（支持断点续传）
- *   5. 执行生成流水线
- *   6. 清理旧数据（重试场景）
- *   7. 持久化结果
- *
- * 关键设计决策：
- * - Checkpoint 机制：每个阶段完成后保存中间状态，崩溃后可从断点恢复，避免重复调用 LLM
- * - 幂等清理：重试时先删除该任务之前生成的文章，确保数据一致性
+ * 关键约束：
+ * - 幂等性：执行前强制清理旧数据 (DeletionService)，防止重试产生脏读。
+ * - 隔离性：任务执行期间必须持有 DB 锁，释放锁前无权开启新任务。
  */
 
 import type { AppKysely } from '../../db/factory';
@@ -31,15 +27,17 @@ export class TaskExecutor {
     constructor(private db: AppKysely) { }
 
     async executeTask(task: TaskRow, queue: { keepAlive: (id: string) => Promise<void> }) {
-        // [New] Keep-Alive Timer (Standard Visibility Timeout Pattern)
+        // [Keep-Alive 机制]
+        // 意图：防止 Long-Running Task (平均 3-5min) 因超过 DB 锁默认 TTL (如 1min) 而被误判为 Dead Worker。
+        // 实现：每 60s 发送一次心跳，延长 `locked_until` 租约。
+        // 风险：若 Worker 进程崩溃 (OOM/Segfault)，定时器停止 -> 锁过期 -> 任务被 Queue 再次分发 (At-least-once)。
         const keepAliveInterval = setInterval(() => {
             queue.keepAlive(task.id).catch(err => console.error(`[Task ${task.id}] Keep-Alive failed:`, err));
-        }, 60 * 1000); // 1 minute interval (Lease is 5 mins)
+        }, 60 * 1000);
 
         try {
-            // ─────────────────────────────────────────────────────────────
-            // [1] 加载生成配置
-            // ─────────────────────────────────────────────────────────────
+            // 1. 加载生成配置 (Profile)
+            // 获取用户设定的"写作人格" (如: 严肃新闻风格、幽默博客风格)
             const profile = await this.db.selectFrom('generation_profiles')
                 .selectAll()
                 .where('id', '=', task.profile_id)
@@ -47,38 +45,37 @@ export class TaskExecutor {
 
             if (!profile) throw new Error(`Profile not found: ${task.profile_id}`);
 
-            // ─────────────────────────────────────────────────────────────
-            // [2] 准备候选词
-            //
-            // 策略：
-            // - IMPRESSION 模式：使用 result_json 中预存的候选词
-            // - Normal 模式：从 daily_word_references 获取新词+复习词
-            // ─────────────────────────────────────────────────────────────
+            // 2. 候选词策略 (Candidate Strategy)
+            // 决策核心: 所有的单词选择逻辑都在这里，Pipeline 只负责执行。
             const isImpressionMode = task.mode === 'impression';
             const generationMode: GenerationMode = isImpressionMode ? 'impression' : 'rss';
 
             let candidateWordStrings: string[];
             let recentTitles: string[] = [];
-            // 提升到外层作用域，确保后续 saveArticleResult 能正确使用
+            // 提升作用域供最终入库使用
             let newWords: string[] = [];
             let reviewWords: string[] = [];
 
             if (isImpressionMode) {
-                // [Refactor] IMPRESSION 模式：运行时随机生成候选词
-                // 之前的逻辑是从 result_json 读取，现在直接从 words 表随机取
-                // 既然用户说"无所谓"，我们就不做复杂的种子随机，直接 random()
+                // [Strategy: Impression Mode]
+                // 意图：模拟"随机漫步"的阅读体验 (Serendipity)。
+                // 区别：不仅不复习旧词，反而故意引入完全随机的生词，打破算法的"回声室效应"。
+                // 实现：`ORDER BY RANDOM()` (性能注意: 大表慎用，当前 words 表 < 100k 尚可接受)。
                 const randomWords = await this.db
                     .selectFrom('words')
                     .select('word')
                     .orderBy(({ fn }) => fn('random', []))
-                    .limit(10) // Hardcoded 10 for now, or fetch from config
+                    .limit(10)
                     .execute();
 
                 candidateWordStrings = randomWords.map(w => w.word);
                 recentTitles = await getRecentTitles(this.db, task.task_date);
                 console.log(`[Task ${task.id}] IMPRESSION mode with ${candidateWordStrings.length} runtime candidate words`);
             } else {
-                // RSS 模式：从 daily_word_references 获取
+                // [Strategy: SRS Mode]
+                // 意图：严格遵循"间隔重复" (Spaced Repetition) 算法。
+                // 来源：`daily_word_references` 表由外部调度器 (Cron) 预先生成，此处只负责执行。
+                // 约束：必须同时包含 New (新学) 和 Review (复习) 两类词，缺一不可。
                 const wordRefs = await this.db.selectFrom('daily_word_references')
                     .select(['word', 'type'])
                     .where('date', '=', task.task_date)
@@ -91,6 +88,7 @@ export class TaskExecutor {
                     throw new Error('Daily words record is empty');
                 }
 
+                // 过滤掉今日已生成的词，避免重复出题
                 const usedWords = await getUsedWordsToday(this.db, task.task_date);
                 recentTitles = await getRecentTitles(this.db, task.task_date);
                 const candidates = buildCandidateWords(newWords, reviewWords, usedWords);
@@ -102,7 +100,7 @@ export class TaskExecutor {
                 candidateWordStrings = candidates.map(c => c.word);
             }
 
-            // [Refactor] Fetch associated topics
+            // [Context] 获取关联主题，用于引导 LLM 的选材方向
             const topics = await this.db.selectFrom('profile_topics')
                 .innerJoin('topics', 'profile_topics.topic_id', 'topics.id')
                 .select(['topics.id', 'topics.label', 'topics.prompts'])
@@ -110,18 +108,16 @@ export class TaskExecutor {
                 .where('topics.is_active', '=', 1)
                 .execute();
 
-            // [NEW] Query used RSS links for deduplication
+            // [Filter] 查重机制: 获取已用过的 RSS 链接，防止生成重复新闻
             const usedRssRows = await this.db.selectFrom('articles')
                 .select('rss_link')
                 .where('rss_link', 'is not', null)
                 .execute();
             const excludeRssLinks = usedRssRows.map(r => r.rss_link as string);
 
-            // ─────────────────────────────────────────────────────────────
-            // [3] 构建 LLM 客户端配置
-            //
-            // 优先级：任务指定 > 环境变量 > 默认 Gemini
-            // ─────────────────────────────────────────────────────────────
+            // 3. LLM 客户端配置
+            // 优先级: 任务级 override > 环境变量 > 默认Gemini
+            // 这种设计允许我们在 Admin 界面针对某次任务临时切换模型。
             const provider = (task.llm || env.LLM_PROVIDER || 'gemini') as 'gemini' | 'openai' | 'claude';
             let clientConfig: LLMClientConfig;
 
@@ -153,14 +149,9 @@ export class TaskExecutor {
 
             console.log(`[Task ${task.id}] Starting generation with Provider: ${provider}, Model: ${clientConfig.model}`);
 
-            // ─────────────────────────────────────────────────────────────
-            // [4] Checkpoint 恢复（断点续传）
-            //
-            // 为什么需要 Checkpoint？
-            // - LLM 调用耗时长（分钟级），进程崩溃或网络中断时不想从头重来
-            // - 每个阶段完成后保存中间状态到 context_json
-            // - 重新执行时检测有效 Checkpoint 并跳过已完成阶段
-            // ─────────────────────────────────────────────────────────────
+            // 4. 断点续传 (Checkpoint Recovery)
+            // 核心价值: 省钱 & 省时。
+            // 如果任务在 Stage 3 失败，重试时直接读取 JSON 里的中间状态，跳过前两阶段昂贵的 API 调用。
             let checkpoint: PipelineCheckpoint | null = null;
             if (task.context_json) {
                 const parsed = task.context_json as any;
@@ -171,26 +162,25 @@ export class TaskExecutor {
                 }
             }
 
-            // ─────────────────────────────────────────────────────────────
-            // [5] 执行生成流水线
-            // ─────────────────────────────────────────────────────────────
-            // Derive legacy string for pipeline compatibility
+            // 5. 执行生成流水线 (The Pipeline)
+            // 调用 stateless 的 pipeline 函数，但传入 onCheckpoint 回调来持久化状态。
             const topicPreference = topics.map(t => t.label).join(', ');
 
             const client = createClient(clientConfig);
             const output = await runPipeline({
                 client,
                 currentDate: task.task_date,
-                topicPreference, // Derived string
-                topics: topics.map(t => ({ ...t, prompts: t.prompts || undefined })), // [NEW] Pass fetched topics
+                topicPreference,
+                topics: topics.map(t => ({ ...t, prompts: t.prompts || undefined })),
                 candidateWords: candidateWordStrings,
                 recentTitles,
                 excludeRssLinks,
                 checkpoint,
-                mode: generationMode,  // 传递生成模式
+                mode: generationMode,
                 onCheckpoint: async (cp) => {
-                    // 每个阶段完成后持久化 Checkpoint
-                    // Context JSON is purely for runtime state recovery
+                    // [State Persistence]
+                    // 每个阶段完成后立即刷写 DB。
+                    // 注意: 这里只存 context_json，不改任务状态，任务依然是 "processing"。
                     await this.db.updateTable('tasks')
                         .set({ context_json: JSON.stringify(cp) })
                         .where('id', '=', task.id)
@@ -199,15 +189,9 @@ export class TaskExecutor {
                 }
             });
 
-            // const articleId = crypto.randomUUID(); // Removed unused
-
-            // ─────────────────────────────────────────────────────────────
-            // [6] 幂等清理：删除该任务之前生成的文章
-            //
-            // 为什么需要清理？
-            // - 任务重试时，旧数据会导致重复
-            // - 手动级联删除，因为 SQLite 外键约束配置可能不一致
-            // ─────────────────────────────────────────────────────────────
+            // 6. 幂等性清理 (Idempotency Sweep)
+            // 痛点: Drizzle/Kysely 在某些驱动下不处理级联删除，导致残留的 article_paragraphs 报错。
+            // 解决方案: 在写入新结果前，显式调用 DeletionService 清理该任务 ID 下的所有旧数据。
             const existingArticles = await this.db.selectFrom('articles')
                 .select(['id'])
                 .where('generation_task_id', '=', task.id)
@@ -217,19 +201,14 @@ export class TaskExecutor {
 
             if (existingArticles.length > 0) {
                 const articleIds = existingArticles.map(a => a.id);
-
-                // Use unified deletion service
-                // Note: We intentionally process sequentially or use Promise.all to ensure completion before retry
+                // 串行删除以降低数据库压力
                 for (const id of articleIds) {
                     await DeletionService.deleteArticleWithCascade(id);
                 }
-
                 console.log(`[Task ${task.id}] Cleaned up ${existingArticles.length} existing article(s) before retry.`);
             }
 
-            // ─────────────────────────────────────────────────────────────
-            // [7] 持久化结果
-            // ─────────────────────────────────────────────────────────────
+            // 7. 持久化存储 (Final Commit)
             const { saveArticleResult } = await import('./saveArticle');
             await saveArticleResult({
                 db: this.db,
@@ -244,25 +223,22 @@ export class TaskExecutor {
             });
 
             const finishedAt = new Date().toISOString();
-            // Result data (mode, usage etc) is no longer persisted in result_json.
-            // usage stats could be logged or stored in a separate table if needed.
-            if (output.usage) {
-                console.log(`[Task ${task.id}] Usage:`, output.usage);
-            }
 
+            // 任务成功，释放锁并清除 Checkpoint (不再需要恢复)
             await this.db.updateTable('tasks')
                 .set({
                     status: 'succeeded',
-                    context_json: null, // Clear checkpoints on success
+                    context_json: null,
                     finished_at: finishedAt,
                     published_at: finishedAt,
-                    locked_until: null // Release lock
+                    locked_until: null
                 })
                 .where('id', '=', task.id)
                 .execute();
 
             console.log(`[Task ${task.id}] Completed successfully`);
         } finally {
+            // 无论成功失败，必须清除保活定时器，否则会导致内存泄漏 (Worker 进程不退出)
             clearInterval(keepAliveInterval);
         }
     }

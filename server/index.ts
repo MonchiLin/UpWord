@@ -1,7 +1,12 @@
 /**
- * UpWord 服务器入口
+ * [UpWord Backend Entrypoint (server/index.ts)]
+ * ------------------------------------------------------------------
+ * 功能：初始化 Elysia 应用实例，组装全局中间件、路由控制器与后台守护进程。
  *
- * 技术栈：Elysia (Bun) + SQLite (D1/Local)
+ * 核心架构:
+ * - Bootstrapper: 负责 DB 连接、Worker 启动 (Queue Consumer) 和 Cron 调度器 (Producer) 的生命周期管理。
+ * - Gatekeeper: 实现 "Global-First" 鉴权策略 —— 默认拦截 /api/admin 和 /api/tasks，保障系统安全。
+ * - Dependency Injection: 将 `queue` 实例手动注入各个 Route Controller，避免模块间循环依赖。
  */
 
 import { Elysia } from "elysia";
@@ -11,9 +16,7 @@ import { db } from './src/db/factory';
 import { TaskQueue } from './src/services/tasks/queue';
 import { AppError, formatErrorResponse } from './src/errors/AppError';
 
-// ─────────────────────────────────────────────────────────────
-// 路由导入
-// ─────────────────────────────────────────────────────────────
+// Routes
 import { healthRoutes } from './routes/health';
 import { tasksRoutes } from './routes/tasks';
 import { wordsRoutes } from './routes/words';
@@ -33,30 +36,23 @@ import { rssRoutes } from './routes/rss';
 import { impressionRoutes } from './routes/impression';
 import { env } from './config/env';
 
-// ─────────────────────────────────────────────────────────────
-// 后台 Worker 导入
-// ─────────────────────────────────────────────────────────────
+// 后台工作进程 (Background Workers)
 import { startTaskWorker } from './workers/taskWorker';
 import { startCronScheduler } from './workers/cronScheduler';
 
 console.log("Using D1 (Strict). Skipping runtime migration (Managed via Wrangler/Drizzle Kit).");
 
-// ─────────────────────────────────────────────────────────────
-// 初始化核心服务
-// ─────────────────────────────────────────────────────────────
-
+// 依赖注入: 将数据库实例注入任务队列
 const queue = new TaskQueue(db);
 
 startTaskWorker(queue);
 
-// 仅在生成环境启动 Cron
+// 环境限制: 仅在生产环境启动 Cron，防止开发环境热重载导致定时任务重复触发
 if (process.env.NODE_ENV === 'production') {
     startCronScheduler(queue);
 }
 
-// ─────────────────────────────────────────────────────────────
-// 错误处理配置
-// ─────────────────────────────────────────────────────────────
+// Error Handling Configuration
 
 /** Elysia 内置错误码到 HTTP 状态码映射 */
 const errorCodeToStatus: Record<string, number> = {
@@ -67,9 +63,7 @@ const errorCodeToStatus: Record<string, number> = {
     'INTERNAL_SERVER_ERROR': 500
 };
 
-// ─────────────────────────────────────────────────────────────
-// 应用组装
-// ─────────────────────────────────────────────────────────────
+// Application Assembly
 
 const app = new Elysia()
     // 跨域配置：允许所有来源 + Cookie
@@ -78,7 +72,7 @@ const app = new Elysia()
         credentials: true
     }))
 
-    // 全局错误处理器：统一响应格式
+    // 全局错误处理器: 统一将所有异常转换为标准 JSON 响应
     .onError(({ code, error, set }) => {
         // 自定义 AppError 处理
         if (error instanceof AppError) {
@@ -115,15 +109,14 @@ const app = new Elysia()
     .use(healthRoutes)
     .use(authRoutes)
 
-    // ─────────────────────────────────────────────────────────
-    // 管理员认证中间件
-    //
-    // 保护策略：
-    // - /api/admin/*：全部保护
-    // - /api/tasks/*：全部保护（任务管理）
-    // - /api/articles：仅 DELETE/PATCH 保护（读取公开）
-    // - /api/cron/*：全部保护（定时任务触发）
-    // ─────────────────────────────────────────────────────────
+    /**
+     * [Global Gatekeeper Middlemare]
+     * 策略：白名单机制 (Whitelist Strategy)。
+     * 逻辑：
+     * 1. 拦截所有敏感路径 (`/admin`, `/tasks` 等)。
+     * 2. 验证凭证：优先检查 `x-admin-key` Header，其次检查 `admin_key` Cookie (适配浏览器直连)。
+     * 3. 拒绝：抛出 401 Unauthorized。
+     */
     .onBeforeHandle(({ request }) => {
         const path = new URL(request.url).pathname;
         const isProtected = path.startsWith('/api/admin') ||

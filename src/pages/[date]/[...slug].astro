@@ -1,15 +1,14 @@
 ---
 /**
- * Article Page (核心阅读页 / SSR)
- * 
- * 路由架构 (Virtual Routing Pattern):
- * 本页面处理所有难度等级的访问请求，通过 URL 后缀区分。
- *   - /2023-10-01/my-article      -> 渲染 L1 (默认)
- *   - /2023-10-01/my-article/L2   -> 渲染 L2
- *   - /2023-10-01/my-article/L3   -> 渲染 L3
- * 
- * 为什么不使用 Query Param (?level=2)?
- * 为了 SEO 和 CDN 缓存。不同的 URL 代表不同的资源实体，有利于搜索引擎索引不同难度的内容。
+ * [核心阅读器 (SSR Application Entry)]
+ * ------------------------------------------------------------------
+ * 功能：根据 URL 参数动态渲染文章阅读器，支持 L1/L2/L3 难度切换。
+ *
+ * 核心逻辑:
+ * - Virtual Routing: 拦截 `/my-article/L2`，手动分离出 `slug`="my-article" 和 `level`=2。
+ * - Cache Policy: 强制 `Cache-Control: private`。
+ *   理由：Admin 用户和普通用户看到的页面包含不同数据 (Pull Quotes, Edits)，不能共享 CDN 缓存。
+ * - Layout Dispatch: 根据 `generationMode` (RSS vs Impression) 动态分发不同的 Astro Layout。
  */
 import Layout from "@/layouts/Layout.astro";
 import ArticleHeader from "@/components/article/ArticleHeader.astro";

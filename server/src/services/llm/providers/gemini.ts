@@ -1,10 +1,12 @@
 /**
- * Gemini Provider (Google Vertex AI/Studio REST API 实现)
- * 
- * 核心设计：
- * 不使用 Google 官方 Node.js SDK，而是直接封装 fetch 请求。
- * 原因：为了更精细地控制底层网络行为（如 Fetch 的 signal、timeouts、HTTP 代理支持），
- * 以及处理官方 SDK 可能未及时跟进的 Beta 特性（如 Thinking Config, Search Tool 自定义参数）。
+ * [Gemini Provider Implementation (Google Vertex AI / AI Studio)]
+ * ------------------------------------------------------------------
+ * 核心决策：**Bypass SDK, Use Raw Fetch**
+ *
+ * 原因 (Architectural Decision Record):
+ * 1. **生命周期控制 (Lifecycle)**: 官方 SDK 对 Fetch 的封装过深，难以精确控制 `AbortSignal` 和 Socket 超时。
+ * 2. **Beta 特性跟进 (Velocity)**: Deep Thinking (CoT) 和 Dynamic Search Config 往往在 REST API 最先发布，SDK 滞后。
+ * 3. **网络对策 (Network)**: Raw Fetch 允许我们在更底层注入 Proxy Agent 或 Custom Headers。
  */
 
 import type { DailyNewsProvider, GenerateOptions, GenerateResponse, Stage1Input, Stage1Output, Stage2Input, Stage2Output, Stage3Input, Stage3Output, Stage4Input, Stage4Output } from '../types';
@@ -20,7 +22,9 @@ import {
 import { stripCitations, extractJson, buildSourceUrls } from '../utils';
 import { runSentenceAnalysis } from '../analyzer';
 
-// 35 分钟超时
+// 超时设置：35分钟
+// 原因：Stage 4 (语法分析) 涉及 3 篇文章的深度 NLP 处理，且 "Thinking" 模型有时会“思考”数分钟。
+// 宁可长时间等待也不希望其中断，配合 Checkpoint 机制保证最终一致性。
 const GEMINI_TIMEOUT_MS = 35 * 60 * 1000;
 
 export type GeminiMessage = {
@@ -73,8 +77,7 @@ export class GeminiProvider implements DailyNewsProvider {
         console.log(`[Gemini] Calling: ${url}`);
 
         const controller = new AbortController();
-        // 设置超长超时 (35m)，因为 Stage 3/4 的整批处理可能极其耗时，
-        // 且 Google 的 Thinking Model 有时会“思考”很久。
+        // 启动看门狗计时器 (Watchdog Timer)
         const timeoutId = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
 
         // 构建请求体
@@ -95,8 +98,11 @@ export class GeminiProvider implements DailyNewsProvider {
         const generationConfig = {
             temperature: 1,
             maxOutputTokens: 64000,  // Gemini 3 Pro 最大输出长度
+            // Thinking Config (思维链配置)
+            // 启用 High Level 思考，显著提升复杂指令 (如 Stage 2 写作和 Stage 4 语法分析) 的遵循度。
+            // 代价是延迟增加 10-30 秒。
             thinkingConfig: {
-                includeThoughts: true,
+                includeThoughts: true, // 必须为 true 才能触发思考，但在 extractText 中会被我们过滤掉
                 thinkingLevel: 'high'
             },
             ...options.config?.generationConfig
@@ -112,7 +118,8 @@ export class GeminiProvider implements DailyNewsProvider {
                 body: JSON.stringify({
                     generationConfig,
                     ...request,
-                    tools: tools
+                    // 暂时关闭, 无法使用 GoogleSearch
+                    tools: []
                 }),
                 signal: controller.signal,
             });
@@ -131,13 +138,10 @@ export class GeminiProvider implements DailyNewsProvider {
                 throw new Error(`Gemini API Error: ${data.error.code} - ${data.error.message}`);
             }
 
-            // 提取核心文本
-            // Gemini API 返回的数据结构中，"parts" 数组可能混合包含：
-            // 1. { thought: true, text: "..." } -> 思维链内容 (CoT)
-            // 2. { text: "..." } -> 最终回答内容
-            // 
-            // 我们需要过滤掉 thought 部分，只返回最终的 JSON 文本给 Pipeline 解析。
-            // 否则 JSON.parse 会因为包含自然语言的思考过程而失败。
+            // [Content Extraction Strategy]
+            // 挑战：Flash Thinking 模型返回混合流 (Mixed Stream)。
+            // 解决：**Strict Filtering** (严格过滤)。
+            // 逻辑：我们只关心最终的 `text`，必须剔除 `thought: true` 的推理过程，以免污染 JSON Parser。
             const text = this.extractText(data);
 
             return {

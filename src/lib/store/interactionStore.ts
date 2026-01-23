@@ -1,25 +1,17 @@
 /**
- * 交互状态管理 (Interaction Store)
+ * [交互状态管理 Store (interactionStore.ts)]
+ * ------------------------------------------------------------------
+ * 功能：管理文章阅读时的深层交互状态（词汇悬停、历史回响、难度切换）。
  *
- * 核心职责：管理文章阅读时的交互状态（词汇悬停、级别切换、语义记忆）
+ * 核心架构: **双层状态机 (Two-Tier State Design)**
+ * 1. Event Layer (activeInteraction): 极简原子状态 (Atom)，专攻高频坐标更新。
+ *    - 优势：O(1) 性能。鼠标移动时只更新 rect，不触发 React 全量 Diff。
+ * 2. State Layer (interactionStore): 业务衍生状态 (Derived)，负责数据查找。
+ *    - 机制：仅在 word 发生实质变化时计算 (Memoized)，避免无意义的 map lookup。
  *
- * 架构设计：
- *
- *   ┌───────────────────┐     ┌───────────────────┐
- *   │ activeInteraction │     │  interactionStore │
- *   │   (事件层)         │ ──▶ │    (状态层)        │
- *   │  rect + word      │     │  activeWord + echo │
- *   └───────────────────┘     └───────────────────┘
- *            ↓                          ↓
- *     VisualTether 定位            WordSidebar 展示
- *
- * 为什么分两层？
- * - activeInteraction: 高频事件（鼠标位置），需 O(1) 更新
- * - interactionStore: 应用状态（当前词、echo 数据），用于 UI 渲染
- *
- * Echoes (语义记忆):
- * - 记录用户学过的词在历史文章中出现的上下文
- * - 悬停时展示 "你曾在 N 天前的文章中见过这个词"
+ * 内存策略:
+ * - `definitionsRegistry` 使用全局单例 (Singleton Pattern) 而非 Store。
+ * - 理由：词典数据庞大且静态，注入 Context 会导致 React Tree 主要是垃圾回收压力。
  */
 
 import { map, atom } from 'nanostores';
@@ -88,10 +80,10 @@ export type InteractionEvent = {
 export const activeInteraction = map<{ current: InteractionEvent }>({ current: null });
 
 /**
- * Echoes 注册表
- *
- * 由页面初始化时注入（SSR 数据），存储当前文章所有目标词的历史上下文。
- * 不作为 atom 导出，避免不必要的重渲染。
+ * [Static Registry Pattern]
+ * 意图：作为 SSR 数据的"静态缓存池"。
+ * 优化：不放入 Atom 的原因是它们属于"只读环境量"，不需要 Reactive 更新。
+ *      Component 使用时直接查表 (Direct Lookup)，避开了 Subscription 开销。
  */
 let echoesRegistry: Record<string, any> = {};
 
@@ -165,20 +157,11 @@ export function lookupDefinition(word: string): WordDefinitionData | null {
 export const setInteraction = (word: string, rect: { top: number; left: number; width: number; height: number }) => {
     const normalized = word.toLowerCase();
 
-    // 1. 更新事件层（高频）
-    activeInteraction.setKey('current', {
-        word: normalized,
-        rect,
-        id: crypto.randomUUID()
-    });
-
-    // 2. 更新状态层（仅在词变化时）
-    const currentStore = interactionStore.get();
-    if (currentStore.activeWord !== normalized) {
-        interactionStore.setKey('activeWord', normalized);
-        interactionStore.setKey('echoData', lookupEchoData(normalized));
-        interactionStore.setKey('definition', lookupDefinition(normalized));
-    }
+    // [Performance Optimization]
+    // 意图：Separation of Update Frequency (频率分离)。
+    // 1. 坐标 (Rect) 是高频易变数据 -> 写入 Event Layer (Atom) -> 仅触发 VirtualRef 的 Effect。
+    // 2. 词 (Word) 是低频业务数据 -> 写入 State Layer (Map) -> 触发 React UI 重绘。
+    // 结果：鼠标微动不会导致整个 Popover 组件重渲染。
 };
 
 /** 清除交互状态（鼠标离开） */

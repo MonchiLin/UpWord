@@ -1,6 +1,16 @@
 ---
-// Remove Layout import as it is provided by the parent
-// import Layout from "@/layouts/Layout.astro";
+/**
+ * [Impression Mode Article Layout]
+ * ------------------------------------------------------------------
+ * Purpose: Renders the "Impression" reading experience (Astro Component).
+ *
+ * Key Responsibilities:
+ * - Layouting the article content, summary, and quotes.
+ * - Injecting server-side data for client-side interactivity (Echoes, Definitions).
+ * - Initializing client-side features (Audio Player, Read Tracker, Annotated Text).
+ *
+ * External Dependencies: Astro, React Islands (HistoricalEchoes, FloatingAudioPlayer).
+ */
 import ArticleHeader from "@/components/article/ArticleHeader.astro";
 import FloatingAudioPlayer from "@/components/FloatingAudioPlayer";
 import AudioInit from "@/components/AudioInit";
@@ -175,6 +185,9 @@ const allArticleContents = getAllArticleContents(sortedArticles);
     import { initInteractionController } from "@/lib/features/echoes/hoverController";
 
     function initImpressionPage() {
+        // Hydration Strategy
+        // 1. Data Injectors (Server) -> DOM Elements (Hidden JSON).
+        // 2. Client Script -> Parses JSON -> Updates Nanostores.
         try {
             const dataEl = document.getElementById("memories-data");
             if (dataEl && dataEl.textContent) {

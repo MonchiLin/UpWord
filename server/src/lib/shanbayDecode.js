@@ -1,8 +1,10 @@
-// ============ 扇贝单词 API 解密核心算法 ============
+// ============ [Black Box] Shanbay API Decoder ============
 // 
-// 这是一个逆向工程 (Reverse Engineering) 的实现，用于解析扇贝单词 App v4.0+ 接口返回的混淆数据。
-// 扇贝使用了自定义的位移混淆算法来防止爬虫。
-// 这里的实现完全移植自客户端 JS 逻辑。
+// ⚠️ 警告：此文件包含逆向工程 (Reverse Engineering) 代码。
+// 来源：直接移植自扇贝单词客户端 (Android/Web) 的混淆解密逻辑。
+// 维护：请勿格式化或重构核心位运算逻辑 (Bitwise Ops)，否则极其容易引入 Overflow Bug。
+// 
+// 核心机制：Mersenne Twister 变体 + Huffman Tree 动态重建。
 
 class Func {
     static loop(cnt, func) {

@@ -125,7 +125,7 @@ export default function TaskQueueList({ tasks, onRefresh, onDelete, taskDate }: 
                                         ? "bg-purple-50 text-purple-600 border-purple-200"
                                         : "bg-blue-50 text-blue-600 border-blue-200"
                                 )}>
-                                    {t.mode === 'impression' ? 'spark' : 'rss'}
+                                    {t.mode === 'impression' ? 'impression' : 'rss'}
                                 </span>
 
                                 {/* LLM Badge */}

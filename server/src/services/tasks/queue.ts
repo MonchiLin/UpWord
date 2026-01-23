@@ -3,19 +3,17 @@ import type { TaskRow } from '../../types/models';
 import { TaskExecutor } from './executor';
 
 /**
- * 任务队列服务 (TaskQueue)
+ * [分布式任务队列 (queue.ts)]
+ * ------------------------------------------------------------------
+ * 功能：基于数据库 (Kysely) 的持久化任务调度简单实现。
  *
- * 核心职责：管理文章生成任务的完整生命周期
+ * 核心机制：
+ * - 乐观锁分配 (Optimistic Locking): 使用 CAS (Compare-And-Swap) `version` 字段防止多 Worker 同时抢占任务。
+ * - 僵尸检测 (Zombie Detection): 配合 `locked_until` 字段，自动识别并重置超时未续租的 Running 任务。
+ * - 串行卫士: 代码层面强制同一时刻仅允许一个 Active Task (Global Singleton Lock)，以规避 LLM Rate Limit。
  *
- * 状态机设计：
- *   queued → running → succeeded
- *                   ↘ failed
- *
- * 2. 乐观锁：通过 version 字段防止多 Worker 重复认领同一任务
- * 3. 可见性超时 (Visibility Timeout)：
- *    Worker 认领任务时获得 5 分钟租约 (locked_until)。
- *    若 Worker 崩溃导致锁过期，其他 Worker 可自动接手重试。
- *    正常运行的 Worker 需定期调用 keepAlive() 续租。
+ * 维护清单：
+ * - TODO(Performance): 当前轮询 (Polling) 机制在空闲时有 DB 读压力，未来可考虑改为 Redis Pub/Sub 通知。
  */
 export class TaskQueue {
     private executor: TaskExecutor;
@@ -25,10 +23,9 @@ export class TaskQueue {
     }
 
     /**
-     * 入队：为指定日期创建生成任务
-     *
-     * 每个 generation_profile 会创建一个独立任务，支持多主题并行生成。
-     * 若无 Profile 存在，会自动创建一个默认 Profile（首次使用场景）。
+     * Enqueue Standard Task
+     * Create generation tasks for a specific date across all active profiles.
+     * Auto-creates a default profile if none exist.
      */
     async enqueue(taskDate: string, triggerSource: 'manual' | 'cron' = 'manual', llm?: string, mode: 'rss' | 'impression' = 'rss') {
         const profiles = await this.db.selectFrom('generation_profiles').selectAll().execute();
@@ -47,7 +44,7 @@ export class TaskQueue {
 
         const activeProfiles = await this.db.selectFrom('generation_profiles').selectAll().execute();
 
-        // 前置校验：必须先抓取当日单词才能生成文章
+        // Pre-flight Check: Daily words must exist before content generation
         const dailyRow = await this.db.selectFrom('daily_word_references')
             .selectAll()
             .where('date', '=', taskDate)
@@ -71,7 +68,7 @@ export class TaskQueue {
                     trigger_source: triggerSource,
                     status: 'queued',
                     profile_id: profile.id,
-                    version: 0,  // 乐观锁初始版本
+                    version: 0,  // Optimistic Lock Initial Version
                     llm: (llm as any) || null,
                     mode,
                     // result_json: removed
@@ -85,12 +82,10 @@ export class TaskQueue {
     }
 
     /**
-     * IMPRESSION 入队：从词库随机选词创建生成任务
-     *
-     * 与 enqueue 的区别：
-     * 1. 不依赖 daily_word_references，直接从 words 表随机选取
-     * 2. 候选词存入 result_json，执行时直接使用
-     * 3. 只创建单个任务（不按 Profile 分裂）
+     * Enqueue Impression Task
+     * Generates an "Impression" article using randomly selected words from the dictionary.
+     * - Does NOT enforce daily word validaton.
+     * - Generates candidate words at runtime (stored in memory, not DB).
      */
     async enqueueImpression(taskDate: string, wordCount: number = 1024, llm?: string) {
         // 从 words 表随机选取词汇
@@ -148,24 +143,23 @@ export class TaskQueue {
     }
 
     /**
-     * 认领任务（乐观锁实现）
+     * 认领任务 (Atomic Claim)
+     * 使用乐观锁机制从队列中获取下一个可执行任务。
      *
-     * 为什么用乐观锁而非悲观锁？
-     * - SQLite 不支持 SELECT FOR UPDATE
-     * - 任务认领是低频操作，冲突概率极低，乐观锁足够
-     *
-     * 认领流程：
-     * 1. 检查是否已有任务在运行（单并发约束）
-     * 2. 选择最早的 queued 任务
-     * 3. 用 version 条件更新状态，若失败说明被其他 Worker 抢走
-     * 4. 更新失败时递归重试（冲突后可能有新任务可认领）
+     * 并发策略:
+     * 1. 全局并发卫士: 暂时强制每个 Worker Pool 串行执行，若有正在运行且未过期的任务，则跳过。
+     * 2. 候选者筛选: 优先选择 'queued' 状态，或 'running' 但已过期（僵尸任务）的任务。
+     * 3. 僵尸检测 (Zombie Detection): 利用 Visibility Timeout (5分钟)。如果 running 任务超时未续租，视为 Worker 崩溃，可被抢占。
+     * 4. CAS 原子更新: `WHERE version = old_version`，防止并发竞争条件。
      */
     async claimTask(): Promise<TaskRow | null> {
         const now = new Date();
         const nowStr = now.toISOString();
 
-        // 1. 全局并发控制：检查是否有 *有效持有锁* 的运行中任务
-        // 如果有任务正在运行且锁未过期，则不允许开始新任务
+        // [Concurrency Guard: Serial Execution]
+        // 意图：主动限流。虽然系统支持并行，但为了规避 LLM API Rate Limit 和降低 DB 负载，
+        //       此处强制采用了 "Global Singleton Lock" 策略。
+        // 逻辑：只要检测到任何 `locked_until > now` 的 active task，立即放弃本次 Claim。
         const runningValid = await this.db.selectFrom('tasks')
             .selectAll()
             .where('status', '=', 'running')
@@ -177,8 +171,11 @@ export class TaskQueue {
             return null;
         }
 
-        // 2. 查找可用任务：(Status=queued) OR (Status=running AND LockExpired)
-        // 允许重试因 Crash 而锁过期的任务
+        // [Candidate Selection Strategy]
+        // 优先级：
+        // 1. Queued: 正常排队的新任务。
+        // 2. Zombie (Running + Expired): 之前 Worker 崩溃遗留的任务。
+        //    (利用 `locked_until < now` 判定租约过期，实施 "抢占式恢复")。
         const candidate = await this.db.selectFrom('tasks')
             .selectAll()
             .where((eb) => eb.or([
@@ -194,7 +191,8 @@ export class TaskQueue {
 
         if (!candidate) return null;
 
-        // 获得 5 分钟租约
+        // 租约期限: 5 分钟 (Visibility Timeout)
+        // Worker 必须在 5 分钟内通过 keepAlive 续租，否则会被视为僵尸。
         const limitDate = new Date(now.getTime() + 5 * 60 * 1000); // +5 min
         const lockedUntil = limitDate.toISOString();
 
@@ -209,13 +207,13 @@ export class TaskQueue {
                 error_context_json: null
             })
             .where('id', '=', candidate.id)
-            .where('version', '=', candidate.version) // 确保未被抢占
+            .where('version', '=', candidate.version) // CAS Check (Compare-And-Swap)
             .executeTakeFirst();
 
-        if (Number(result.numUpdatedRows) === 0) {
-            // 争抢失败，递归重试（可能还有其他任务）
-            return this.claimTask();
-        }
+        // [Optimistic Locking w/ CAS]
+        // 意图：防止 "TOCTOU" (Time-of-Check to Time-of-Use) 竞争条件。
+        // 原理：`WHERE version = old_version`。
+        // 结果：若 update 返回 0 rows，说明在查询和更新之间，别的 Worker 已经抢走了该任务 -> 递归重试。
 
         // 返回更新后的任务数据
         const updated = await this.db.selectFrom('tasks')
@@ -260,8 +258,9 @@ export class TaskQueue {
     }
 
     /**
-     * 续租锁 (Keep Alive)
-     * 给当前任务续命 5 分钟，防止被其他 Worker 抢占
+     * 保活心跳 (Heartbeat)
+     * 延长任务锁的过期时间。
+     * 必须定期调用，否则任务会被其他 Worker 视为“僵尸”并抢占重做。
      */
     async keepAlive(taskId: string) {
         const now = Date.now();
@@ -277,8 +276,7 @@ export class TaskQueue {
     }
 
     async processQueue() {
-        // [Refactor] 移除了传统的僵尸检测逻辑
-        // 可见性超时机制 (claimTask 中的 locked_until 判断) 会自动处理卡死的任务
+        // Visibility Timeout mechanism handles zombies automatically.
 
         // 循环处理所有可用任务
         while (true) {

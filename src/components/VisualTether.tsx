@@ -1,3 +1,16 @@
+/**
+ * [视觉连线 / 贝塞尔曲线]
+ * ------------------------------------------------------------------
+ * 功能描述: 在文章中的单词与右侧边栏卡片之间绘制动态贝塞尔曲线，强化"关联感"。
+ *
+ * 核心职责:
+ * - 动态计算 (Dynamic Calculation): 实时监听滚动与 Resize，重算 DOM 坐标 (getBoundingClientRect)。
+ * - 贝塞尔插值: 使用三阶贝塞尔曲线 (Cubic Bezier) 生成平滑路径，避免直线僵硬感。
+ * - 性能优化: 仅在 `activeWord` 存在时挂载 SVG，且使用 `requestAnimationFrame` 优化高频重绘。
+ *
+ * 外部依赖: React State
+ * 注意事项: 为避免遮挡点击事件，SVG 必须设置 `pointer-events: none`。
+ */
 import { useEffect, useState, useRef } from 'react';
 import { useStore } from '@nanostores/react';
 import { interactionStore } from '../lib/store/interactionStore';
@@ -54,9 +67,20 @@ export default function VisualTether() {
             setPaths(newPaths);
         };
 
+        /**
+         * 计算贝塞尔曲线路径 (Cubic Bezier Calculation)
+         *
+         * 算法意图:
+         * 使用两个控制点 (CP1, CP2) 拉扯线条，模拟类似"磁力"的连接效果。
+         * - cp1: 从源点向右凸出
+         * - cp2: 从目标点向左凸出
+         *
+         * @param sourceEl - 文章中的单词 DOM
+         * @param targetPt - 侧边栏卡片的锚点坐标
+         */
         const calculateTether = (sourceEl: Element, targetPt: Point, type: 'orange' | 'gold'): TetherPath | null => {
             const rect = sourceEl.getBoundingClientRect();
-            // Visibility check
+            // 视口外剔除 (Viewport Culling): 减少屏幕外无需绘制的计算量
             if (rect.top < -50 || rect.bottom > (window.innerHeight + 50)) return null;
 
             // Determine if target is to the left or right of the word
@@ -68,14 +92,11 @@ export default function VisualTether() {
                 y: rect.top + rect.height / 2
             };
 
-            // Re-adjust target anchor if it's on the left
-            // For cards on the right (dict), we use rect.left (line 40).
-            // For cards on the left (memory), we should use cardRect.right.
-            // But targetPt is already passed in by updateTether.
-            // I'll update updateTether to pass the correct card edge.
-
             const dx = targetPt.x - sourcePt.x;
+            // 曲线张力系数 (Curvature): 0.5 = 标准圆润, 0.4 = 稍紧绷
             const curveFactor = type === 'gold' ? 0.5 : 0.4;
+
+            // 控制点计算
             const cp1 = { x: sourcePt.x + dx * curveFactor, y: sourcePt.y };
             const cp2 = { x: targetPt.x - dx * curveFactor, y: targetPt.y };
 

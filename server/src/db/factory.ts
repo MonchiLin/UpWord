@@ -1,3 +1,16 @@
+/**
+ * [数据库工厂]
+ * ------------------------------------------------------------------
+ * 功能描述: 根据环境变量动态构建 Kysely 数据库实例，屏蔽底层驱动差异。
+ *
+ * 核心职责:
+ * - 多驱动适配 (Driver Adapter): 支持 Sqlite (Local), D1 (Cloudflare), MySQL/PG 等多种驱动。
+ * - 环境隔离: 开发环境使用本地 SQLite，生产环境无缝切换至 D1。
+ * - 插件注入: 全局注入 `ParseJSONResultsPlugin` 以自动处理 JSON 字段。
+ *
+ * 外部依赖: Kysely, Bun-Sqlite, D1-Dialect
+ * 注意事项: 若添加新驱动支持，需同步更新 `server/package.json` 的 peerDependencies。
+ */
 import { Kysely, ParseJSONResultsPlugin } from 'kysely';
 import { BunSqliteDialect } from 'kysely-bun-sqlite';
 import { Database as BunDatabase } from 'bun:sqlite';

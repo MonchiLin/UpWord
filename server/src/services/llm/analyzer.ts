@@ -1,23 +1,20 @@
 /**
- * Syntax Analysis Engine (句法分析引擎) - Stage 4
- * 
- * 核心挑战：Context Window vs. Precision (上下文与精度的权衡)
- * 1. "Lost in the Middle": 如果一次性分析整篇文章 (2-3k token)，LLM 往往会忽略中间的句子，只分析开头和结尾。
- * 2. 结构化输出坍塌: 要求的 JSON 越长，LLM 越容易生成无效格式 (Syntax Error)。
- * 
- * 解决方案：Divide-and-Conquer (分治策略)
- * 1. Segmentation (分句): 使用 `Intl.Segmenter` (浏览器原生) 进行高精度的语言学分句，优于简单的 Regex。
- * 2. Grouping (分组): 将句子按段落 (Paragraph) 编组。每组 5-10 句，既保留了局部上下文 (Local Context)，又将 Token 保持在 LLM 的"舒适区" (Sweet Spot)。
- * 3. Mapping (映射): LLM 只需返回局部索引，我们再将其映射回全局文章偏移量 (Global Offsets)。
+ * [句法分析引擎 (analyzer.ts)]
+ * ------------------------------------------------------------------
+ * 功能：利用 LLM 进行 SVO (主谓宾) 句法成分标注，支持长文分块处理。
+ *
+ * 核心算法：
+ * - 智能分句 (Smart Segmentation): 使用 `Intl.Segmenter` + 启发式规则 (合并中间名缩写) 解决正则分句的边缘 Case。
+ * - 坐标映射 (Offset Mapping): 将 LLM 返回的局部 Token 坐标映射回全局文章偏移量，解决 "Token 丢失" 问题。
+ *
+ * 性能考量：
+ * - Sweet Spot Batching: 将句子按 5-10 句/段分组。组太小浪费 Prompt Token，组太大导致 Attention 丢失 (Lost-in-the-Middle)。
  */
 
 import { extractJson } from './utils';
 import type { LLMProvider } from './types';
 import { ANALYSIS_SYSTEM_INSTRUCTION } from './prompts.shared';
 import type { AnalysisRole, SentenceData, AnalysisAnnotation } from '../../db/jsonTypes';
-
-// ============ 类型定义 ============
-
 
 // ============ 类型定义 ============
 
@@ -82,10 +79,11 @@ const VALID_ROLES: readonly AnalysisRole[] = [
 // ============ 辅助函数 ============
 
 /**
- * 使用 Intl.Segmenter 将文章分割为句子
- * 
- * 后处理：修复 Intl.Segmenter 对中间名缩写的错误切分（如 "Jason W. Ricketts"）。
- * 策略：如果前一段以"单个大写字母 + 点"结尾，且后一段不以常见句首词开头，则合并。
+ * [Smart Segmentation Algorithm]
+ * 意图：解决 `Intl.Segmenter` 对 "Middle Initial" (如 "Jason W. Ricketts") 误判为句子结束的问题。
+ * 启发式规则：
+ * 1. 模式匹配：检测是否以 " [A-Z]." 结尾。
+ * 2. 排除法：若下一段以常用句首词 (But/The/And) 开头，则承认分句；否则视为名字缩写的一部分，进行合并。
  */
 
 // 常见句首词黑名单：如果下一段以这些词开头，则认为是新句子，不合并。
@@ -229,18 +227,16 @@ function parseParagraphResponse(text: string, sentenceCount: number): Map<number
 }
 
 /**
- * Offset Mapping Algorithm (偏移量映射算法)
+ * [Coordinate Mapping Algorithm]
+ * 问题：LLM 返回的只是 Token 文本 (如 "apple")，丢失了它在原文章中的位置信息。
+ * 挑战：文章中可能有 10 个 "apple"，如何确定 LLM 指的是哪一个？
  * 
- * 问题：
- * LLM 返回的是局部文本 (Local Text Snippet)，例如 "apple"。
- * 我们需要知道这到底是文章中第几个 "apple" 的 Start/End Index。
+ * 解决方案：Scope Narrowing (作用域收窄)
+ * 1. 锚点：我们已知当前正在分析的是 sentences[i]。
+ * 2. 搜索：只在 `sentence.text` 范围内搜索 LLM 返回的词。
+ * 3. 变换：GlobalOffset = SentenceStart (已知) + LocalIndex (搜索结果)。
  * 
- * 逻辑：
- * 1. Scope Restriction (范围限定): 我们只在当前句子 (sentence.start ~ sentence.end) 范围内搜索。
- * 2. Coordinate Transformation (坐标变换): 
- *    GlobalOffset = SentenceStartOffset + LocalMatchIndex
- * 
- * 这确保了即使文章中有多个 "apple"，语法标记也能准确对应到 LLM 正在分析的那一个句子的那一个词。
+ * 约束：若一个句子内出现两次 "apple" 且 LLM 未通过上下文区分，默认匹配第一个。这在语法分析场景下通常可接受。
  */
 function convertToGlobalOffsets(
     annotations: LLMAnnotation[],
