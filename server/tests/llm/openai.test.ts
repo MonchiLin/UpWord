@@ -63,7 +63,20 @@ describe('OpenAI Provider - Full Pipeline Test', () => {
         expect(result.output.title).toBeTruthy();
         expect(result.output.articles).toBeDefined();
         expect(result.output.articles.length).toBeGreaterThan(0);
+        expect(result.output.articles.length).toBeGreaterThan(0);
         expect(result.selectedWords.length).toBeGreaterThan(0);
+
+        // [New] Verify pull_quote and summary for L2/L3
+        const complexArticles = result.output.articles.filter(a => a.level > 1);
+        if (complexArticles.length > 0) {
+            const sample = complexArticles[0]!;
+            if (sample.summary) expect(sample.summary.length).toBeGreaterThan(10);
+            if (sample.pull_quote) expect(sample.pull_quote.length).toBeGreaterThan(5);
+            console.log(`[OpenAI] Checked L${sample.level} article extras:`, {
+                hasSummary: !!sample.summary,
+                hasQuote: !!sample.pull_quote
+            });
+        }
 
         // Verify checkpoints were saved
         expect(checkpoints.length).toBeGreaterThan(0);

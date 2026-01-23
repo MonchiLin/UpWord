@@ -24,7 +24,8 @@ const { articles, date } = Astro.props;
                     title={article.title}
                     index={idx}
                     isRead={(article.read_levels || 0) > 0}
-                    date={date} 
+                    date={date}
+                    generationMode={article.generation_mode || article.generationMode}
                 />
             ))}
         </div>

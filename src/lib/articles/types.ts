@@ -26,7 +26,9 @@ type CamelCase<S extends string> = S extends `${infer P1}_${infer P2}${infer P3}
 // 前端使用的 CamelCase 类型
 export type ArticleParsedContent = DeepCamelCase<{ result: DailyNewsOutput }>;
 export type ArticleLevelContent = DeepCamelCase<DailyNewsArticle> & {
-    sentences?: any[]; // TODO: Define sentence type from server/models if available, using any for now to unblock
+    sentences?: any[];
+    pullQuote?: string; // [NEW] Cameled from pull_quote
+    summary?: string;   // [NEW]
 };
 export type WordDefinition = DeepCamelCase<ServerWordDef>;
 

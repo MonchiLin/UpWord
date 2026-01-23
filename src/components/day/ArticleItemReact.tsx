@@ -6,6 +6,7 @@ export interface ArticleItemProps {
     index: number;
     isRead?: boolean;
     date: string;
+    generationMode?: 'rss' | 'impression';
 }
 
 export const itemVariants: Variants = {

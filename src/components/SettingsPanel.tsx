@@ -78,12 +78,14 @@ export default function SettingsPanel() {
 					>
 						General
 					</TabButton>
-					<TabButton
-						active={tab === 'reading'}
-						onClick={() => setTab('reading')}
-					>
-						Reading
-					</TabButton>
+					{isAdmin && (
+						<TabButton
+							active={tab === 'reading'}
+							onClick={() => setTab('reading')}
+						>
+							Reading
+						</TabButton>
+					)}
 					<TabButton
 						active={tab === 'audio'}
 						onClick={() => setTab('audio')}
@@ -107,7 +109,7 @@ export default function SettingsPanel() {
 						isAdmin={isAdmin}
 					/>
 				)}
-				{tab === 'reading' && <ReadingTab />}
+				{isAdmin && tab === 'reading' && <ReadingTab />}
 				{tab === 'audio' && (
 					<AudioTab
 						voices={VOICES}

@@ -62,7 +62,7 @@ const DefinitionSection = ({ definition }: { definition: any }) => {
 
             {/* Definition Text */}
             {definition.definition && (
-                <p className="text-[16px] leading-relaxed text-stone-800 font-serif border-l-2 border-[#D9480F]/30 pl-3.5 py-0.5">
+                <p className="text-[16px] leading-relaxed text-stone-800 font-serif py-0.5">
                     {definition.definition}
                 </p>
             )}
@@ -221,7 +221,7 @@ export default function HistoricalEchoes({ showDefinition = false, articleId }: 
                                     {hasDefinition && <DefinitionSection definition={definition} />}
 
                                     {/* Divider if we also have echoes */}
-                                    {hasDefinition && hasEchoes && <div className="h-px w-full bg-stone-200 mt-6" />}
+                                    {/* Divider removed */}
 
                                     {/* Header (Only show if we have echoes) */}
                                     {hasEchoes && <EchoHeader date={echoData[0]?.date} />}

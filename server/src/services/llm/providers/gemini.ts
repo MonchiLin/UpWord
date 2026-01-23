@@ -89,7 +89,7 @@ export class GeminiProvider implements DailyNewsProvider {
         // 工具配置: Google Search
         // Gemini 2.0 具有内置的 Grounding 能力。我们在这里显式启用，
         // 确保即使 Prompt 没有显式要求，模型也能访问实时信息。
-        const tools = options.config?.tools || [{ googleSearch: {} }];
+        const tools = options.config?.tools || [{ urlContext: {} }, { googleSearch: {} }];
 
         // 配置: Thinking 默认为 high, 最大输出 65536 tokens
         const generationConfig = {
@@ -112,7 +112,7 @@ export class GeminiProvider implements DailyNewsProvider {
                 body: JSON.stringify({
                     generationConfig,
                     ...request,
-                    tools
+                    tools: tools
                 }),
                 signal: controller.signal,
             });
@@ -166,10 +166,7 @@ export class GeminiProvider implements DailyNewsProvider {
         // Stage 1 Explicitly enables Google Search
         const response = await this.generate({
             system: input.systemPrompt,
-            prompt: input.userPrompt,
-            config: {
-                tools: [{ googleSearch: {} }]
-            }
+            prompt: input.userPrompt
         });
 
         const cleanJson = extractJson(response.text);
@@ -214,10 +211,7 @@ export class GeminiProvider implements DailyNewsProvider {
 
         const response = await this.generate({
             system: input.systemPrompt,
-            prompt: input.userPrompt,
-            config: {
-                tools: [{ googleSearch: {} }]
-            }
+            prompt: input.userPrompt
         });
 
         let draftText = stripCitations(response.text.trim());
@@ -241,10 +235,7 @@ export class GeminiProvider implements DailyNewsProvider {
 
         const response = await this.generate({
             system: JSON_SYSTEM_INSTRUCTION,
-            prompt: userPrompt,
-            config: {
-                tools: [{ googleSearch: {} }] // Search always on
-            }
+            prompt: userPrompt
         });
 
         const cleanJson = extractJson(response.text);

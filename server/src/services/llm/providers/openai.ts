@@ -48,8 +48,8 @@ export class OpenAIProvider implements DailyNewsProvider {
                 model: this.model,
                 tools: options.config?.tools || [{ type: 'web_search' }],
                 input: fullInput,
-                // reasoning: { effort: "xhigh" }, // Only for reasoning models?
-                // max_output_tokens: 128000,
+                reasoning: { effort: "medium" },
+                max_output_tokens: 128000,
             });
 
             return {

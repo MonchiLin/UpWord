@@ -1,11 +1,11 @@
 /* Impression Mode Styles */
 
 /* Level Switcher (Display Toggle - No Fade) */
-.article-level {
+.impression-mode .article-level {
     display: none;
 }
 
-.article-level[data-active] {
+.impression-mode .article-level[data-active] {
     display: block;
     animation: fadeIn 0.5s ease;
 }
@@ -23,7 +23,7 @@
 }
 
 /* First Letter Drop Cap - Impression Style */
-.drop-cap-p::first-letter {
+.impression-mode .drop-cap-p::first-letter {
     float: left;
     font-size: 5rem;
     line-height: 4rem;
@@ -36,7 +36,7 @@
 }
 
 /* Target Words - Editorial Style (Black + Dotted Orange) */
-.target-word {
+.impression-mode .target-word {
     color: #1A1A1A;
     font-weight: inherit;
     /* Regular weight */
@@ -47,7 +47,7 @@
     transition: all 0.2s ease;
 }
 
-.target-word:hover {
+.impression-mode .target-word:hover {
     color: #D9480F;
     border-bottom-color: #D9480F;
     background-color: transparent;
@@ -55,6 +55,6 @@
 }
 
 /* Hide Golden Echo Pins to maintain clean editorial look */
-.target-word[data-has-history="true"]::after {
+.impression-mode .target-word[data-has-history="true"]::after {
     display: none;
 }

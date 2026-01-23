@@ -68,7 +68,7 @@ async function getArticleDetails(id: string) {
     }
 
     const variants = await db.selectFrom('article_variants')
-        .select(['level', 'level_label', 'title', 'content', 'syntax_json', 'sentences_json'])
+        .select(['level', 'level_label', 'title', 'content', 'pull_quote', 'summary', 'syntax_json', 'sentences_json'])
         .where('article_id', '=', id)
         .orderBy('level', 'asc')
         .execute();
@@ -115,6 +115,8 @@ async function getArticleDetails(id: string) {
                     level_label: v.level_label,
                     title: v.title,
                     content: v.content,
+                    pull_quote: v.pull_quote, // [NEW]
+                    summary: v.summary,       // [NEW]
                     syntax: v.syntax_json || [],
                     sentences: v.sentences_json || []
                 })),

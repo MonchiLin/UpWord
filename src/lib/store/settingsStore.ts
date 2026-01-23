@@ -52,6 +52,18 @@ export const settingsStore = persistentAtom<Settings>(
     }
 );
 
+/**
+ * [NEW] Cookie Sync
+ * 同步设置到 Cookie 以支持 SSR (e.g. ArticleItem.astro 链接生成)
+ */
+if (typeof window !== 'undefined') {
+    settingsStore.subscribe((value) => {
+        const json = JSON.stringify(value);
+        // Set cookie: name, value, max-age (1 year), path
+        document.cookie = `upword-preferences=${encodeURIComponent(json)}; path=/; max-age=31536000; SameSite=Lax`;
+    });
+}
+
 /** 更新单个设置项（保持其他设置不变） */
 export function updateSetting<K extends keyof Settings>(key: K, value: Settings[K]) {
     settingsStore.set({

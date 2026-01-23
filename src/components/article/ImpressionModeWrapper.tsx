@@ -21,6 +21,8 @@ import type { SidebarWord } from '../../lib/articles/types';
 interface ArticleContent {
     level: number;
     content: string;
+    pullQuote?: string;
+    summary?: string; // [NEW]
 }
 
 interface ImpressionModeWrapperProps {
@@ -206,17 +208,35 @@ export function ImpressionModeWrapper({
 
                 {/* Article Content */}
                 <article className="text-[20px] leading-[1.7] text-[#2D2D2D]">
-                    {currentArticle?.content.split('\n\n').map((paragraph, idx) => (
-                        <p
-                            key={idx}
-                            className={`mb-6 ${idx === 0
-                                ? 'first-letter:float-left first-letter:text-[5rem] first-letter:leading-[4rem] first-letter:font-bold first-letter:mr-3 first-letter:mt-[-0.5rem]'
-                                : 'indent-8'
-                                }`}
-                        >
-                            {renderText(paragraph, idx)}
-                        </p>
-                    ))}
+                    {/* Render Summary if available (L2/L3) */}
+                    {currentArticle?.summary && (
+                        <div className="mb-10 text-2xl font-serif italic text-[#666666] leading-relaxed border-l-4 border-[#D9480F] pl-6 py-2">
+                            {currentArticle.summary}
+                        </div>
+                    )}
+
+                    {currentArticle?.content.split('\n\n').map((paragraph, idx) => {
+                        // Logic: Insert Pull Quote after the 2nd paragraph
+                        const isPullQuotePos = idx === 1 && currentArticle.pullQuote;
+
+                        return (
+                            <div key={idx}>
+                                <p
+                                    className={`mb-6 ${idx === 0
+                                        ? 'first-letter:float-left first-letter:text-[5rem] first-letter:leading-[4rem] first-letter:font-bold first-letter:mr-3 first-letter:mt-[-0.5rem]'
+                                        : 'indent-8'
+                                        }`}
+                                >
+                                    {renderText(paragraph, idx)}
+                                </p>
+                                {isPullQuotePos && (
+                                    <blockquote className="border-l-2 border-[#1A1A1A] pl-6 italic text-[#4A4A4A] my-10 text-2xl font-serif leading-relaxed">
+                                        "{currentArticle.pullQuote}"
+                                    </blockquote>
+                                )}
+                            </div>
+                        );
+                    })}
                 </article>
 
                 {/* Sources */}

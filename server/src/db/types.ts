@@ -105,6 +105,8 @@ export interface ArticleVariantsTable {
     level_label: string;
     title: string;
     content: string; // Markdown
+    pull_quote: string | null; // [NEW]
+    summary: string | null;    // [NEW]
 
     // JSON Columns
     syntax_json: JSONColumnType<any> | null;

@@ -18,7 +18,7 @@ import VisualTether from "@/components/VisualTether";
 import FloatingAudioPlayer from "@/components/FloatingAudioPlayer";
 import AudioInit from "@/components/AudioInit";
 import HistoricalEchoes from "@/components/HistoricalEchoes";
-import { ImpressionStyleController } from "@/components/article/ImpressionStyleController";
+import ImpressionArticleLayout from "@/components/impression/ImpressionArticleLayout.astro";
 import ArticleDataInjectors from "@/components/article/ArticleDataInjectors.astro";
 
 import "@/styles/article/shared.css";
@@ -83,12 +83,38 @@ const {
 const id = row?.articles?.id; // Needed for client side logic
 
 // 缓存策略 (ISR-Lite)
-// 
-// - s-maxage=86400 (1天): CDN 边缘节点缓存一天。
-// - stale-while-revalidate=1year: 如果缓存过期，CDN 先返回旧内容，后台异步更新。
-// 这确保了文章页面的访问速度极快 (Edge Hit)。
+// [Modified] Single URL Architecture needs to check Cookies, so we cannot cache casually.
+// Use 'private' cache-control to allow browser caching but prevent shared CDN caching.
+// This ensures that different users (with different cookies) get their own version.
 if (row) {
-    Astro.response.headers.set('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=31536000');
+    Astro.response.headers.set('Cache-Control', 'private, max-age=300');
+}
+
+// 管理员状态
+const adminKey = Astro.cookies.get('admin_key')?.value;
+const isAdmin = !!adminKey;
+
+// [Logic] Determine Layout Mode
+// Priority: Cookie (Admin Only) > GenerationMode > Default
+// 1. Cookie
+const cookie = Astro.cookies.get('upword-preferences');
+let userStyle = null;
+if (isAdmin && cookie && cookie.value) {
+    try {
+        const settings = JSON.parse(decodeURIComponent(cookie.value));
+        const readingStyles = settings.readingStyles || {};
+        userStyle = readingStyles[generationMode];
+    } catch (e) {}
+}
+
+// 2. Fallback
+const targetStyle = userStyle || (generationMode === 'impression' ? 'impression' : 'default');
+const showImpression = targetStyle === 'impression';
+
+// If Impression Mode, render specialized layout immediately
+if (showImpression) {
+   // Pass all props needed
+   // Note: We return early to render the Impression Layout
 }
 
 // 构建单词匹配配置 (用于 SSR 单词高亮)
@@ -97,20 +123,21 @@ const wordMatchConfigs = buildWordMatchConfigs(wordDefinitions);
 // 获取所有文章内容用于 AudioPlayer
 const allArticleContents = getAllArticleContents(sortedArticles);
 
-// 管理员状态
-const adminKey = Astro.cookies.get('admin_key')?.value;
-const isAdmin = !!adminKey;
+
 ---
 
 
 
 <Layout title={`${title} - UpWord`}>
-    <!-- Impression Style Controller (Client-Side CSS Toggle) -->
-    <ImpressionStyleController client:only="react" generationMode={generationMode} />
-    
-    <div data-article-page class="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-10 mx-auto w-full max-w-7xl px-4 py-10">
+    {showImpression ? (
+        <ImpressionArticleLayout 
+            articleData={articleData} 
+            initialLevel={initialLevel}
+        />
+    ) : (
+    <div data-article-page class="default-mode grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-10 mx-auto w-full max-w-7xl px-4 py-10">
         <!-- 主内容区 -->
-        <main 
+        <div 
             class={`relative min-w-0 ${sidebarWords.length === 0 ? "max-w-3xl mx-auto" : ""}`}
             data-article-id={id}
             data-read-levels={readLevels}
@@ -154,13 +181,31 @@ const isAdmin = !!adminKey;
                                     data-minutes={stats.minutes}
                                     data-active={article.level === initialLevel ? "" : undefined}
                                 >
-                                    {paragraphs.map((blockNodes: any[], pIndex: number) => (
-                                        <p 
-                                            class={`mb-6 ${pIndex === 0 ? 'drop-cap-p' : 'indent-8'}`}
-                                        >
-                                            <AnnotatedText nodes={blockNodes} />
-                                        </p>
-                                    ))}
+                                    {/* [NEW] Summary Display (L2/L3) */}
+                                    {article.summary && (
+                                        <div class="mb-10 text-2xl font-serif italic text-stone-600 leading-relaxed border-l-4 border-amber-600 pl-6 py-2">
+                                            {article.summary}
+                                        </div>
+                                    )}
+
+                                    {paragraphs.map((blockNodes: any[], pIndex: number) => {
+                                        // [NEW] Pull Quote Logic (After 2nd paragraph)
+                                        const isPullQuotePos = pIndex === 1 && article.pullQuote;
+
+                                        return (
+                                            <>
+                                                <p class="mb-6 indent-8">
+                                                    <AnnotatedText nodes={blockNodes} />
+                                                </p>
+                                                
+                                                {isPullQuotePos && (
+                                                    <blockquote class="border-l-2 border-slate-800 pl-6 italic text-slate-600 my-10 text-2xl font-serif leading-relaxed">
+                                                        "{article.pullQuote}"
+                                                    </blockquote>
+                                                )}
+                                            </>
+                                        );
+                                    })}
                                 </div>
                             );
                         })}
@@ -203,7 +248,7 @@ const isAdmin = !!adminKey;
             
             <!-- Historical Echoes (Replaces MemorySpirit & HighlightManager) -->
             <HistoricalEchoes client:idle articleId={id} />
-        </main>
+        </div>
         
         <!-- 侧边栏 -->
         {sidebarWords.length > 0 && (
@@ -220,6 +265,7 @@ const isAdmin = !!adminKey;
             </aside>
         )}
     </div>
+    )}
 </Layout>
 
 

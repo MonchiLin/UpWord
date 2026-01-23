@@ -89,6 +89,8 @@ export async function saveArticleResult(options: SaveArticleOptions): Promise<st
                 level_label: v.level_name || `Level ${v.level}`,
                 title: result.output.title,
                 content: v.content,
+                pull_quote: v.pull_quote, // [NEW] Persist pull_quote
+                summary: v.summary,       // [NEW] Persist summary
                 syntax_json: JSON.stringify(v.structure || []),
                 sentences_json: JSON.stringify(v.sentences || [])
             }).execute();

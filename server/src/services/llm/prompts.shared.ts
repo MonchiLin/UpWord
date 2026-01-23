@@ -80,9 +80,26 @@ const JSON_SCHEMA_DEF = `{
   "topic": "String (从候选主题中选一个)",
   "sources": ["Url1"],
   "articles": [
-    { "level": 1, "level_name": "Elementary", "content": "..." },
-    { "level": 2, "level_name": "Intermediate", "content": "..." },
-    { "level": 3, "level_name": "Advanced", "content": "..." }
+    { 
+      "level": 1, 
+      "level_name": "Elementary", 
+      "content": "..."
+      // Level 1 必须保持简单，不要包含 pull_quote 或 summary
+    },
+    { 
+      "level": 2, 
+      "level_name": "Intermediate", 
+      "content": "...",
+      "pull_quote": "String (Impactful quote, max 20 words)",
+      "summary": "String (Lead paragraph, max 50 words)"
+    },
+    { 
+      "level": 3, 
+      "level_name": "Advanced", 
+      "content": "...",
+      "pull_quote": "String (Impactful quote)",
+      "summary": "String (Lead paragraph)"
+    }
   ],
   "word_definitions": [
     {
@@ -118,6 +135,9 @@ ${JSON_SCHEMA_DEF}
    - \`definition\`: **核心要求**。不要把字典里所有的意思都列出来。**只列出该词在文章中具体使用的那个意思**。
      - 例如: "Apple" 在文中指公司，就不要解释为水果。
      - 例如: "Run" 在文中指"经营"，就不要解释为"跑步"。
+4. **Level Constraints**:
+    - **Level 1**: **严禁**生成 \`pull_quote\` 和 \`summary\`，保持版面极简。
+    - **Level 2/3**: **必须**生成不为空的 \`pull_quote\` 和 \`summary\`。
 </constraints>`;
 
 export function buildJsonConversionUserPrompt(args: {
