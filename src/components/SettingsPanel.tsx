@@ -4,26 +4,28 @@
  * 管理 Modal 状态并分发不同 Tab 的渲染
  * 子组件已拆分到 settings/ 目录
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { GearIcon } from '@radix-ui/react-icons';
 import { clsx } from 'clsx';
+import { apiFetch } from '../lib/api';
 import Modal from './ui/Modal';
 import GeneralTab from './settings/GeneralTab';
 import ReadingTab from './settings/ReadingTab';
 import AudioTab from './settings/AudioTab';
 import { useSettings } from './settings/useSettings';
+import type { Voice } from '../../server/src/services/edgeTtsService'; // Create a type definition or infer
 
-const VOICES = [
-	{ id: 'en-US-JennyNeural', name: 'Jenny (Female)' },
-	{ id: 'en-US-GuyNeural', name: 'Guy (Male)' },
-	{ id: 'en-US-AriaNeural', name: 'Aria (Female)' },
-	{ id: 'en-US-AvaMultilingualNeural', name: 'Ava (Female, Realistic)' },
-	{ id: 'en-US-AndrewMultilingualNeural', name: 'Andrew (Male, Realistic)' },
-	{ id: 'en-US-EmmaMultilingualNeural', name: 'Emma (Female, Friendly)' },
-];
+interface VoiceOption {
+	id: string;
+	name: string;
+	locale: string;
+}
 
 export default function SettingsPanel() {
 	const [open, setOpen] = useState(false);
+	const [voices, setVoices] = useState<VoiceOption[]>([]);
+	const [loadingVoices, setLoadingVoices] = useState(false);
+
 	const {
 		adminKey,
 		setAdminKey,
@@ -40,6 +42,33 @@ export default function SettingsPanel() {
 		setLlmProvider,
 		availableLLMs
 	} = useSettings();
+
+	// Fetch voices on mount
+	useEffect(() => {
+		if (open) {
+			setLoadingVoices(true);
+			apiFetch('/api/tts/voices')
+				.then((data: any) => {
+					// Map to internal format
+					const mapped = data.map((v: any) => ({
+						id: v.ShortName,
+						name: `${v.FriendlyName} (${v.Gender})`.replace('Microsoft ', '').replace(' Online (Natural)', ''),
+						locale: v.Locale
+					}));
+					setVoices(mapped);
+
+					// Set default if current voice is invalid
+					if (!voice || !mapped.find(v => v.id === voice)) {
+						const defaultVoice = mapped.find(v => v.locale === 'en-US');
+						if (defaultVoice) {
+							setVoiceSettings(defaultVoice.id);
+						}
+					}
+				})
+				.catch(err => console.error('Failed to fetch voices', err))
+				.finally(() => setLoadingVoices(false));
+		}
+	}, [open]); // Only fetch when opened to save bandwidth
 
 	return (
 		<>
@@ -112,11 +141,12 @@ export default function SettingsPanel() {
 				{isAdmin && tab === 'reading' && <ReadingTab />}
 				{tab === 'audio' && (
 					<AudioTab
-						voices={VOICES}
+						voices={voices}
 						voice={voice}
 						setVoiceSettings={setVoiceSettings}
 						savedAt={savedAt}
 						save={save}
+						loading={loadingVoices}
 					/>
 				)}
 			</Modal>

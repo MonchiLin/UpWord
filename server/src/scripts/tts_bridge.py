@@ -7,12 +7,27 @@ import edge_tts
 
 async def main():
     parser = argparse.ArgumentParser(description='Edge TTS Bridge')
-    parser.add_argument('--text', required=True, help='Text to synthesize')
+    parser.add_argument('--text', required=False, help='Text to synthesize')
     parser.add_argument('--voice', default='en-US-GuyNeural', help='Voice to use')
     parser.add_argument('--rate', default='+0%', help='Rate adjustment')
     parser.add_argument('--pitch', default='+0Hz', help='Pitch adjustment')
+    parser.add_argument('--list-voices', action='store_true', help='List available voices')
     
     args = parser.parse_args()
+
+    if args.list_voices:
+        voices = await edge_tts.list_voices()
+        # Filter for en-US and en-GB only
+        filtered_voices = [
+            v for v in voices 
+            if v['Locale'] in ('en-US', 'en-GB')
+        ]
+        print(json.dumps(filtered_voices))
+        return
+
+    if not args.text:
+        print("Error: --text is required when not listing voices", file=sys.stderr)
+        sys.exit(1)
     
     # Explicitly request WordBoundary events
     communicate = edge_tts.Communicate(

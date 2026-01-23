@@ -1,5 +1,5 @@
 import { Elysia, t } from 'elysia';
-import { generateSpeech } from '../src/services/edgeTtsService';
+import { getVoices, generateSpeech } from '../src/services/edgeTtsService';
 import { db } from '../src/db/factory';
 import type { Context } from 'elysia';
 
@@ -24,6 +24,17 @@ interface TTSQuery {
 }
 
 export const ttsRoutes = new Elysia({ prefix: '/api/tts' })
+    .get('/voices', async ({ set }: Context) => {
+        try {
+            const voices = await getVoices();
+            set.headers['Cache-Control'] = 'public, max-age=86400'; // Cache for 24h
+            return voices;
+        } catch (e) {
+            console.error("[TTS Proxy] Error fetching voices:", e);
+            set.status = 500;
+            return "Failed to fetch voices";
+        }
+    })
     .get('/', async ({ query, set }: Context<{ query: TTSQuery }>) => {
         const { text, voice, articleId, level } = query;
         const speed = query.rate || '1.0';

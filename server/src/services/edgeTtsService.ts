@@ -58,3 +58,37 @@ export const generateSpeech = async (
         throw e;
     }
 };
+
+export interface Voice {
+    Name: string;
+    ShortName: string;
+    Gender: string;
+    Locale: string;
+    FriendlyName: string;
+}
+
+export const getVoices = async (): Promise<Voice[]> => {
+    const scriptPath = join(process.cwd(), 'src', 'scripts', 'tts_bridge.py');
+    const args = ['python', scriptPath, '--list-voices'];
+
+    try {
+        const proc = Bun.spawn(args, {
+            stdout: "pipe",
+            stderr: "pipe",
+        });
+
+        const output = await new Response(proc.stdout).text();
+        const error = await new Response(proc.stderr).text();
+        const exitCode = await proc.exited;
+
+        if (exitCode !== 0) {
+            console.error('[EdgeTTSService] Failed to get voices:', error);
+            throw new Error(`Failed to get voices: ${error || 'Unknown error'}`);
+        }
+
+        return JSON.parse(output.trim());
+    } catch (e) {
+        console.error('[EdgeTTSService] Spawn error:', e);
+        throw e;
+    }
+};
