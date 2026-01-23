@@ -5,15 +5,33 @@
  * Independent of the application layer to avoid circular dependencies.
  */
 
+export interface NewsItem {
+    sourceId?: string;
+    sourceName: string;
+    title: string;
+    link: string;
+    summary: string;
+    pubDate: string;
+}
+
+export interface ArticleWithAnalysis {
+    level: 1 | 2 | 3;
+    content: string;
+    level_name: string;
+    title?: string;
+    sentences: SentenceData[];
+    structure: AnalysisAnnotation[];
+}
+
 export interface CheckpointContext {
     stage: 'search_selection' | 'draft' | 'conversion' | 'grammar_analysis';
     selectedWords?: string[];
     newsSummary?: string;
     sourceUrls?: string[];
-    selectedRssItem?: any; // Keeping loose to avoid deep dependency on NewsItem
+    selectedRssItem?: NewsItem;
     draftText?: string;
-    completedLevels?: any[]; // Keeping loose to avoid deep dependency on ArticleWithAnalysis
-    usage?: Record<string, any>;
+    completedLevels?: ArticleWithAnalysis[];
+    usage?: Record<string, any>; // Keeping flexible but usage is usually TokenUsage
     selectedRssId?: number;
 }
 

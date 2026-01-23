@@ -1,6 +1,7 @@
 import { Elysia } from 'elysia';
 import { db } from '../src/db/factory';
 import { TaskQueue } from '../src/services/tasks/queue';
+import { DeletionService } from '../src/services/tasks/deletion';
 
 interface AdminBody { task_date?: string; }
 
@@ -51,23 +52,7 @@ export const adminRoutes = (_queue: TaskQueue) => new Elysia({ prefix: '/api/adm
         // Loop for safety and simplicity in admin logic (not performance critical)
         for (const taskId of taskIds) {
             try {
-                // Cascading Delete
-                // 1. Get Articles
-                const articles = await db.selectFrom('articles')
-                    .select('id')
-                    .where('generation_task_id', '=', taskId)
-                    .execute();
-                const articleIds = articles.map(a => a.id);
-
-                if (articleIds.length > 0) {
-                    await db.deleteFrom('highlights').where('article_id', 'in', articleIds).execute();
-                    await db.deleteFrom('article_word_index').where('article_id', 'in', articleIds).execute();
-                    await db.deleteFrom('article_variants').where('article_id', 'in', articleIds).execute();
-                    await db.deleteFrom('article_vocabulary').where('article_id', 'in', articleIds).execute();
-                    await db.deleteFrom('articles').where('generation_task_id', '=', taskId).execute();
-                }
-
-                await db.deleteFrom('tasks').where('id', '=', taskId).execute();
+                await DeletionService.deleteTaskWithCascade(taskId);
                 deletedCount++;
             } catch (e) {
                 console.error(`Failed to delete task ${taskId}:`, e instanceof Error ? e.message : e);

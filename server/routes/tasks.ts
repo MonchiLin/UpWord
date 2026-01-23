@@ -1,6 +1,7 @@
 import { Elysia } from 'elysia';
 import { db } from '../src/db/factory';
 import { TaskQueue } from '../src/services/tasks/queue';
+import { DeletionService } from '../src/services/tasks/deletion';
 import { getBusinessDate } from '../src/lib/time';
 import { toCamelCase } from '../src/utils/casing';
 
@@ -49,44 +50,6 @@ export const tasksRoutes = (queue: TaskQueue) => new Elysia({ prefix: '/api' })
         return toCamelCase(result);
     })
     .delete('/tasks/:id', async ({ params: { id } }) => {
-        // Cascading Delete via Kysely Subqueries
-
-        // 1. Highlights
-        await db.deleteFrom('highlights')
-            .where('article_id', 'in',
-                db.selectFrom('articles').select('id').where('generation_task_id', '=', id)
-            )
-            .execute();
-
-        // 2. Article Word Index
-        await db.deleteFrom('article_word_index')
-            .where('article_id', 'in',
-                db.selectFrom('articles').select('id').where('generation_task_id', '=', id)
-            )
-            .execute();
-
-        // 3. Variants & Vocab
-        await db.deleteFrom('article_variants')
-            .where('article_id', 'in',
-                db.selectFrom('articles').select('id').where('generation_task_id', '=', id)
-            )
-            .execute();
-
-        await db.deleteFrom('article_vocabulary')
-            .where('article_id', 'in',
-                db.selectFrom('articles').select('id').where('generation_task_id', '=', id)
-            )
-            .execute();
-
-        // 4. Articles
-        await db.deleteFrom('articles')
-            .where('generation_task_id', '=', id)
-            .execute();
-
-        // 5. Task
-        await db.deleteFrom('tasks')
-            .where('id', '=', id)
-            .execute();
-
+        await DeletionService.deleteTaskWithCascade(id);
         return { status: "ok" };
     });

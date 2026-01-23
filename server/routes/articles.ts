@@ -1,6 +1,7 @@
 import { Elysia } from 'elysia';
 import { sql } from 'kysely';
 import { db } from '../src/db/factory';
+import { DeletionService } from '../src/services/tasks/deletion';
 import { toCamelCase } from '../src/utils/casing';
 
 import { AppError } from '../src/errors/AppError';
@@ -39,12 +40,7 @@ export const articlesRoutes = new Elysia({ prefix: '/api/articles' })
         return { status: "ok" };
     })
     .delete('/:id', async ({ params: { id } }) => {
-        await db.deleteFrom('highlights').where('article_id', '=', id).execute();
-        await db.deleteFrom('article_word_index').where('article_id', '=', id).execute();
-        await db.deleteFrom('article_variants').where('article_id', '=', id).execute();
-        await db.deleteFrom('article_vocabulary').where('article_id', '=', id).execute();
-
-        await db.deleteFrom('articles').where('id', '=', id).execute();
+        await DeletionService.deleteArticleWithCascade(id);
         return { status: "ok" };
     });
 
