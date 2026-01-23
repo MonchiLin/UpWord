@@ -1,9 +1,9 @@
-import { RotateCw, Trash2 } from 'lucide-react';
+import { RotateCw, Trash2, Bot, User, Clock, AlertCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import { type TaskRow, fetchJson } from './shared';
 import { formatTime } from '@server/lib/time';
 import { clsx } from 'clsx';
 import { useState } from 'react';
-import { Popconfirm } from 'antd';
+import { Popconfirm, Popover } from 'antd';
 import TaskProgress from './TaskProgress';
 
 type TaskQueueListProps = {
@@ -55,6 +55,13 @@ export default function TaskQueueList({ tasks, onRefresh, onDelete, taskDate }: 
         }
     }
 
+    const getLLMIcon = (llm: string | null) => {
+        // Simple mapping
+        if (llm === 'openai') return <span title="OpenAI" className="text-green-600">GPT</span>;
+        if (llm === 'claude') return <span title="Claude" className="text-purple-600">Claude</span>;
+        return <span title="Gemini" className="text-blue-600">Gemini</span>;
+    };
+
     return (
         <div className="space-y-3">
             <div className="flex items-center justify-between border-b border-stone-200 pb-1">
@@ -104,11 +111,31 @@ export default function TaskQueueList({ tasks, onRefresh, onDelete, taskDate }: 
                     <div key={t.id} className="group flex flex-col gap-1 py-2 border-b border-dotted border-stone-200 last:border-0 hover:bg-stone-50 -mx-2 px-2 transition-colors">
                         <div className="flex justify-between items-center">
                             <div className="flex items-center gap-2">
-                                <span className="font-mono text-stone-600 text-xs">
+                                <span className={clsx(
+                                    "font-mono text-xs cursor-pointer",
+                                    t.status === 'succeeded' ? "text-stone-400" : "text-stone-600"
+                                )} title={t.id}>
                                     {t.id}
                                 </span>
+
+                                {/* Mode Badge */}
+                                <span className={clsx(
+                                    "px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide rounded border",
+                                    t.mode === 'impression'
+                                        ? "bg-purple-50 text-purple-600 border-purple-200"
+                                        : "bg-blue-50 text-blue-600 border-blue-200"
+                                )}>
+                                    {t.mode === 'impression' ? 'spark' : 'rss'}
+                                </span>
+
+                                {/* LLM Badge */}
+                                <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide rounded border bg-white border-stone-200 flex items-center gap-1">
+                                    <Bot size={10} className="text-stone-400" />
+                                    {getLLMIcon(t.llm)}
+                                </span>
+
                                 {t.profileName && (
-                                    <span className="px-1.5 py-0.5 bg-stone-100 text-stone-600 text-[10px] font-bold uppercase tracking-wide rounded">
+                                    <span className="px-1.5 py-0.5 bg-stone-100 text-stone-500 text-[9px] font-bold uppercase tracking-wide rounded border border-stone-200">
                                         {t.profileName}
                                     </span>
                                 )}
@@ -138,21 +165,52 @@ export default function TaskQueueList({ tasks, onRefresh, onDelete, taskDate }: 
                                         <Trash2 size={12} />
                                     </button>
                                 </Popconfirm>
-                                <TaskProgress contextJson={t.context_json} status={t.status} />
+                                <TaskProgress contextJson={t.contextJson} status={t.status} />
                             </div>
                         </div>
 
-                        <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-stone-500">
-                            <div className="flex items-center gap-2">
-                                <span className="font-mono">{formatTime(t.created_at)}</span>
+                        {/* Article Title (Line 2) */}
+                        {t.articleTitle && (
+                            <div className="text-xs font-serif font-medium text-stone-800 px-1 truncate leading-tight">
+                                {t.articleTitle}
+                            </div>
+                        )}
+
+                        <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-stone-400">
+                            <div className="flex items-center gap-3">
+                                {/* Trigger Source */}
+                                <span className="flex items-center gap-1" title={`Trigger: ${t.triggerSource}`}>
+                                    {t.triggerSource === 'cron' ? <Clock size={10} /> : <User size={10} />}
+                                    {t.triggerSource}
+                                </span>
+
+                                <span className="font-mono flex items-center gap-1" title={t.createdAt}>
+                                    {formatTime(t.createdAt)}
+                                </span>
+
                             </div>
                             {t.status === 'failed' && <span className="text-red-600 font-bold">Failed</span>}
                             {t.status === 'running' && <span className="text-orange-600 font-bold">Processing</span>}
                         </div>
 
-                        {t.status === 'failed' && t.error_message && (
-                            <div className="text-[10px] text-red-600 font-serif italic mt-1 bg-red-50 p-1.5 leading-tight">
-                                {t.error_message}
+                        {t.status === 'failed' && t.errorMessage && (
+                            <div className="mt-1">
+                                <Popover
+                                    content={
+                                        <div className="max-w-md max-h-64 overflow-auto text-xs font-mono whitespace-pre-wrap">
+                                            {t.errorContextJson
+                                                ? JSON.stringify(JSON.parse(t.errorContextJson), null, 2)
+                                                : 'No context available'}
+                                        </div>
+                                    }
+                                    title="Error Context"
+                                    trigger="click"
+                                >
+                                    <div className="text-[10px] text-red-600 font-serif italic bg-red-50 p-1.5 leading-tight cursor-pointer hover:bg-red-100 transition-colors flex items-start gap-1">
+                                        <AlertCircle size={12} className="mt-0.5 shrink-0" />
+                                        <span>{t.errorMessage}</span>
+                                    </div>
+                                </Popover>
                             </div>
                         )}
                     </div>

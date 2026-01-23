@@ -23,8 +23,16 @@ export const tasksRoutes = (queue: TaskQueue) => new Elysia({ prefix: '/api' })
         // JOIN profile 表获取 profile 名称，便于前端展示任务所属配置
         const results = await db.selectFrom('tasks')
             .leftJoin('generation_profiles', 'tasks.profile_id', 'generation_profiles.id')
+            .leftJoin('articles', (join) =>
+                join
+                    .onRef('tasks.id', '=', 'articles.generation_task_id')
+                    .on('articles.variant', '=', 1)
+            )
             .selectAll('tasks')
-            .select('generation_profiles.name as profile_name')
+            .select([
+                'generation_profiles.name as profile_name',
+                'articles.title as article_title'
+            ])
             .where('tasks.task_date', '=', task_date)
             .orderBy('tasks.created_at', 'desc')
             .execute();

@@ -1,20 +1,22 @@
 export type TaskRow = {
     id: string;
-    task_date: string;
+    taskDate: string;
     type: string;
-    trigger_source: string;
+    triggerSource: 'manual' | 'cron';
     status: string;
-    profile_id: string;
+    profileId: string;
     profileName?: string;
+    articleTitle?: string;
+    llm: 'gemini' | 'openai' | 'claude' | null;
     mode: 'rss' | 'impression';
-    context_json: string | null; // Checkpoints
+    contextJson: string | null; // Checkpoints
     // result_json: string | null; // Removed
-    error_message: string | null;
-    error_context_json: string | null;
-    created_at: string;
-    started_at: string | null;
-    finished_at: string | null;
-    published_at: string | null;
+    errorMessage: string | null;
+    errorContextJson: string | null;
+    createdAt: string;
+    startedAt: string | null;
+    finishedAt: string | null;
+    publishedAt: string | null;
 };
 
 import { apiFetch } from '../../lib/api';
