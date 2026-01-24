@@ -1,0 +1,31 @@
+---
+/**
+ * Admin State Injector (Server Island)
+ *
+ * Purpose:
+ * Injects admin-specific data attributes and scripts ONLY if the user is an admin.
+ * This component is intended to be deferred (`server:defer`) so it doesn't block
+ * the initial cached response of the main page.
+ */
+const { isAdmin } = Astro.locals.auth;
+
+// If not admin, return nothing. The island will be empty.
+if (!isAdmin) {
+    return;
+}
+---
+
+<script>
+    // Notify ReadTracker that admin mode is active
+    // We use a custom event or direct DOM manipulation because readTracker might have already initialized.
+    document.dispatchEvent(new CustomEvent("admin-mode-active"));
+
+    // Tag the main element strictly if needed, though readTracker should listen for event
+    const main = document.querySelector("main[data-article-id]");
+    if (main) {
+        main.setAttribute("data-is-admin", "true");
+    }
+</script>
+
+<!-- Visual Indicator for Admin (Optional debug) -->
+<div style="display:none" data-admin-indicator></div>

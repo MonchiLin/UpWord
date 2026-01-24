@@ -17,6 +17,7 @@ import VisualTether from "@/components/VisualTether";
 import FloatingAudioPlayer from "@/components/FloatingAudioPlayer";
 import AudioInit from "@/components/AudioInit";
 import HistoricalEchoes from "@/components/HistoricalEchoes";
+import AdminStateInjector from "@/components/article/AdminStateInjector.astro";
 import ImpressionArticleLayout from "@/components/impression/ImpressionArticleLayout.astro";
 import ArticleDataInjectors from "@/components/article/ArticleDataInjectors.astro";
 
@@ -81,29 +82,15 @@ const {
 
 const id = row?.articles?.id; // Needed for client side logic
 
-// 缓存策略 (ISR-Lite)
-// [Modified] Single URL Architecture needs to check Cookies, so we cannot cache casually.
-// Use 'private' cache-control to allow browser caching but prevent shared CDN caching.
-// This ensures that different users (with different cookies) get their own version.
-if (row) {
-    Astro.response.headers.set('Cache-Control', 'private, max-age=300');
-}
 
-// 管理员状态
-const adminKey = Astro.cookies.get('admin_key')?.value;
-const isAdmin = !!adminKey;
+// 管理员状态 (From Middleware)
+const { isAdmin, preferences } = Astro.locals.auth;
 
 // [Logic] Determine Layout Mode
 // Priority: Cookie (Admin Only) > GenerationMode > Default
-// 1. Cookie
-const cookie = Astro.cookies.get('upword-preferences');
 let userStyle = null;
-if (isAdmin && cookie && cookie.value) {
-    try {
-        const settings = JSON.parse(decodeURIComponent(cookie.value));
-        const readingStyles = settings.readingStyles || {};
-        userStyle = readingStyles[generationMode];
-    } catch (e) {}
+if (isAdmin && preferences.readingStyles) {
+    userStyle = preferences.readingStyles[generationMode];
 }
 
 // 2. Fallback
@@ -125,9 +112,10 @@ const allArticleContents = getAllArticleContents(sortedArticles);
 
 ---
 
-
-
 <Layout title={`${title} - UpWord`}>
+    {/* Server Island: Inject Admin State asynchronously to allow caching main content */}
+    <AdminStateInjector server:defer />
+
     {showImpression ? (
         <ImpressionArticleLayout 
             articleData={articleData} 
@@ -140,7 +128,7 @@ const allArticleContents = getAllArticleContents(sortedArticles);
             class={`relative min-w-0 ${sidebarWords.length === 0 ? "max-w-3xl mx-auto" : ""}`}
             data-article-id={id}
             data-read-levels={readLevels}
-            data-is-admin={isAdmin ? "true" : "false"}
+            data-is-admin="false" 
             transition:animate="slide"
         >
             <div class="space-y-8">

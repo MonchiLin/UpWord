@@ -197,7 +197,7 @@ export class TaskQueue {
         const lockedUntil = limitDate.toISOString();
 
         // 乐观锁更新
-        const result = await this.db.updateTable('tasks')
+        await this.db.updateTable('tasks')
             .set({
                 status: 'running',
                 started_at: nowStr,
@@ -243,7 +243,7 @@ export class TaskQueue {
     /** 标记任务失败，记录错误信息供调试 */
     async fail(taskId: string, errorMessage: string, errorContext: Record<string, unknown>) {
         const now = new Date().toISOString();
-        const retryCount = (errorContext.retryCount as number) || 0;
+        // const retryCount = (errorContext.retryCount as number) || 0;
 
         await this.db.updateTable('tasks')
             .set({

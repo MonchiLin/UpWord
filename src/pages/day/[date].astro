@@ -1,10 +1,10 @@
 ---
 /**
  * 日期页面 - SSR 渲染
- * 
+ *
  * 每个日期对应一个 URL，完整服务端渲染。
  * View Transitions 提供平滑的页面切换体验。
- * 
+ *
  * 🏝️ 组件拆分架构：
  *   - DayHeader.astro - 日期头部 (纯 SSR)
  *   - ArticleList.astro - 文章列表 (SSR 首屏 + noscript 兜底)
@@ -29,38 +29,52 @@ const { date } = Astro.params;
 // 验证日期格式
 const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 if (!date || !dateRegex.test(date)) {
-    return Astro.redirect('/');
+    return Astro.redirect("/");
 }
 
 // 服务端并发预取数据
-const fetchDays = () => apiFetch<{ days: string[] }>('/api/days').catch(e => {
-    console.error("[SSR] Failed to fetch days:", e);
-    return { days: [] };
-});
+const fetchDays = () =>
+    apiFetch<{ days: string[] }>("/api/days").catch((e) => {
+        console.error("[SSR] Failed to fetch days:", e);
+        return { days: [] };
+    });
 
-const fetchDayData = () => apiFetch(`/api/day/${date}`).catch(e => {
-    console.error(`[SSR] Failed to fetch day data for ${date}:`, e);
-    return { articles: [] };
-});
+const fetchDayData = () =>
+    apiFetch(`/api/day/${date}`).catch((e) => {
+        console.error(`[SSR] Failed to fetch day data for ${date}:`, e);
+        return { articles: [] };
+    });
 
-const fetchWordData = () => apiFetch(`/api/day/${date}/words`).catch(e => {
-    console.error(`[SSR] Failed to fetch word data for ${date}:`, e);
-    return { new_words: [], review_words: [], new_count: 0, review_count: 0 };
-});
+const fetchWordData = () =>
+    apiFetch(`/api/day/${date}/words`).catch((e) => {
+        console.error(`[SSR] Failed to fetch word data for ${date}:`, e);
+        return {
+            new_words: [],
+            review_words: [],
+            new_count: 0,
+            review_count: 0,
+        };
+    });
 
 // Admin fetching logic
-const adminKey = Astro.cookies.get('admin_key')?.value;
+const { isAdmin: checkIsAdmin } = Astro.locals.auth;
+
 const fetchAdminData = async () => {
-    if (!adminKey) return null;
+    if (!checkIsAdmin) return null;
+
+    // Retrieve token explicitly for API call (token is needed for the header)
+    const token = Astro.cookies.get("admin_key")?.value;
+    if (!token) return null;
+
     try {
-        await apiFetch('/api/auth/check', { token: adminKey });
+        await apiFetch("/api/auth/check", { token });
         const taskResponse = await apiFetch<{ tasks: any[] }>(
             `/api/tasks?task_date=${encodeURIComponent(date)}`,
-            { token: adminKey }
+            { token },
         );
         return {
             isAdmin: true,
-            tasks: taskResponse.tasks || []
+            tasks: taskResponse.tasks || [],
         };
     } catch (e) {
         console.error("[SSR] Admin auth failed:", e);
@@ -69,17 +83,23 @@ const fetchAdminData = async () => {
 };
 
 // 执行并行请求
-const [daysStats, dayDataResult, wordDataStats, adminDataResult] = await Promise.all([
-    fetchDays(),
-    fetchDayData(),
-    fetchWordData(),
-    fetchAdminData()
-]);
+const [daysStats, dayDataResult, wordDataStats, adminDataResult] =
+    await Promise.all([
+        fetchDays(),
+        fetchDayData(),
+        fetchWordData(),
+        fetchAdminData(),
+    ]);
 
 // 处理数据
 const publishedDays = daysStats?.days || [];
 const dayData = dayDataResult || { articles: [] };
-const wordData = wordDataStats || { new_words: [], review_words: [], new_count: 0, review_count: 0 };
+const wordData = wordDataStats || {
+    new_words: [],
+    review_words: [],
+    new_count: 0,
+    review_count: 0,
+};
 const adminData = adminDataResult;
 
 // 🔑 SSR 权限判断 - 决定是否渲染管理孤岛
@@ -88,9 +108,12 @@ const isAdmin = !!adminData?.isAdmin;
 // 设置缓存策略
 if (dayData.articles?.length > 0) {
     // 5分钟新鲜度，1小时宽容度
-    Astro.response.headers.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=3600');
+    Astro.response.headers.set(
+        "Cache-Control",
+        "public, s-maxage=300, stale-while-revalidate=3600",
+    );
 } else {
-    Astro.response.headers.set('Cache-Control', 'no-store');
+    Astro.response.headers.set("Cache-Control", "no-store");
 }
 ---
 
@@ -106,14 +129,14 @@ if (dayData.articles?.length > 0) {
             </div>
 
             <!-- 右侧文章列表 -->
-            <div 
+            <div
                 class="md:col-span-8 lg:col-span-8 min-h-[500px] font-serif text-slate-900"
                 transition:animate="slide"
             >
                 <!-- 🏝️ 状态同步孤岛 (不可见，仅同步数据) -->
-                <DayStateSync 
-                    client:load 
-                    date={date} 
+                <DayStateSync
+                    client:load
+                    date={date}
                     articles={dayData.articles}
                     adminData={adminData}
                 />
@@ -122,15 +145,21 @@ if (dayData.articles?.length > 0) {
                 <DayHeader date={date}>
                     <Fragment slot="actions">
                         <!-- 🏝️ 词汇抽屉孤岛 -->
-                        <WordsDrawer client:idle date={date} wordData={wordData} />
+                        <WordsDrawer
+                            client:idle
+                            date={date}
+                            wordData={wordData}
+                        />
                         <!-- 🏝️ 管理抽屉孤岛 (条件渲染) -->
-                        {isAdmin && (
-                            <AdminDrawer 
-                                client:idle 
-                                date={date} 
-                                initialTasks={adminData?.tasks}
-                            />
-                        )}
+                        {
+                            isAdmin && (
+                                <AdminDrawer
+                                    client:idle
+                                    date={date}
+                                    initialTasks={adminData?.tasks}
+                                />
+                            )
+                        }
                     </Fragment>
                 </DayHeader>
 
@@ -141,20 +170,31 @@ if (dayData.articles?.length > 0) {
                 </div>
                 <!-- 客户端版本：hydration 后显示，支持动态更新 -->
                 <div class="article-list-client">
-                    <ArticleListClient client:idle date={date} initialArticles={dayData.articles} />
+                    <ArticleListClient
+                        client:idle
+                        date={date}
+                        initialArticles={dayData.articles}
+                    />
                 </div>
 
                 <style>
                     /* 默认显示 SSR 版本 */
-                    .article-list-ssr { display: block; }
-                    .article-list-client { display: none; }
-                    
+                    .article-list-ssr {
+                        display: block;
+                    }
+                    .article-list-client {
+                        display: none;
+                    }
+
                     /* 客户端 hydration 后切换显示 */
-                    :global(html.hydrated) .article-list-ssr { display: none; }
-                    :global(html.hydrated) .article-list-client { display: block; }
+                    :global(html.hydrated) .article-list-ssr {
+                        display: none;
+                    }
+                    :global(html.hydrated) .article-list-client {
+                        display: block;
+                    }
                 </style>
             </div>
         </div>
     </div>
 </Layout>
-

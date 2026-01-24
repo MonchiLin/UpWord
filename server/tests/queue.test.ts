@@ -72,8 +72,8 @@ describe("TaskQueue Integration", () => {
     });
 
     test("claimTask - happy path", async () => {
-        const tasks = await queue.enqueue('2024-01-01', 'manual');
-        const taskId = tasks[0].id;
+        await queue.enqueue('2024-01-01', 'manual');
+        // const taskId = tasks[0].id;
 
         const claimed = await queue.claimTask();
         expect(claimed).not.toBeNull();

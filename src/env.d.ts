@@ -2,18 +2,17 @@
 
 import type { Runtime } from '@astrojs/cloudflare';
 
-type LumaWordsEnv = {
-	DB: D1Database;
+type UpWordsEnv = {
 	ADMIN_KEY: string;
-	SHANBAY_COOKIE: string;
-	LLM_API_KEY: string;
-	LLM_BASE_URL: string;
-	LLM_MODEL_DEFAULT: string;
+	SITE_URL: string;
+	PUBLIC_API_BASE: string;
 };
 
 declare global {
 	namespace App {
-		interface Locals extends Runtime<LumaWordsEnv> { }
+		interface Locals extends Runtime<LumaWordsEnv> {
+			auth: import('./types/auth').AdminState;
+		}
 	}
 }
 

@@ -13,7 +13,7 @@ import GeneralTab from './settings/GeneralTab';
 import ReadingTab from './settings/ReadingTab';
 import AudioTab from './settings/AudioTab';
 import { useSettings } from './settings/useSettings';
-import type { Voice } from '../../server/src/services/edgeTtsService'; // Create a type definition or infer
+// import type { Voice } from '../../server/src/services/edgeTtsService'; // Create a type definition or infer
 
 interface VoiceOption {
 	id: string;
@@ -50,7 +50,7 @@ export default function SettingsPanel() {
 			apiFetch('/api/tts/voices')
 				.then((data: any) => {
 					// Map to internal format
-					const mapped = data.map((v: any) => ({
+					const mapped: VoiceOption[] = data.map((v: any) => ({
 						id: v.ShortName,
 						name: `${v.FriendlyName} (${v.Gender})`.replace('Microsoft ', '').replace(' Online (Natural)', ''),
 						locale: v.Locale

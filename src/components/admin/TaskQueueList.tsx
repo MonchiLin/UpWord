@@ -1,4 +1,4 @@
-import { RotateCw, Trash2, Bot, User, Clock, AlertCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import { RotateCw, Trash2, Bot, User, Clock, AlertCircle } from 'lucide-react';
 import { type TaskRow, fetchJson } from './shared';
 import { formatTime } from '@server/lib/time';
 import { clsx } from 'clsx';

@@ -5,46 +5,54 @@
  *
  * 核心职责:
  * - 多驱动适配 (Driver Adapter): 支持 Sqlite (Local), D1 (Cloudflare), MySQL/PG 等多种驱动。
- * - 环境隔离: 开发环境使用本地 SQLite，生产环境无缝切换至 D1。
- * - 插件注入: 全局注入 `ParseJSONResultsPlugin` 以自动处理 JSON 字段。
  *
- * 外部依赖: Kysely, Bun-Sqlite, D1-Dialect
- * 注意事项: 若添加新驱动支持，需同步更新 `server/package.json` 的 peerDependencies。
+ * 注意事项: The 'sqlite-local' driver requires the Bun runtime.
  */
 import { Kysely, ParseJSONResultsPlugin } from 'kysely';
-import { BunSqliteDialect } from 'kysely-bun-sqlite';
-import { Database as BunDatabase } from 'bun:sqlite';
 import { D1Dialect } from 'kysely-d1';
 import { D1HttpDialect } from './d1-http-dialect';
 import type { Database } from './types';
 import * as path from 'path';
+import { createRequire } from 'module';
 
 // Define the global type for Cloudflare Worker bindings
-// In a real Worker project, this extends the Env interface
 interface Env {
-    DB: any; // D1Database type is not globally available in this context without @cloudflare/workers-types on global
+    DB: any;
 }
 
 export type AppKysely = Kysely<Database>;
 
+// Bun-compatible require
+const require = createRequire(import.meta.url);
+
 export function createDatabase(env?: Env): AppKysely {
     const driver = process.env.DB_DRIVER || 'sqlite-local';
-
-    // Plugins (Common)
     const plugins = [new ParseJSONResultsPlugin()];
 
-    // [1] sqlite-local: Bun Native SQLite (Fastest for Dev)
+    // [1] sqlite-local: Bun Native SQLite (Optimized for Bun)
     if (driver === 'sqlite-local') {
         const dbPath = process.env.DB_CONNECTION || path.resolve(import.meta.dir, '../../local.db');
         console.log(`[DB] Kysely Provider: sqlite-local (${dbPath})`);
 
-        return new Kysely<Database>({
-            dialect: new BunSqliteDialect({
-                database: new BunDatabase(dbPath),
-            }),
-            plugins,
-            log: process.env.NODE_ENV === 'development' ? ['query', 'error'] : ['error'],
-        });
+        try {
+            const { BunSqliteDialect } = require('kysely-bun-sqlite');
+            const { Database: BunDatabase } = require('bun:sqlite');
+
+            return new Kysely<Database>({
+                dialect: new BunSqliteDialect({
+                    database: new BunDatabase(dbPath),
+                }),
+                plugins,
+                log: process.env.NODE_ENV === 'development' ? ['query', 'error'] : ['error'],
+            });
+        } catch (error) {
+            // If running in Node/Astro Check, this might fail.
+            // But we must NOT fallback to a dummy driver if the user wants strict Bun.
+            // However, to keep CI/Check passing, we throw a clearer error OR crash if strict.
+            // User requested "No Downgrade".
+            console.error("[DB] Failed to load Bun SQLite. Ensure you are running with 'bun'.");
+            throw error;
+        }
     }
 
     // [2] d1-binding: Cloudflare Workers (Production)
@@ -61,7 +69,6 @@ export function createDatabase(env?: Env): AppKysely {
     }
 
     // [3] d1-http: Cloudflare HTTP API
-    // Uses standard Cloudflare API credentials
     if (driver === 'd1-http') {
         const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
         const databaseId = process.env.CLOUDFLARE_DATABASE_ID;
@@ -87,97 +94,71 @@ export function createDatabase(env?: Env): AppKysely {
     if (driver === 'turso') {
         const url = process.env.DB_CONNECTION;
         const authToken = process.env.TURSO_AUTH_TOKEN;
-
-        if (!url) throw new Error("DB_DRIVER=turso requires DB_CONNECTION to be set (e.g., libsql://...)");
+        if (!url) throw new Error("DB_DRIVER=turso requires DB_CONNECTION to be set");
 
         console.log(`[DB] Kysely Provider: turso (${url})`);
-
-        // Dynamic import to avoid bundling issues if not used
         const { LibsqlDialect } = require('@libsql/kysely-libsql');
 
         return new Kysely<Database>({
-            dialect: new LibsqlDialect({
-                url,
-                authToken: authToken || undefined,
-            }),
+            dialect: new LibsqlDialect({ url, authToken: authToken || undefined }),
             plugins,
         });
     }
 
-    // [5] mysql: MySQL Driver
+    // [5] mysql
     if (driver === 'mysql') {
         const url = process.env.DB_CONNECTION;
         if (!url) throw new Error("DB_DRIVER=mysql requires DB_CONNECTION to be set");
-
         console.log(`[DB] Kysely Provider: mysql`);
-
         const { MysqlDialect } = require('kysely');
         const { createPool } = require('mysql2');
 
         return new Kysely<Database>({
-            dialect: new MysqlDialect({
-                pool: createPool(url),
-            }),
+            dialect: new MysqlDialect({ pool: createPool(url) }),
             plugins,
         });
     }
 
-    // [6] postgres: PostgreSQL Driver
+    // [6] postgres
     if (driver === 'postgres') {
         const url = process.env.DB_CONNECTION;
         if (!url) throw new Error("DB_DRIVER=postgres requires DB_CONNECTION to be set");
-
         console.log(`[DB] Kysely Provider: postgres`);
-
         const { PostgresDialect } = require('kysely');
         const { Pool } = require('pg');
 
         return new Kysely<Database>({
-            dialect: new PostgresDialect({
-                pool: new Pool({
-                    connectionString: url,
-                }),
-            }),
+            dialect: new PostgresDialect({ pool: new Pool({ connectionString: url }) }),
             plugins,
         });
     }
 
-    // [7] mssql: SQL Server (via tedious + tarn)
+    // [7] mssql
     if (driver === 'mssql') {
         const connectionString = process.env.DB_CONNECTION;
-        if (!connectionString) throw new Error("DB_DRIVER=mssql requires DB_CONNECTION to be set (mssql://user:password@host:port/database)");
-
+        if (!connectionString) throw new Error("DB_DRIVER=mssql requires DB_CONNECTION to be set");
         console.log(`[DB] Kysely Provider: mssql`);
-
         const { MssqlDialect } = require('kysely');
         const tedious = require('tedious');
         const tarn = require('tarn');
-
-        // Parse connection string manually since tedious doesn't support it standardly
         const url = new URL(connectionString);
-        const database = url.pathname.slice(1); // Remove leading slash
+        const database = url.pathname.slice(1);
 
         return new Kysely<Database>({
             dialect: new MssqlDialect({
-                tarn: {
-                    ...tarn,
-                    options: { min: 0, max: 10 }
-                },
+                tarn: { ...tarn, options: { min: 0, max: 10 } },
                 tedious: {
                     ...tedious,
                     connectionFactory: () => new tedious.Connection({
                         authentication: {
                             type: 'default',
-                            options: {
-                                userName: url.username,
-                                password: url.password,
-                            }
+                            options: { userName: url.username, password: url.password }
                         },
                         server: url.hostname,
                         options: {
                             port: url.port ? parseInt(url.port) : 1433,
                             database: database,
-                            trustServerCertificate: true, // Often needed for local dev/self-signed certs
+                            trustServerCertificate: true,
                         }
                     })
                 }
@@ -189,5 +170,4 @@ export function createDatabase(env?: Env): AppKysely {
     throw new Error(`Unknown DB_DRIVER: ${driver}`);
 }
 
-// Default export uses process.env
 export const db = createDatabase();
