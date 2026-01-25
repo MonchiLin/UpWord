@@ -1,9 +1,25 @@
 import type { StorybookConfig } from '@storybook/react-vite';
-import { mergeConfig } from "vite";
-import tailwindcss from "@tailwindcss/vite";
-import path from "node:path";
-import {fileURLToPath} from "node:url";
+import { mergeConfig, Plugin } from "vite";
 import astroConfig from "../astro.config.mjs";
+
+/**
+ * 因为 storybook 不支持 astro:env/client，所以需要一个虚拟的插件来提供这个环境变量
+ */
+function virtualAstroEnv(): Plugin {
+  return {
+    name: 'vite-plugin-astro-env',
+    resolveId(id) {
+      if (id === 'astro:env/client') {
+        return '\0astro:env/client';
+      }
+    },
+    load(id) {
+      if (id === '\0astro:env/client') {
+        return `export const PUBLIC_API_BASE = "${process.env.PUBLIC_API_BASE}"`;
+      }
+    }
+  }
+}
 
 const config: StorybookConfig = {
   "stories": [
@@ -18,7 +34,8 @@ const config: StorybookConfig = {
     "@storybook/addon-onboarding"
   ],
   "framework": "@storybook/react-vite",
-  viteFinal: (config)=>  {
+  viteFinal: (config) => {
+    config.plugins?.push(virtualAstroEnv());
     return mergeConfig(config, astroConfig.vite!);
   },
 };
