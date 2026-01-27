@@ -36,18 +36,26 @@ export class TaskExecutor {
         }, 60 * 1000);
 
         try {
-            // 1. 加载生成配置 (Profile)
-            // 获取用户设定的"写作人格" (如: 严肃新闻风格、幽默博客风格)
-            const profile = await this.db.selectFrom('generation_profiles')
-                .selectAll()
-                .where('id', '=', task.profile_id)
-                .executeTakeFirst();
+            const isImpressionMode = task.mode === 'impression';
 
-            if (!profile) throw new Error(`Profile not found: ${task.profile_id}`);
+            // 1. 加载生成配置 (Profile)
+            // IMPRESSION 模式下 Profile 是可选的 (decoupled)，RSS 模式必须关联 Profile
+            let profile;
+
+            if (task.profile_id) {
+                profile = await this.db.selectFrom('generation_profiles')
+                    .selectAll()
+                    .where('id', '=', task.profile_id)
+                    .executeTakeFirst();
+            }
+
+            // 对于非 Impression 模式，Profile 是必须的
+            if (!isImpressionMode && !profile) {
+                throw new Error(`Profile not found: ${task.profile_id}`);
+            }
 
             // 2. 候选词策略 (Candidate Strategy)
             // 决策核心: 所有的单词选择逻辑都在这里，Pipeline 只负责执行。
-            const isImpressionMode = task.mode === 'impression';
             const generationMode: GenerationMode = isImpressionMode ? 'impression' : 'rss';
 
             let candidateWordStrings: string[];
@@ -101,12 +109,15 @@ export class TaskExecutor {
             }
 
             // [Context] 获取关联主题，用于引导 LLM 的选材方向
-            const topics = await this.db.selectFrom('profile_topics')
-                .innerJoin('topics', 'profile_topics.topic_id', 'topics.id')
-                .select(['topics.id', 'topics.label', 'topics.prompts'])
-                .where('profile_topics.profile_id', '=', profile.id)
-                .where('topics.is_active', '=', 1)
-                .execute();
+            let topics: { id: string; label: string; prompts: string | null }[] = [];
+            if (profile) {
+                topics = await this.db.selectFrom('profile_topics')
+                    .innerJoin('topics', 'profile_topics.topic_id', 'topics.id')
+                    .select(['topics.id', 'topics.label', 'topics.prompts'])
+                    .where('profile_topics.profile_id', '=', profile.id)
+                    .where('topics.is_active', '=', 1)
+                    .execute();
+            }
 
             // [Filter] 查重机制: 获取已用过的 RSS 链接，防止生成重复新闻
             const usedRssRows = await this.db.selectFrom('articles')
@@ -164,7 +175,8 @@ export class TaskExecutor {
 
             // 5. 执行生成流水线 (The Pipeline)
             // 调用 stateless 的 pipeline 函数，但传入 onCheckpoint 回调来持久化状态。
-            const topicPreference = topics.map(t => t.label).join(', ');
+            // [Fix] Impression 模式下，Topic 由单词聚类动态决定，不能强制使用 Profile 的静态 Topic。
+            const topicPreference = isImpressionMode ? '' : topics.map(t => t.label).join(', ');
 
             const client = createClient(clientConfig);
             const output = await runPipeline({
@@ -216,7 +228,7 @@ export class TaskExecutor {
                 taskId: task.id,
                 taskDate: task.task_date,
                 model: clientConfig.model,
-                profileId: profile.id,
+                profileId: profile?.id,
                 topicPreference,
                 newWords,
                 reviewWords

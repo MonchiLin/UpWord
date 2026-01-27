@@ -37,10 +37,9 @@ export interface PipelineCheckpoint {
      */
     stage: 'search_selection' | 'blueprint' | 'writer' | 'conversion' | 'grammar_analysis';
     selectedWords?: string[];
-    newsSummary?: string;
     sourceUrls?: string[];
-    originalStyleSummary?: string; // [NEW] Style DNA
-    selectedRssItem?: NewsItem;
+    // originalStyleSummary removed
+    // selectedRssItem removed from checkpoint storage (optional, but keep ID for tracking)
     blueprintXml?: string; // [NEW] The Architect's Plan
     draftText?: string;
     completedLevels?: ArticleWithAnalysis[];
@@ -86,10 +85,9 @@ export interface PipelineResult {
 export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
     // 状态恢复区
     let selectedWords = args.checkpoint?.selectedWords || [];
-    let newsSummary = args.checkpoint?.newsSummary || '';
     let sourceUrls = args.checkpoint?.sourceUrls || [];
-    let originalStyleSummary = args.checkpoint?.originalStyleSummary;
-    let selectedRssItem = args.checkpoint?.selectedRssItem;
+    // originalStyleSummary removed
+    // selectedRssItem removed
     let blueprintXml = args.checkpoint?.blueprintXml || '';
     let draftText = args.checkpoint?.draftText || '';
     let usage: Record<string, any> = args.checkpoint?.usage || {};
@@ -137,11 +135,11 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
         });
 
         selectedWords = res.selectedWords;
-        newsSummary = res.newsSummary;
-        originalStyleSummary = res.originalStyleSummary;
+        // newsSummary removed
+        // originalStyleSummary removed
         sourceUrls = res.sourceUrls;
         selectedRssId = res.selectedRssId;
-        selectedRssItem = res.selectedRssItem;
+        // selectedRssItem removed from output
         usage.search_selection = res.usage;
 
         console.log(`[Pipeline] Stage 1 Complete. Selected ${selectedWords.length} words.`);
@@ -150,14 +148,14 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
             await args.onCheckpoint({
                 stage: 'search_selection',
                 selectedWords,
-                newsSummary,
-                originalStyleSummary,
                 sourceUrls,
                 selectedRssId,
                 usage
             });
         }
     }
+
+
 
     // [Stage 2a] The Architect (Blueprint Generation)
     // -----------------------------------------------------------------------
@@ -170,8 +168,6 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
         const stage2aSystem = strategy.stage2a.system;
         const stage2aUser = strategy.stage2a.buildUser({
             selectedWords,
-            newsSummary,
-            originalStyleSummary,
             sourceUrls,
             currentDate: args.currentDate,
             topicPreference: args.topicPreference,
@@ -179,8 +175,7 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
 
         const res = await args.client.runStage2a_Blueprint({
             selectedWords,
-            newsSummary,
-            originalStyleSummary,
+
             sourceUrls,
             currentDate: args.currentDate,
             topicPreference: args.topicPreference,
@@ -198,8 +193,7 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
             await args.onCheckpoint({
                 stage: 'blueprint',
                 selectedWords,
-                newsSummary,
-                originalStyleSummary,
+
                 sourceUrls,
                 blueprintXml,
                 usage
@@ -218,7 +212,7 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
         const stage2bSystem = strategy.stage2b.system;
         const stage2bUser = strategy.stage2b.buildUser({
             selectedWords,
-            newsSummary,
+
             sourceUrls,
             currentDate: args.currentDate,
             blueprintXml,
@@ -227,7 +221,7 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
         const res = await args.client.runStage2b_Draft({
             blueprintXml,
             selectedWords,
-            newsSummary,
+
             sourceUrls,
             currentDate: args.currentDate,
             config,
@@ -244,8 +238,7 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
             await args.onCheckpoint({
                 stage: 'writer',
                 selectedWords,
-                newsSummary,
-                originalStyleSummary,
+
                 sourceUrls,
                 blueprintXml,
                 draftText,
@@ -274,8 +267,6 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
         await args.onCheckpoint({
             stage: 'conversion',
             selectedWords,
-            newsSummary,
-            originalStyleSummary,
             sourceUrls,
             blueprintXml,
             draftText,
@@ -299,8 +290,7 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
                 await args.onCheckpoint!({
                     stage: 'grammar_analysis',
                     selectedWords,
-                    newsSummary,
-                    originalStyleSummary,
+
                     sourceUrls,
                     blueprintXml,
                     draftText,
@@ -319,8 +309,6 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
             await args.onCheckpoint({
                 stage: 'grammar_analysis',
                 selectedWords,
-                newsSummary,
-                originalStyleSummary,
                 sourceUrls,
                 blueprintXml,
                 draftText,
@@ -334,7 +322,6 @@ export async function runPipeline(args: PipelineArgs): Promise<PipelineResult> {
         output: generation.output,
         selectedWords,
         selectedRssId,
-        selectedRssItem,
         usage
     };
 }

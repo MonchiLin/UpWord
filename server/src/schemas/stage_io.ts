@@ -16,8 +16,9 @@ import { dailyNewsOutputSchema } from './dailyNews';
 
 export const Stage1OutputSchema = z.object({
     selected_words: z.array(z.string()).min(1, 'At least one word must be selected'),
-    news_summary: z.string().min(10, 'News summary too short'),
-    original_style_summary: z.string().optional(), // [NEW] Style DNA
+
+    // news_summary removed: Stage 2 reads full content via URL
+    // original_style_summary removed: Stage 2 analyzes style from full content
     source: z.string().optional(),
     sources: z.array(z.string()).optional(),
     selected_rss_id: z.number().nullable().optional()

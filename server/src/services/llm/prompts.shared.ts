@@ -66,8 +66,6 @@ export type Stage2ContextArgs = {
   currentDate: string;
   selectedWords: string[];
   sourceUrls: string[];
-  newsSummary: string;
-  originalStyleSummary?: string; // [NEW] 为 Stage 2a/2b 提供风格参考
 };
 
 /**
@@ -80,12 +78,13 @@ export function buildStage2Context(args: Stage2ContextArgs): string {
     <date>${args.currentDate}</date>
     <target_words count="${args.selectedWords.length}">${JSON.stringify(args.selectedWords)}</target_words>
     <source_urls>${args.sourceUrls.join(', ')}</source_urls>
-    ${args.originalStyleSummary ? `<original_style_summary>${args.originalStyleSummary}</original_style_summary>` : ''}
 </context>
 
-<news_material>
-${args.newsSummary}
-</news_material>`;
+<source_material>
+The user has provided <source_urls>.
+You MUST usage your Search/Browsing tools to read the full content of these URLs.
+DO NOT hallucinate content.
+</source_material>`;
 }
 
 

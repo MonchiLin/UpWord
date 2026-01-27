@@ -100,24 +100,9 @@ export class TaskQueue {
             throw new Error('No words in database. Please add words first.');
         }
 
-        // 获取默认 Profile
-        let profile = await this.db.selectFrom('generation_profiles')
-            .selectAll()
-            .limit(1)
-            .executeTakeFirst();
-
-        // 若无 Profile，创建默认
-        if (!profile) {
-            const defId = crypto.randomUUID();
-            await this.db.insertInto('generation_profiles')
-                .values({ id: defId, name: 'Default' })
-                .execute();
-            // 重新查询以获取完整字段
-            profile = await this.db.selectFrom('generation_profiles')
-                .selectAll()
-                .where('id', '=', defId)
-                .executeTakeFirstOrThrow();
-        }
+        // [Updated] Impression 模式不再关联 Profile
+        // 用户反馈：IMPRESSION 应该是完全独立的，不依赖 Profile 系统。
+        // See Step 1975 logic.
 
         const taskId = crypto.randomUUID();
         const candidateWords = randomWords.map(w => w.word);
@@ -129,7 +114,7 @@ export class TaskQueue {
                 type: 'article_generation',
                 trigger_source: 'manual',
                 status: 'queued',
-                profile_id: profile.id,
+                profile_id: null, // <--- Decoupled
                 version: 0,
                 llm: (llm as any) || null,
                 mode: 'impression',
@@ -139,7 +124,7 @@ export class TaskQueue {
 
         console.log(`[TaskQueue] Created IMPRESSION task ${taskId} with ${candidateWords.length} words`);
 
-        return [{ id: taskId, profileId: profile.id, wordCount: candidateWords.length }];
+        return [{ id: taskId, profileId: 'IMPRESSION', wordCount: candidateWords.length }];
     }
 
     /**

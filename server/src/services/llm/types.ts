@@ -108,13 +108,11 @@ export interface Stage1Input {
 
 export interface Stage1Output {
     selectedWords: string[];
-    newsSummary: string;
+    // newsSummary removed
     sourceUrls: string[];
-    // [NEW] Original Style Summary (for style preservation)
-    originalStyleSummary?: string;
-    // RSS 选择追踪
-    selectedRssId?: number;   // LLM 选中的 RSS 池 item id (1-indexed)
-    selectedRssItem?: NewsItem; // Pipeline 根据 id 填充的完整 RSS 信息
+    // originalStyleSummary removed
+    // selectedRssItem removed from output contract (managed via ID internally if needed)
+    selectedRssId?: number;
     usage?: TokenUsage;
 }
 
@@ -127,9 +125,9 @@ export interface Stage1Output {
  */
 export interface Stage2aInput {
     selectedWords: string[];
-    newsSummary: string;
+    // newsSummary removed
     sourceUrls: string[];
-    originalStyleSummary?: string;
+    // originalStyleSummary removed
     currentDate: string;
     topicPreference: string;
     config?: any;
@@ -154,7 +152,8 @@ export interface Stage2bInput {
     blueprintXml: string;
     selectedWords: string[];
     // 需要原文作为参考来模仿风格
-    newsSummary: string;
+    // 需要原文作为参考来模仿风格
+
     sourceUrls: string[]; // [Fixed] Added for context building
     currentDate: string;
     config?: any;

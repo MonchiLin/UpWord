@@ -62,7 +62,7 @@ export function buildBlueprintUserPrompt(args: Stage2ContextArgs) {
     return `${context}
 
 <mission>
-Analyze the <news_material> and <original_style_summary>.
+Analyze the <source_material> and <original_style_summary>.
 Create a Blueprint XML that maps out how to retell this story in 3 levels (L1, L2, L3).
 Ensure the "Target Words" are strategically placed in the plan.
 </mission>`;

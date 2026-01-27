@@ -57,6 +57,28 @@ describe("TaskQueue Integration", () => {
             .execute();
     });
 
+    // [Added] Verify Impression Global Decoupling
+    test("enqueueImpression - creates decoupled task (no profile)", async () => {
+        // Must insert some words first for Runtime candidate generation
+        await db.insertInto('words')
+            .values([
+                { word: 'apple', origin: 'manual' },
+                { word: 'banana', origin: 'manual' },
+                { word: 'cherry', origin: 'manual' }
+            ])
+            .execute();
+
+        const [result] = await queue.enqueueImpression('2024-01-01', 3);
+
+        expect(result.id).toBeDefined();
+        expect(result.profileId).toBe('IMPRESSION'); // The wrapper returns this semantic string
+
+        const row = await db.selectFrom('tasks').selectAll().where('id', '=', result.id).executeTakeFirstOrThrow();
+        expect(row.status).toBe('queued');
+        expect(row.mode).toBe('impression');
+        expect(row.profile_id).toBeNull(); // <--- CRITICAL VERIFICATION
+    });
+
     afterAll(async () => {
         await db.destroy();
     });
@@ -65,7 +87,7 @@ describe("TaskQueue Integration", () => {
         const tasks = await queue.enqueue('2024-01-01', 'manual');
         expect(tasks.length).toBe(1);
 
-        const row = await db.selectFrom('tasks').selectAll().where('id', '=', tasks[0].id).executeTakeFirstOrThrow();
+        const row = await db.selectFrom('tasks').selectAll().where('id', '=', tasks[0]!.id).executeTakeFirstOrThrow();
         expect(row.status).toBe('queued');
         expect(row.version).toBe(0);
         expect(row.locked_until).toBeNull();

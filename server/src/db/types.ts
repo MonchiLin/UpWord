@@ -39,12 +39,12 @@ export interface TasksTable {
     trigger_source: Generated<'manual' | 'cron'>;
     status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled';
     llm: 'gemini' | 'openai' | 'claude' | null;
-    profile_id: string;
+    profile_id: string | null;  // [Updated] Decoupled Impression mode
     mode: 'rss' | 'impression';
     context_json: JSONColumnType<CheckpointContext> | null; // Checkpoints
 
     // JSON Columns - Using generic types for now, can be refined later
-    // result_json: JSONColumnType<any> | null; // Removed in migration 0006
+    // result_json: removed in migration 0010
     error_message: string | null;
     error_context_json: JSONColumnType<any> | null;
 

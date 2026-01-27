@@ -96,18 +96,14 @@ export class OpenAIProvider implements DailyNewsProvider {
 
         // 使用共享函数处理 URL
         const selectedWords = validated.selected_words;
-        const newsSummary = validated.news_summary;
-        const originalStyleSummary = validated.original_style_summary;
         const sourceUrls = await buildSourceUrls({
             validated,
-            newsSummary,
+            newsSummary: '',
             responseText: response.text
         });
 
         return {
             selectedWords,
-            newsSummary,
-            originalStyleSummary,
             sourceUrls,
             usage: response.usage
         };

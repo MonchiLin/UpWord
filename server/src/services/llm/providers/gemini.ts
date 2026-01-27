@@ -185,11 +185,11 @@ export class GeminiProvider implements DailyNewsProvider {
         const validated = Stage1OutputSchema.parse(parsed);
 
         const selectedWords = validated.selected_words;
-        const newsSummary = validated.news_summary;
-        const originalStyleSummary = validated.original_style_summary; // [NEW] Style DNA
+        // newsSummary removed
+        // originalStyleSummary removed
         const sourceUrls = await buildSourceUrls({
             validated,
-            newsSummary,
+            newsSummary: '', // No longer used for fallback URL search implies we trust validated.source or Stage 2 search
             responseText: response.text,
             groundingUrls: this.extractGroundingUrls(response.output)
         });
@@ -210,11 +210,9 @@ export class GeminiProvider implements DailyNewsProvider {
 
         return {
             selectedWords,
-            newsSummary,
-            originalStyleSummary,
             sourceUrls,
             selectedRssId,
-            selectedRssItem,
+            // selectedRssItem removed
             usage: response.usage
         };
     }

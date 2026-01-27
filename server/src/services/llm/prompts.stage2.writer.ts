@@ -43,6 +43,6 @@ ${args.blueprintXml}
 <mission>
 Write the draft following the Blueprint above.
 Focus on the "Golden Moments". If the Blueprint highlights a quote, make sure it lands with impact.
-Retell the story. Do NOT just summarize. Catch the Vibe.
+Retell the story based on <source_material>. Do NOT just summarize. Catch the Vibe.
 </mission>`;
 }
