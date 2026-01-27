@@ -14,7 +14,7 @@ export const impressionRoutes = (queue: TaskQueue) =>
                 const { task_date, llm, word_count } = body;
                 const tasks = await queue.enqueueImpression(
                     task_date,
-                    word_count ?? 1024,
+                    word_count ?? 1024, // Default to 1024 (High Capacity for Density)
                     llm ?? undefined
                 );
                 return { status: 'ok', tasks };
@@ -23,7 +23,7 @@ export const impressionRoutes = (queue: TaskQueue) =>
                 body: t.Object({
                     task_date: t.String(),
                     llm: t.Optional(t.String()),
-                    word_count: t.Optional(t.Number({ minimum: 1, maximum: 1024 }))
+                    word_count: t.Optional(t.Number({ minimum: 1, maximum: 2048 }))
                 })
             }
         );

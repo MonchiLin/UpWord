@@ -118,7 +118,9 @@ export class TaskQueue {
                 version: 0,
                 llm: (llm as any) || null,
                 mode: 'impression',
-                // result_json: removed (candidates are now generated at runtime)
+                context_json: JSON.stringify({
+                    impressionTargetLength: wordCount // Store constraint for executor
+                })
             })
             .execute();
 

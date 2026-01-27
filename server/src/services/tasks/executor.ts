@@ -69,16 +69,23 @@ export class TaskExecutor {
                 // 意图：模拟"随机漫步"的阅读体验 (Serendipity)。
                 // 区别：不仅不复习旧词，反而故意引入完全随机的生词，打破算法的"回声室效应"。
                 // 实现：`ORDER BY RANDOM()` (性能注意: 大表慎用，当前 words 表 < 100k 尚可接受)。
+
+                // [Dynamic Density] User Request: 59% Density
+                // We pass the FULL pool (e.g. 1024 words) to the prompt.
+                // The prompt is responsible for selecting ~59% density.
+                const ctx = task.context_json as any;
+                const candidateLimit = ctx?.impressionTargetLength || 1024; // Default to 1024 (High Capacity)
+
                 const randomWords = await this.db
                     .selectFrom('words')
                     .select('word')
                     .orderBy(({ fn }) => fn('random', []))
-                    .limit(10)
+                    .limit(candidateLimit)
                     .execute();
 
                 candidateWordStrings = randomWords.map(w => w.word);
                 recentTitles = await getRecentTitles(this.db, task.task_date);
-                console.log(`[Task ${task.id}] IMPRESSION mode with ${candidateWordStrings.length} runtime candidate words`);
+                console.log(`[Task ${task.id}] IMPRESSION mode: Pool=${candidateLimit}, Retrieved=${candidateWordStrings.length} (Passing all to LLM)`);
             } else {
                 // [Strategy: SRS Mode]
                 // 意图：严格遵循"间隔重复" (Spaced Repetition) 算法。
